@@ -24,7 +24,11 @@ DATA_URL = os.environ.get(
 
 @st.cache_resource(show_spinner="Téléchargement des données (une seule fois)…")
 def assurer_donnees() -> bool:
-    """Télécharge et extrait data_app/ si absent."""
+    """S'assure que data_app/ est présent. S'il est versionné dans le dépôt, rien à
+    faire ; sinon télécharge l'archive depuis la release GitHub et l'extrait.
+
+    Lève une exception en cas d'échec (donc non mise en cache : réessai au rechargement).
+    """
     if (DATA / "manifest.json").exists():
         return True
     tmp = DATA.parent / "data_app.tar.gz"
@@ -32,7 +36,9 @@ def assurer_donnees() -> bool:
     with tarfile.open(tmp) as t:
         t.extractall(DATA.parent)
     tmp.unlink(missing_ok=True)
-    return (DATA / "manifest.json").exists()
+    if not (DATA / "manifest.json").exists():
+        raise RuntimeError("Archive de données téléchargée mais manifest.json absent.")
+    return True
 
 
 @st.cache_data(show_spinner=False)

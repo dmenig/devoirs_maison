@@ -5,15 +5,11 @@ from __future__ import annotations
 import branca.colormap as cm
 import folium
 
-SCHEMES: dict[str, list[str]] = {
-    "Reds": ["#fff5f0", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"],
-    "Greens": ["#f7fcf5", "#bae4b3", "#74c476", "#31a354", "#006d2c"],
-    "Blues": ["#f7fbff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"],
-    "Oranges": ["#feedde", "#fdbe85", "#fd8d3c", "#e6550d", "#a63603"],
-    "Greys": ["#f7f7f7", "#cccccc", "#969696", "#636363", "#252525"],
-    "RdPu": ["#feebe2", "#fbb4b9", "#f768a1", "#c51b8a", "#7a0177"],
-    "PuBu": ["#f1eef6", "#bdc9e1", "#74a9cf", "#2b8cbe", "#045a8d"],
-}
+# Palette divergente : bleu = sous la moyenne, rouge = au-dessus. On colore TOUJOURS
+# l'écart à une référence (moyenne locale ou nationale), pour faire « ressortir » les
+# zones plutôt que d'afficher des nombres bruts (cf. graphique 11.29 de la prez,
+# exprimé en % de la moyenne nationale).
+DIVERGENTE = ["#2166ac", "#67a9cf", "#f7f7f7", "#ef8a62", "#b2182b"]
 
 
 def _bornes(features: list[dict]) -> list[list[float]] | None:
@@ -44,21 +40,24 @@ def _propre(v) -> float | None:
     return float(v)
 
 
-def _colormap(values, scheme: str) -> cm.LinearColormap | None:
+def _diverging(values, reference: float | None) -> tuple[cm.LinearColormap | None, float | None]:
+    """Colormap divergente centrée sur une référence (moyenne). Si `reference` est
+    None, on prend la moyenne des valeurs affichées (moyenne locale)."""
     vals = [x for x in (_propre(v) for v in values) if x is not None]
     if not vals:
-        return None
-    vmin, vmax = min(vals), max(vals)
-    if vmin == vmax:
-        vmax = vmin + 1
-    return cm.LinearColormap(SCHEMES.get(scheme, SCHEMES["Reds"]), vmin=vmin, vmax=vmax)
+        return None, None
+    centre = reference if reference is not None else sum(vals) / len(vals)
+    etendue = max(abs(max(vals) - centre), abs(centre - min(vals))) or 1.0
+    vmin, vmax = centre - etendue, centre + etendue
+    index = [vmin, centre - etendue / 2, centre, centre + etendue / 2, vmax]
+    return cm.LinearColormap(DIVERGENTE, index=index, vmin=vmin, vmax=vmax), centre
 
 
 def choropleth(
     gj: dict, values: dict, code_prop: str, label: str, unit: str, scheme: str,
-    bounds: list[list[float]] | None = None,
+    bounds: list[list[float]] | None = None, reference: float | None = None,
 ) -> folium.Map:
-    cmap = _colormap(values.values(), scheme)
+    cmap, centre = _diverging(values.values(), reference)
     feats = []
     for f in gj["features"]:
         code = str(f["properties"].get(code_prop))
@@ -67,6 +66,9 @@ def choropleth(
         nf["properties"]["_code"] = code
         nf["properties"]["_nom"] = f["properties"].get("nom") or f["properties"].get("nom_iris") or code
         nf["properties"]["_val"] = None if v is None else round(v, 1)
+        nf["properties"]["_ref"] = (
+            "—" if (v is None or not centre) else f"{round(100 * v / centre)} % de la moyenne"
+        )
         feats.append(nf)
     data = {"type": "FeatureCollection", "features": feats}
 
@@ -78,20 +80,20 @@ def choropleth(
     def style(feat):
         v = feat["properties"].get("_val")
         return {
-            "fillColor": cmap(v) if (cmap and v is not None) else "#dddddd",
-            "color": "#444", "weight": 0.6, "fillOpacity": 0.78,
+            "fillColor": cmap(v) if (cmap and v is not None) else "#eeeeee",
+            "color": "#444", "weight": 0.6, "fillOpacity": 0.82,
         }
 
     folium.GeoJson(
         data,
         style_function=style,
-        highlight_function=lambda _f: {"weight": 2.5, "color": "#000", "fillOpacity": 0.9},
+        highlight_function=lambda _f: {"weight": 2.5, "color": "#000", "fillOpacity": 0.95},
         tooltip=folium.GeoJsonTooltip(
-            fields=["_nom", "_val"], aliases=["", f"{label} ({unit}) :"], localize=True
-        ),
+            fields=["_nom", "_val", "_ref"],
+            aliases=["", f"{label} ({unit}) :", "Position :"], localize=True),
     ).add_to(m)
 
     if cmap:
-        cmap.caption = f"{label} ({unit})"
+        cmap.caption = f"{label} ({unit}) — bleu : sous la moyenne · rouge : au-dessus"
         cmap.add_to(m)
     return m
