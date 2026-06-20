@@ -12,7 +12,7 @@ Indicateurs produits par (échelle × scrutin), comme demandé par la présentat
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pandas as pd
@@ -28,6 +28,11 @@ from nuances import (
 )
 
 FAMILLES = sorted(set(FAMILLE_BLOC6) | {"UDI"})
+
+
+def _norm_bv(s: pd.Series) -> pd.Series:
+    """Clé de jointure bureau de vote insensible au zéro-padding ('0001' ⇄ '1')."""
+    return s.astype(str).str.replace(r"^0+", "", regex=True).replace("", "0")
 
 
 @dataclass(frozen=True)
@@ -65,9 +70,9 @@ def lister_scrutins(dossier_clean: Path) -> list[Scrutin]:
     return scrutins
 
 
-def _par_bureau(scrutin: Scrutin) -> pd.DataFrame:
+def _bureau_depuis_df(df: pd.DataFrame, scrutin: Scrutin) -> pd.DataFrame:
     """Renvoie une ligne par bureau de vote, avec voix ventilées par famille."""
-    df = pd.read_parquet(scrutin.fichier)
+    df = df.copy()
     if "voix" not in df.columns:
         raise ValueError(f"{scrutin.cle}: colonnes manquantes {df.columns.tolist()}")
     if "code_commune" not in df.columns:
@@ -92,10 +97,6 @@ def _par_bureau(scrutin: Scrutin) -> pd.DataFrame:
     meta = df.groupby("code_bv", as_index=False)[base_cols[1:]].first()
     base = base.merge(meta, on="code_bv")
 
-    # NOTE dette : pour un fichier contenant plusieurs tours, les voix sont sommées sans
-    # filtrer numero_tour → double-comptage (présidentielle 2012, municipales 2014/2020).
-    # Mitigé en aval par prep_bake.scrutins_fiables (ces scrutins sont écartés du tableau de
-    # recomposition) ; correctif propre = filtrer le tour ici, au rebuild du pipeline.
     voix = df.pivot_table(
         index="code_bv", columns="famille", values="voix", aggfunc="sum", fill_value=0
     ).reset_index()
@@ -104,6 +105,20 @@ def _par_bureau(scrutin: Scrutin) -> pd.DataFrame:
         if fam not in out.columns:
             out[fam] = 0
     return out
+
+
+def _par_bureau(scrutin: Scrutin) -> list[tuple[Scrutin, pd.DataFrame]]:
+    """Lit le fichier d'un scrutin et renvoie un (scrutin, table BV) par tour. Les fichiers
+    legacy regroupant plusieurs tours (présidentielle 2012, municipales 2014) sont séparés
+    en un scrutin par tour : sans cela, le pivot somme les voix des deux tours et double-compte."""
+    df = pd.read_parquet(scrutin.fichier)
+    if "numero_tour" in df.columns and df["numero_tour"].nunique(dropna=True) > 1:
+        sorties = []
+        for t, sub in df.groupby("numero_tour"):
+            sc = replace(scrutin, cle=f"{scrutin.cle}-{int(t)}", tour=int(t))
+            sorties.append((sc, _bureau_depuis_df(sub, sc)))
+        return sorties
+    return [(scrutin, _bureau_depuis_df(df, scrutin))]
 
 
 def _indicateurs(g: pd.DataFrame) -> dict:
@@ -178,33 +193,42 @@ def construire_resultats(
     }
     for scrutin in lister_scrutins(dossier_clean):
         try:
-            bv = _par_bureau(scrutin)
+            bureaux = _par_bureau(scrutin)
         except Exception as e:  # un scrutin atypique ne doit pas tout bloquer
             print(f"  ⚠ {scrutin.cle} ignoré : {e}")
             continue
-        bv["code_departement"] = bv["code_commune"].map(com2dep)
-        bv["code_region"] = bv["code_departement"].map(dep2reg)
-        bv["france"] = "FR"
-        if "circonscription" not in bv.columns and corr_circo is not None:
-            bv = bv.merge(corr_circo, on=["code_commune", "bureau_de_vote"], how="left")
-
-        accum["bureau"].append(_agreger(bv, "code_bv", "bureau", scrutin))
-        accum["commune"].append(_agreger(bv, "code_commune", "commune", scrutin))
-        accum["departement"].append(
-            _agreger(bv, "code_departement", "departement", scrutin)
-        )
-        accum["region"].append(_agreger(bv, "code_region", "region", scrutin))
-        accum["france"].append(_agreger(bv, "france", "france", scrutin))
-        if "circonscription" in bv.columns and bv["circonscription"].notna().any():
-            accum["circonscription"].append(
-                _agreger(
-                    bv[bv["circonscription"].notna()],
-                    "circonscription",
-                    "circonscription",
-                    scrutin,
+        for sc, bv in bureaux:
+            bv["code_departement"] = bv["code_commune"].map(com2dep)
+            bv["code_region"] = bv["code_departement"].map(dep2reg)
+            bv["france"] = "FR"
+            if "circonscription" not in bv.columns and corr_circo is not None:
+                bv["_bvj"] = _norm_bv(bv["bureau_de_vote"])
+                corr = (
+                    corr_circo.assign(_bvj=_norm_bv(corr_circo["bureau_de_vote"]))
+                    .drop(columns="bureau_de_vote")
+                    .drop_duplicates(["code_commune", "_bvj"])
                 )
+                bv = bv.merge(corr, on=["code_commune", "_bvj"], how="left").drop(
+                    columns="_bvj"
+                )
+
+            accum["bureau"].append(_agreger(bv, "code_bv", "bureau", sc))
+            accum["commune"].append(_agreger(bv, "code_commune", "commune", sc))
+            accum["departement"].append(
+                _agreger(bv, "code_departement", "departement", sc)
             )
-        print(f"  ✓ {scrutin.cle}: {len(bv)} bureaux")
+            accum["region"].append(_agreger(bv, "code_region", "region", sc))
+            accum["france"].append(_agreger(bv, "france", "france", sc))
+            if "circonscription" in bv.columns and bv["circonscription"].notna().any():
+                accum["circonscription"].append(
+                    _agreger(
+                        bv[bv["circonscription"].notna()],
+                        "circonscription",
+                        "circonscription",
+                        sc,
+                    )
+                )
+            print(f"  ✓ {sc.cle}: {len(bv)} bureaux")
     return {
         n: pd.concat(parts, ignore_index=True) for n, parts in accum.items() if parts
     }

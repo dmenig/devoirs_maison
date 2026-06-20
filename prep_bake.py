@@ -74,11 +74,10 @@ TYPE_COURT = {
     "regionales": "Rég",
     "referendum": "Réf",
 }
-# réservoirs : clé -> (métrique, scrutin départ, scrutin arrivée)
+# réservoirs : clé -> (métrique, scrutin départ, scrutin arrivée). Report LFI, taux de perte
+# et différentiel de participation sont recalculés côté carte pour la paire choisie (voix
+# bakées lfiv_*/gv_* + part_*) ; seul le stock d'abstention, indépendant d'une paire, est baké.
 RESERVOIRS = {
-    "rep_lfi": ("report_lfi", "2022-presidentielle-1", "2024-europeenne"),
-    "rep_lfi_em": ("report_lfi", "2024-europeenne", "2026-municipales-1"),
-    "dpart": ("ratio_participation", "2022-presidentielle-1", "2024-europeenne"),
     "abst": ("stock_abstention", "2024-europeenne", "2024-europeenne"),
 }
 
@@ -96,30 +95,6 @@ def catalogue() -> list[dict]:
                     "groupe": "Électoral",
                 }
             )
-    cat.append(
-        {
-            "key": "rep_lfi",
-            "label": "Report LFI P2022→E2024",
-            "unit": "%",
-            "groupe": "Réservoirs",
-        }
-    )
-    cat.append(
-        {
-            "key": "rep_lfi_em",
-            "label": "Report LFI E2024→M2026",
-            "unit": "%",
-            "groupe": "Réservoirs",
-        }
-    )
-    cat.append(
-        {
-            "key": "dpart",
-            "label": "Différentiel particip. P2022→E2024",
-            "unit": "%",
-            "groupe": "Réservoirs",
-        }
-    )
     cat.append(
         {
             "key": "abst",
@@ -157,8 +132,9 @@ def ordre_scrutins(df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
 
 
 def scrutins_fiables(df: pd.DataFrame) -> list[str]:
-    """Scrutins dont blocs + abstention bouclent ~100 % ; écarte les fichiers legacy
-    multi-tours (2012-présidentielle, municipales) qui double-comptent les voix."""
+    """Garde-fou : ne garde que les scrutins dont blocs + abstention bouclent ~100 %.
+    Les fichiers multi-tours sont désormais scindés par tour en amont (prep_elections),
+    donc plus aucun ne double-compte ; ce filtre reste un filet de sécurité."""
     sommes = df.groupby("scrutin")[BLOCS_RECOMPO].first().sum(axis=1)
     return sommes[(sommes >= 50) & (sommes <= 105)].index.tolist()
 
