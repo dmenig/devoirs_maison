@@ -51,7 +51,7 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true; map.flyToBou
   map.once("moveend",()=>{ animating=false; if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
     // le zoomend final du vol ne doit PAS déclencher onZoomSettled (sinon descente auto en
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.
-    clearTimeout(zoomSettle); flushDraw(); setTimeout(()=>busy=false,200); }); }
+    clearTimeout(zoomSettle); flushDraw(); setTimeout(()=>busy=false,320); }); }
 
 async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
@@ -95,7 +95,7 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(sousMode==="iris"){
     const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON("values/iris.json")]);
     if(!geo){$("loading").textContent="quartiers indisponibles ici";return;}
-    const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_iris).slice(0,5)===code)};
+    const fc={type:"FeatureCollection",features:geo.features.filter(f=>irisInCommune(String(f.properties.code_iris),code))};
     if(!fc.features.length){$("loading").textContent="pas de données par quartier";return;}
     dessiner(fc,val||{},"code_iris","nom_iris",null); return; }
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
@@ -130,4 +130,7 @@ function onZoomSettled(){ if(busy)return; const z=map.getZoom(), d=stack.length;
     if(z>top.enterZoom){ top.enterZoom=z; return; } // on plonge : le repère suit le zoom le plus profond atteint
     const thr=Math.max(ZOUT[d], top.enterZoom-ZBACK);
     if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable(); jumpTo(d-1); } } }
-map.on("zoomend",()=>{ clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });
+// un zoomend pendant un vol programmatique (clic/saut) ne doit jamais armer la descente
+// auto : sinon le zoom d'arrivée, au-dessus de ZIN, fait replonger d'un niveau tout seul
+// (clic Région → descente parasite dans le département centré).
+map.on("zoomend",()=>{ if(busy||animating)return; clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });

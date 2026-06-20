@@ -1,4 +1,9 @@
 const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
+// Paris/Lyon/Marseille : la commune INSEE (75056/69123/13055) agrège des arrondissements
+// dont les IRIS portent le code d'arrondissement (751xx, 6938x, 132xx) — la jointure par
+// préfixe à 5 sur le code commune renverrait 0 quartier. On élargit le filtre à ces villes.
+const PLM={"75056":/^751\d\d/,"69123":/^6938\d/,"13055":/^132\d\d/};
+const irisInCommune=(ci,code)=>{ const r=PLM[code]; return r?r.test(ci):ci.slice(0,5)===code; };
 // circonscription : nom synthétique (le contour INSEE ne porte que le code DEP-NN)
 const circoNom=(code,dep)=>{ const n=parseInt((String(code).split("-")[1]||"").replace(/^0+/,""))||0;
   return (n===1?"1re":(n||"?")+"ᵉ")+" circ."+(dep?" — "+dep:""); };
