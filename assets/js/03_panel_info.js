@@ -34,7 +34,7 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
       `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
       `Source : Ministère de l'Intérieur.`);
   } else if(o.rev!=null){
-    h+=exp(`<div class="lead">Revenu médian · quartier</div>`+
+    h+=exp(`<div class="lead">Revenu médian · quartier · 2021</div>`+
            `<div class="head">${o.rev.toLocaleString('fr')} €<small> par personne / an</small></div>`,
       `À l'échelle du <b>quartier (IRIS)</b>, les résultats électoraux ne sont pas disponibles : le vote se compte `+
       `par <b>bureau de vote</b>, pas par IRIS. On affiche donc le <b>contexte social</b> — revenu médian par personne `+
@@ -123,7 +123,7 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
   if(o.q3!=null)s.push(["Les 25 % les plus aisés gagnent plus de",eur(o.q3)]);
   if(o.ridec!=null)s.push(["Écart riches / pauvres",o.ridec+" ×"]);
   if(o.gini!=null)s.push(["Indice d'inégalité (Gini)",o.gini]);
-  if(s.length)h+=exp(sec("Contexte social")+distBand(o)+
+  if(s.length)h+=exp(sec("Contexte social · 2021")+distBand(o)+
     s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
     `<b>Revenu médian (après impôts et aides)</b> par personne, corrigé de la taille du foyer, et <b>taux de pauvreté</b> `+
     `(part des habitants vivant sous 60 % du revenu médian national). La barre montre la répartition des revenus : `+
