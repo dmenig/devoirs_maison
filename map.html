@@ -34,7 +34,7 @@
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
   .chip:hover{border-color:var(--lav)}
   .chip.on{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
-  #info{top:100px;right:10px;width:268px;max-height:82vh;overflow:auto;display:none;padding:12px 14px}
+  #info{top:100px;right:10px;width:268px;max-height:82vh;overflow:hidden auto;display:none;padding:12px 14px}
   #info .t{font-weight:800;font-size:16px;color:var(--lav);margin-bottom:2px}
   #info .lead{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
   #info .head{font-size:30px;font-weight:800;color:var(--cram);line-height:1;margin:2px 0 8px}
@@ -56,16 +56,18 @@
   #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .exp .exph{cursor:pointer;position:relative;padding-right:15px}
-  #info .exp .exph::after{content:"›";position:absolute;right:1px;top:1px;color:var(--lav);font-weight:700;
-       transition:transform .25s ease}
-  #info .exp.open .exph::after{transform:rotate(90deg)}
-  #info .exp .det{display:block;overflow:hidden;max-height:0;opacity:0;transform:translateY(-4px);
-       transition:max-height .3s ease,opacity .25s ease,transform .25s ease,padding .3s ease,margin .3s ease;
-       font-size:11.5px;color:#cabfdc;line-height:1.5;
-       background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:0 9px;border-radius:0 6px 6px 0;margin:0}
-  #info .exp.open .det{max-height:900px;opacity:1;transform:none;padding:7px 9px;margin:6px 0 2px}
-  #info .det b{color:var(--txt)}
-  #info .det p{margin:0 0 6px}#info .det p:last-child{margin:0}
+  #info .exp .exph::after{content:"›";position:absolute;right:1px;top:1px;color:var(--lav);font-weight:700}
+  /* slider horizontal : vue principale ⇄ détail d'une section (translate sur le côté) */
+  #info .slider{display:flex;width:200%;transition:transform .32s ease;align-items:flex-start}
+  #info .slider.on{transform:translateX(-50%)}
+  #info .pane{width:50%;flex:0 0 50%;box-sizing:border-box}
+  #info .detpane{padding-left:2px}
+  #info .back{cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--lav);font-weight:700;
+       font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px}
+  #info .detbody{font-size:12px;color:#cabfdc;line-height:1.55;
+       background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:9px 11px;border-radius:0 8px 8px 0}
+  #info .detbody b{color:var(--txt)}
+  #info .detbody p{margin:0 0 7px}#info .detbody p:last-child{margin:0}
   #info .bar{position:relative}
   #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85;z-index:2}
   #info .frtag{color:var(--mut2);font-weight:400}
@@ -165,7 +167,11 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
 const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", indicUnit="%",
-    curVals={}, busy=false, sousMode="bv", lastInfo=null;
+    curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[];
+// entête cliquable d'une section : le détail est poussé dans le volet de droite (slide)
+const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;
+  const i=panelDetails.length; panelDetails.push(det);
+  return `<div class="exp"><div class="exph" data-di="${i}">${body}</div></div>`; };
 const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 
@@ -209,14 +215,12 @@ const valOf=p=>rawVal(curVals[p.__code],indicKey);
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
   if(!o){info.style.display="none";return;}
+  panelDetails=[];
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
   const barRow=(lab,v,col,max=50)=> v==null?"":
     `<div class="lab"><span>${lab}</span><b>${v} %</b></div>`+
     `<div class="bar"><i style="width:${w(v,max)}%;background:${col}"></i></div>`;
-  // bloc : entête + détail affiché révélant le calcul
-  const exp=(body,det)=> det?
-    `<div class="exp"><div class="exph">${body}</div><div class="det">${det}</div></div>`
-    : `<div class="exp">${body}</div>`;
+  const exp=expBlock;
   const sec=t=>`<div class="sec">${t}</div>`;
 
   const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
@@ -307,13 +311,15 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
     `pauvreté). Source : INSEE FILOSOFI 2021, à la commune (ou à l'IRIS en vue quartiers).`);
   h+=adminPanel(o);
   h+=actionPanel(o);
-  info.innerHTML=h; info.style.display="block"; }
+  info.innerHTML=`<div class="slider"><div class="pane">${h}</div>`+
+    `<div class="pane detpane"><div class="back">‹ Retour</div><div class="detbody"></div></div></div>`;
+  info.scrollTop=0; info.style.display="block"; }
 
 // Profil INSEE de la commune (fiche circonscription de la prez, slides 25-28) :
 // pyramide des âges, statut d'occupation, déplacements domicile-travail,
 // renouvellement de population et maire en exercice — chacun comparé à la France.
 function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adminFr||{};
-  const exp=(body,det)=>`<div class="exp"><div class="exph">${body}</div><div class="det">${det}</div></div>`;
+  const exp=expBlock;
   const sec=t=>`<div class="sec">${t}</div>`;
   // barre comparative : remplissage commune + repère France (trait blanc « u »)
   const cmp=(lab,v,f,col,max)=> v==null?"":
@@ -464,8 +470,12 @@ function refreshPair(){
   if(indicKey.startsWith("dyn_")){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
-// clic sur une section de la fiche : déroule (translate) son détail
-$("info").addEventListener("click",e=>{ const h=e.target.closest(".exph"); if(h)h.parentElement.classList.toggle("open"); });
+// clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
+$("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slider"); if(!sl)return;
+  if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=0; return; }
+  const h=e.target.closest(".exph"); if(!h)return;
+  sl.querySelector(".detbody").innerHTML=panelDetails[+h.dataset.di];
+  sl.classList.add("on"); $("info").scrollTop=0; });
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
