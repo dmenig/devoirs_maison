@@ -58,6 +58,39 @@ def panneau_entite(niveau: str, code: str, nom: str) -> None:
         _bloc_reservoirs(df, code, scrutins, "ent_" + code)
 
 
+def _socio_commune_repli(code_commune: str) -> None:
+    """Communes sans IRIS (< 5 000 hab.) : niveau de vie au niveau communal."""
+    sc = io.socio_commune()
+    row = sc[sc["code_commune"] == code_commune]
+    if row.empty or pd.isna(row.iloc[0]["revenu_median"]):
+        st.info(
+            "Pas d'IRIS distinct, et niveau de vie communal non diffusé par l'INSEE."
+        )
+        return
+    r = row.iloc[0]
+    st.caption(
+        "Commune sans IRIS distinct : données au niveau communal (FILOSOFI 2021)."
+    )
+    cols = st.columns(3)
+    cols[0].metric("Revenu médian", f"{int(r['revenu_median']):,} €".replace(",", " "))
+    cols[1].metric(
+        "Taux de pauvreté",
+        f"{r['taux_pauvrete']:.0f} %" if pd.notna(r["taux_pauvrete"]) else "—",
+    )
+    cols[2].metric(
+        "Rapport D9/D1",
+        f"{r['rapport_interdecile']:.1f}"
+        if pd.notna(r["rapport_interdecile"])
+        else "—",
+    )
+    if pd.notna(r["d1"]) and pd.notna(r["d9"]):
+        st.caption(
+            f"1ᵉʳ décile {int(r['d1']):,} € · 9ᵉ décile {int(r['d9']):,} €".replace(
+                ",", " "
+            )
+        )
+
+
 def _carte_iris(code_commune: str) -> None:
     dep = code_commune[:3] if code_commune.startswith("97") else code_commune[:2]
     gj = io.geojson_iris(dep)
@@ -71,7 +104,7 @@ def _carte_iris(code_commune: str) -> None:
         if str(f["properties"]["code_iris"]).startswith(code_commune)
     ]
     if not feats:
-        st.info("Pas d'IRIS distinct (commune < 5 000 hab. ou hors métropole).")
+        _socio_commune_repli(code_commune)
         return
     indic = st.selectbox(
         "Indicateur IRIS", list(ind.INDICATEURS_SOCIO), key="iris_ind_" + code_commune
