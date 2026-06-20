@@ -1,8 +1,23 @@
 
-function dessiner(geo,valeurs,codeProp,nameProp,enter){
-  if(layer)layer.remove(); curVals=valeurs;
-  geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
-    f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
+// Affichage fluide : on prépare la couche mais on ne la PEINT que lorsque la caméra est
+// posée (animating=false). Peindre une couche lourde sur le renderer Canvas pendant un
+// flyTo produit le « blink » et les bandes partielles (canvas CSS-transformé puis
+// repeint) — on défère donc à la fin de l'animation, avec un fondu d'apparition. Le fetch
+// reste lancé tôt (il chevauche le vol). Un minuteur de secours garantit le rendu si
+// moveend n'arrive pas (ex. flyToBounds sans déplacement à l'amorçage).
+let animating=false, pendingDraw=null, pendingTimer=null;
+function overlayEl(){ const p=map.getPanes().overlayPane; return p.querySelector("canvas")||p.querySelector("svg"); }
+function fadeInLayer(){ const el=overlayEl(); if(!el)return;
+  el.style.transition="none"; el.style.opacity="0";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    el.style.transition="opacity .45s ease"; el.style.opacity="1"; })); }
+function fadeOutLayer(){ const el=overlayEl(), old=layer; layer=null;
+  if(old&&el){ el.style.transition="opacity .25s ease"; el.style.opacity="0"; }
+  if(old)setTimeout(()=>old.remove(),260); }
+function flushDraw(){ clearTimeout(pendingTimer);
+  if(pendingDraw){ const d=pendingDraw; pendingDraw=null; d(); } }
+
+function paintLayer(geo,valeurs,enter){ if(layer)layer.remove();
   const fc=colorer(geo.features.map(f=>valOf(f.properties)));
   layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#1a1a1a",weight:.5,fillOpacity:.85}),
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
@@ -11,9 +26,17 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter){
       ly.on("mouseout",()=>layer.resetStyle(ly));
       if(enter){ ly.__enter=()=>enter(f,ly);
         ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code]);enter(f,ly);}); }
-      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code])); }}).addTo(map); }
+      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code])); }}).addTo(map);
+  fadeInLayer(); }
 
-function jumpTo(d){ stack=stack.slice(0,d); infoPanel(null); setFil();
+function dessiner(geo,valeurs,codeProp,nameProp,enter){ curVals=valeurs;
+  geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
+    f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
+  const draw=()=>paintLayer(geo,valeurs,enter);
+  if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,1200); }
+  else draw(); }
+
+function jumpTo(d){ stack=stack.slice(0,d); infoPanel(null); setFil(); fadeOutLayer();
   if(d===0)return vueFrance(); const t=stack[d-1];
   // remonter : on plafonne le zoom d'arrivée juste sous le seuil de redescente ZIN[d]
   // (tout en restant au-dessus de ZOUT[d]), sinon l'ajustement aux contours du parent
@@ -24,9 +47,9 @@ function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`
   $("fil").innerHTML=h; $("fil").querySelectorAll(".crumb").forEach(e=>e.onclick=()=>jumpTo(+e.dataset.d));
   $("back").disabled=stack.length===0; }
 
-function flyTo(b,maxZoom){ if(!b)return; busy=true; map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11});
-  map.once("moveend",()=>{ if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
-    setTimeout(()=>busy=false,200); }); }
+function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true; map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11});
+  map.once("moveend",()=>{ animating=false; if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
+    flushDraw(); setTimeout(()=>busy=false,200); }); }
 
 async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
@@ -62,7 +85,10 @@ async function vueCirconscription(code){ subToggle(false); const dep=code.split(
     if(!feats.length)feats=geo.features; }
   dessiner({type:"FeatureCollection",features:feats},val||{},"code","nom",
     (f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-const subToggle=show=>{$("subtoggle").style.display=show?"flex":"none";};
+const subToggle=show=>{ $("subtoggle").style.display=show?"flex":"none";
+  if(!show){ sousMode="bv";
+    $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m==="bv")); }
+  syncSocioChips(); };
 async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(sousMode==="iris"){
     const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON("values/iris.json")]);
@@ -79,7 +105,7 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="circonscription")vueCirconscription(c);else if(n==="commune")vueCommune(c); }
 function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
-  flyTo(bounds,niveau==="commune"?15:11); setTimeout(()=>render(niveau,code),320); }
+  fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
 $("back").onclick=()=>jumpTo(stack.length-1);
 // hooks de test/débogage (comme window.__map) : piloter la navigation, lister les zones dessinées
 window.__enter=entrer;

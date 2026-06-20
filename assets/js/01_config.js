@@ -6,6 +6,9 @@ const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["
 // le sélecteur ⚖️ — d'où la reproduction des cartes BV de la prez à n'importe quel
 // scrutin (Vote LFI Europ. 2024, Munic. 2026, Présid. 2022…), pas seulement aux européennes.
 const STAT=new Set(["lfi","part","rn","gauche"]);
+// rev/pauv : FILOSOFI, dispo seulement à la maille IRIS (absents aux échelons agrégés
+// région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
+const SOCIO=new Set(["rev","pauv"]);
 const PAST=[["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
             ["gauche","Gauche","%"],["dyn_report","Report LFI","%"],
             ["dyn_dpart","Δ Participation"," pts"],["dyn_perte","Perte gauche","%"],

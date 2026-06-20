@@ -9,6 +9,13 @@ const labelFor=k=>{ const p=PAST.find(x=>x[0]===k); if(!p)return k;
 // pastilles statiques (instantané en B) : on allume le cadre quand l'indicateur actif
 // dépend de la paire, on le grise sinon (Abstention / Revenu / Pauvreté).
 const updatePairActive=()=>$("pairgroup").classList.toggle("active",usesPair(indicKey));
+// Revenu/Pauvreté n'ont de données qu'en vue Quartiers IRIS : on n'affiche leurs pastilles
+// que là, et on rebascule sur un indicateur électoral en quittant (sinon choroplèthe vide).
+const socioActive=()=>$("subtoggle").style.display!=="none"&&sousMode==="iris";
+function syncSocioChips(){ const on=socioActive();
+  $("pastilles").querySelectorAll(".chip").forEach(c=>{
+    if(SOCIO.has(c.dataset.k))c.style.display=on?"":"none"; });
+  if(!on&&SOCIO.has(indicKey))setIndic("lfi"); }
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
   indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
@@ -18,7 +25,7 @@ function buildPastilles(){ const box=$("pastilles"), grp=$("pairgroup");
     c.textContent=labelFor(k); c.dataset.k=k;
     c.onclick=()=>{ setIndic(k); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
     (k.startsWith("dyn_")?grp:box).appendChild(c); });
-  $("legtitle").textContent=labelFor(indicKey); updatePairActive(); }
+  $("legtitle").textContent=labelFor(indicKey); updatePairActive(); syncSocioChips(); }
 // sélecteur de deux scrutins : peuple A/B et recalcule réservoirs (carte + fiche) à la volée
 function buildSelecteur(){
   for(const id of ["selA","selB"]){ const sel=$(id), cur=id==="selA"?selA:selB;
@@ -38,6 +45,7 @@ $("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slide
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
-  const socio=indicKey==="rev"||indicKey==="pauv";
+  const socio=SOCIO.has(indicKey);
   if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi");
+  syncSocioChips();
   const t=stack[stack.length-1]; if(t&&t.niveau==="commune")vueCommune(t.code); });
