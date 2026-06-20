@@ -43,24 +43,23 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
 | **Circonscription** | blocs + participation par circo ; tableau de recomposition | reports LFI entre scrutins, capacité de mobilisation | — |
 | **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
-| **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté**, **écarts interdéciles** par IRIS (carte choroplèthe) |
+| **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté** par IRIS (carte choroplèthe) |
 | **Bureau de vote** | blocs + participation par BV ; carte/tableau | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
 
-Calculés dynamiquement entre deux scrutins choisis, à l'échelle commune **et** bureau de vote :
+Calculés dynamiquement entre deux scrutins choisis, à **chaque échelle** disposant des voix
+réelles (région, département, circonscription, commune, bureau de vote) :
 
-- **Différentiel de voix** entre élections d'un même cycle (présidentielle → européenne → municipale)
-- **Taux de perte** présidentielle vs autre scrutin (`(voix_A − voix_B) / voix_A`)
+- **Taux de perte** de la gauche entre deux scrutins (`(voix_A − voix_B) / voix_A`)
 - **Report LFI** entre deux scrutins (`voix_LFI_B / voix_LFI_A`)
-- **Différentiel de participation** (`participation_B / participation_A`)
+- **Différentiel de participation** (`participation_B − participation_A`, en points d'inscrits)
 - **Stock d'abstentionnistes mobilisables** (`inscrits × taux d'abstention`)
 
 ### Détail socio-économique (FILOSOFI 2021)
 
 - **Revenu médian disponible** par IRIS et par commune
 - **Taux de pauvreté** (seuil 60 %) par IRIS et par commune
-- **Écarts** : 1er/3e quartile, 1er/9e décile, rapport interdécile, indice de Gini (IRIS)
 
 > Note : FILOSOFI à l'IRIS n'existe que pour les communes de ≥ 5 000 habitants ; ailleurs
 > la commune forme un seul IRIS. Le revenu médian communal est ici la moyenne de ses IRIS
@@ -103,3 +102,8 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
 - Le rattachement bureau de vote → circonscription utilise la table de correspondance 2024.
+- En vue **circonscription**, les communes affichées sont rattachées à leur circo par leur
+  **centre géométrique** (rattachement approché, côté carte) : une commune scindée entre
+  plusieurs circonscriptions apparaît dans celle qui contient son centre.
+- Les données de circonscription ne couvrent que les scrutins disponibles à cette maille
+  (présidentielle 2022, législatives 2024) ; les indicateurs européennes/municipales y sont vides.

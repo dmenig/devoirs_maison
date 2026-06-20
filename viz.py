@@ -40,7 +40,9 @@ def _propre(v) -> float | None:
     return float(v)
 
 
-def _diverging(values, reference: float | None) -> tuple[cm.LinearColormap | None, float | None]:
+def _diverging(
+    values, reference: float | None
+) -> tuple[cm.LinearColormap | None, float | None]:
     """Colormap divergente centrée sur une référence (moyenne). Si `reference` est
     None, on prend la moyenne des valeurs affichées (moyenne locale)."""
     vals = [x for x in (_propre(v) for v in values) if x is not None]
@@ -54,20 +56,34 @@ def _diverging(values, reference: float | None) -> tuple[cm.LinearColormap | Non
 
 
 def choropleth(
-    gj: dict, values: dict, code_prop: str, label: str, unit: str, scheme: str,
-    bounds: list[list[float]] | None = None, reference: float | None = None,
+    gj: dict,
+    values: dict,
+    code_prop: str,
+    label: str,
+    unit: str,
+    scheme: str,
+    bounds: list[list[float]] | None = None,
+    reference: float | None = None,
 ) -> folium.Map:
     cmap, centre = _diverging(values.values(), reference)
     feats = []
     for f in gj["features"]:
         code = str(f["properties"].get(code_prop))
         v = _propre(values.get(code))
-        nf = {"type": "Feature", "geometry": f["geometry"], "properties": dict(f["properties"])}
+        nf = {
+            "type": "Feature",
+            "geometry": f["geometry"],
+            "properties": dict(f["properties"]),
+        }
         nf["properties"]["_code"] = code
-        nf["properties"]["_nom"] = f["properties"].get("nom") or f["properties"].get("nom_iris") or code
+        nf["properties"]["_nom"] = (
+            f["properties"].get("nom") or f["properties"].get("nom_iris") or code
+        )
         nf["properties"]["_val"] = None if v is None else round(v, 1)
         nf["properties"]["_ref"] = (
-            "—" if (v is None or not centre) else f"{round(100 * v / centre)} % de la moyenne"
+            "—"
+            if (v is None or not centre)
+            else f"{round(100 * v / centre)} % de la moyenne"
         )
         feats.append(nf)
     data = {"type": "FeatureCollection", "features": feats}
@@ -81,16 +97,24 @@ def choropleth(
         v = feat["properties"].get("_val")
         return {
             "fillColor": cmap(v) if (cmap and v is not None) else "#eeeeee",
-            "color": "#444", "weight": 0.6, "fillOpacity": 0.82,
+            "color": "#444",
+            "weight": 0.6,
+            "fillOpacity": 0.82,
         }
 
     folium.GeoJson(
         data,
         style_function=style,
-        highlight_function=lambda _f: {"weight": 2.5, "color": "#000", "fillOpacity": 0.95},
+        highlight_function=lambda _f: {
+            "weight": 2.5,
+            "color": "#000",
+            "fillOpacity": 0.95,
+        },
         tooltip=folium.GeoJsonTooltip(
             fields=["_nom", "_val", "_ref"],
-            aliases=["", f"{label} ({unit}) :", "Position :"], localize=True),
+            aliases=["", f"{label} ({unit}) :", "Position :"],
+            localize=True,
+        ),
     ).add_to(m)
 
     if cmap:

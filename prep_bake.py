@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -141,9 +142,15 @@ def ordre_scrutins(df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
     m = m.sort_values(["annee", "o", "tour"])
     ordre, meta = [], []
     for _, r in m.iterrows():
+        tour = r["tour"]
+        if pd.isna(
+            tour
+        ):  # tour parfois porté par le suffixe de clé (ex. 2026-conseils-PLM-2)
+            suf = re.search(r"-(\d+)$", str(r["scrutin"]))
+            tour = int(suf.group(1)) if suf else None
         court = f"{TYPE_COURT.get(r['type'], r['type'][:3])}{int(r['annee']) % 100:02d}"
-        if pd.notna(r["tour"]):
-            court += f"·{int(r['tour'])}"
+        if pd.notna(tour):
+            court += f"·{int(tour)}"
         ordre.append(r["scrutin"])
         meta.append({"c": court, "l": r["scrutin_libelle"]})
     return ordre, meta

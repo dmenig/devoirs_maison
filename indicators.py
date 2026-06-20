@@ -28,8 +28,13 @@ INDICATEURS_SOCIO: dict[str, tuple[str, str, str, bool]] = {
 
 BLOC6 = ["LFI-PCF-EXG", "PS-EELV", "MoDem-EM", "LR-DVD", "RN-EXD", "Autres"]
 _ORDRE_TYPE = {
-    "presidentielle": 0, "legislatives": 1, "europeenne": 2, "municipales": 3,
-    "departementales": 4, "regionales": 5, "referendum": 6,
+    "presidentielle": 0,
+    "legislatives": 1,
+    "europeenne": 2,
+    "municipales": 3,
+    "departementales": 4,
+    "regionales": 5,
+    "referendum": 6,
 }
 
 
@@ -62,7 +67,9 @@ def table_recomposition(df: pd.DataFrame, code: str) -> pd.DataFrame:
     return out.set_index("Scrutin")
 
 
-def reservoirs(df: pd.DataFrame, code: str, sa: str, sb: str) -> dict[str, float | None]:
+def reservoirs(
+    df: pd.DataFrame, code: str, sa: str, sb: str
+) -> dict[str, float | None]:
     """Réservoirs entre deux scrutins pour une entité."""
     a = df[(df["code"] == code) & (df["scrutin"] == sa)]
     b = df[(df["code"] == code) & (df["scrutin"] == sb)]
@@ -77,12 +84,15 @@ def reservoirs(df: pd.DataFrame, code: str, sa: str, sb: str) -> dict[str, float
         "diff_voix_lfi": int(lfi_b - lfi_a),
         "taux_perte_gauche": round(100 * (g_a - g_b) / g_a, 1) if g_a else None,
         "ratio_participation": round(100 * b["participation"] / a["participation"], 1)
-        if a["participation"] else None,
+        if a["participation"]
+        else None,
         "stock_abstention_b": int(round(insc_b * (b["abstention"] or 0) / 100)),
     }
 
 
-def reservoirs_par_code(df: pd.DataFrame, sa: str, sb: str, metrique: str) -> dict[str, float]:
+def reservoirs_par_code(
+    df: pd.DataFrame, sa: str, sb: str, metrique: str
+) -> dict[str, float]:
     """Carte d'un réservoir : valeur par code entre deux scrutins."""
     a = df[df["scrutin"] == sa].set_index("code")
     b = df[df["scrutin"] == sb].set_index("code")

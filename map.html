@@ -159,7 +159,8 @@ const MIG_ROWS=["Même logement","Autre logement, même commune","Autre commune 
 let selA="P22", selB="E24";
 const scLab=c=>(SCR.find(s=>s[0]===c)||[,c])[1];
 // seuils de zoom pour descendre/remonter automatiquement, par profondeur affichée
-const ZIN=[6.6,8.2,10.6], ZOUT=[0,6.1,7.9,10.1];
+// niveaux : 0 France→Région · 1 Région→Dép · 2 Dép→Circo · 3 Circo→Commune · 4 Commune→BV/IRIS
+const ZIN=[6.6,8.2,9.6,11.0], ZOUT=[0,6.1,7.9,9.2,10.6];
 const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
@@ -180,6 +181,26 @@ async function getJSON(p){ if(p in cache)return cache[p];
   try{const r=await fetch(BASE+"/"+p); j=r.ok?await r.json():null;}catch(e){j=null;}
   cache[p]=j; $("loading").textContent=""; return j; }
 const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
+// circonscription : nom synthétique (le contour INSEE ne porte que le code DEP-NN)
+const circoNom=(code,dep)=>{ const n=parseInt((String(code).split("-")[1]||"").replace(/^0+/,""))||0;
+  return (n===1?"1re":(n||"?")+"ᵉ")+" circ."+(dep?" — "+dep:""); };
+// Rattachement commune ⇄ circonscription côté carte (pas de table embarquée). On partitionne
+// par le centroïde : une commune est rattachée à la circo contenant son centre. Les circos
+// purement urbaines (découpe d'une grande commune — ex. Lyon scindé en plusieurs circos) ne
+// contiennent le centre d'aucune commune entière : on y rabat alors la commune englobante.
+function ringArea(r){ let A=0; for(let i=0,j=r.length-1;i<r.length;j=i++) A+=r[j][0]*r[i][1]-r[i][0]*r[j][1]; return Math.abs(A/2); }
+function centroid(geom){ const polys=geom.type==="MultiPolygon"?geom.coordinates:[geom.coordinates];
+  const poly=polys.reduce((a,b)=>ringArea(b[0])>ringArea(a[0])?b:a), r=poly[0];
+  let A=0,cx=0,cy=0; for(let i=0,j=r.length-1;i<r.length;j=i++){
+    const f=r[j][0]*r[i][1]-r[i][0]*r[j][1]; A+=f; cx+=(r[j][0]+r[i][0])*f; cy+=(r[j][1]+r[i][1])*f; }
+  A*=.5; return A?[cx/(6*A),cy/(6*A)]:[r[0][0],r[0][1]]; }
+function ptInRing(x,y,r){ let ins=false; for(let i=0,j=r.length-1;i<r.length;j=i++){
+  const xi=r[i][0],yi=r[i][1],xj=r[j][0],yj=r[j][1];
+  if(((yi>y)!==(yj>y)) && x<(xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) ins=!ins; } return ins; }
+function ptInGeom(x,y,geom){ const ps=geom.type==="MultiPolygon"?geom.coordinates:[geom.coordinates];
+  for(const poly of ps){ if(!ptInRing(x,y,poly[0]))continue;
+    let hole=false; for(let h=1;h<poly.length;h++) if(ptInRing(x,y,poly[h])){hole=true;break;}
+    if(!hole)return true; } return false; }
 
 // Coloration par RANG (percentile) parmi les zones affichées : les couleurs
 // s'étalent sur toute la distribution (chaque zone ayant une valeur est colorée).
@@ -418,9 +439,30 @@ async function vueRegion(code){ subToggle(false);
   dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
     val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds())); }
 async function vueDepartement(code){ subToggle(false);
+  const [geo,val]=await Promise.all([getJSON(`geo/circ/${code}.geojson`),getJSON("values/circonscription.json")]);
+  if(!geo||!geo.features.length)return vueDeptCommunes(code); // dép. sans circo (outre-mer/étranger)
+  const depNom=(stack[stack.length-1]||{}).nom||code;
+  geo.features.forEach(f=>f.properties.nom=circoNom(f.properties.code_circonscription,depNom));
+  dessiner(geo,val||{},"code_circonscription","nom",
+    (f,ly)=>entrer("circonscription",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+async function vueDeptCommunes(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
   if(!geo){$("loading").textContent="contours indisponibles";return;}
   dessiner(geo,val||{},"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+// communes d'une circonscription : on rabat les communes du département dont le centre
+// tombe dans le contour de la circo (rattachement approché, front-only).
+async function vueCirconscription(code){ subToggle(false); const dep=code.split("-")[0];
+  const [cgeo,geo,val]=await Promise.all([getJSON(`geo/circ/${dep}.geojson`),
+    getJSON(`geo/communes/${dep}.geojson`),getJSON(`values/commune/${dep}.json`)]);
+  if(!geo){$("loading").textContent="contours communes indisponibles";return;}
+  const cf=cgeo&&cgeo.features.find(f=>String(f.properties.code_circonscription)===code);
+  let feats=geo.features;
+  if(cf){ feats=geo.features.filter(f=>{const c=centroid(f.geometry);return ptInGeom(c[0],c[1],cf.geometry);});
+    if(!feats.length){ const cc=centroid(cf.geometry); // circo urbaine : rabattre la commune englobante
+      feats=geo.features.filter(f=>ptInGeom(cc[0],cc[1],f.geometry)); }
+    if(!feats.length)feats=geo.features; }
+  dessiner({type:"FeatureCollection",features:feats},val||{},"code","nom",
+    (f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
 const subToggle=show=>{$("subtoggle").style.display=show?"flex":"none";};
 async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(sousMode==="iris"){
@@ -436,17 +478,20 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   dessiner(fc,val||{},"bureau","bureau",null); }
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
-  else if(n==="commune")vueCommune(c); }
+  else if(n==="circonscription")vueCirconscription(c);else if(n==="commune")vueCommune(c); }
 function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
   flyTo(bounds,niveau==="commune"?15:11); setTimeout(()=>render(niveau,code),320); }
 $("back").onclick=()=>jumpTo(stack.length-1);
+// hooks de test/débogage (comme window.__map) : piloter la navigation, lister les zones dessinées
+window.__enter=entrer;
+window.__feats=()=>{const a=[];layer&&layer.eachLayer(l=>l.feature&&a.push(l.feature.properties.__nom));return a;};
 
 // zoom-molette = descendre/remonter automatiquement
 function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let best=null,ba=1e18;
   layer.eachLayer(ly=>{ if(ly.getBounds){const b=ly.getBounds(); if(b.contains(c)){
     const a=(b.getEast()-b.getWest())*(b.getNorth()-b.getSouth()); if(a<ba){ba=a;best=ly;}}}}); return best; }
 map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
-  if(d<3 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
+  if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
   else if(d>=1 && z<=ZOUT[d]){ jumpTo(d-1); } });
 
 // pastilles d'indicateurs (pas de menu déroulant) ; les pastilles « dyn_* » affichent

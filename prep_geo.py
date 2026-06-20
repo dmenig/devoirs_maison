@@ -45,14 +45,20 @@ def contours_communes(geo_dir: Path) -> None:
     if not plein.exists() and not _telecharger(f"{FG}/communes.geojson", plein):
         return
     gdf = gpd.read_file(plein)
-    gdf["dep"] = gdf["code"].str[:3].where(gdf["code"].str.startswith("97"), gdf["code"].str[:2])
+    gdf["dep"] = (
+        gdf["code"].str[:3].where(gdf["code"].str.startswith("97"), gdf["code"].str[:2])
+    )
     for dep, sous in gdf.groupby("dep"):
-        sous[["code", "nom", "geometry"]].to_file(com_dir / f"{dep}.geojson", driver="GeoJSON")
+        sous[["code", "nom", "geometry"]].to_file(
+            com_dir / f"{dep}.geojson", driver="GeoJSON"
+        )
 
 
 def contours_circonscriptions(insee_zip: Path, geo_dir: Path) -> None:
-    dest = geo_dir / "circonscriptions.geojson"
-    if dest.exists() or not insee_zip.exists():
+    """Reconstruit les contours de circonscriptions puis les découpe par département
+    (geo/circ/<dep>.geojson), pour ne charger côté carte que les circos du département."""
+    circ_dir = geo_dir / "circ"
+    if any(circ_dir.glob("*.geojson")) or not insee_zip.exists():
         return
     with zipfile.ZipFile(insee_zip) as z:
         shp = next(n for n in z.namelist() if n.endswith(".shp"))
@@ -63,7 +69,12 @@ def contours_circonscriptions(insee_zip: Path, geo_dir: Path) -> None:
     dep = gdf[cols.get("dep", "dep")].astype(str)
     idc = gdf[cols.get("id_circo", "id_circo")].astype(str)
     gdf["code_circonscription"] = dep.str.zfill(2) + "-" + idc.str[-2:].str.zfill(2)
-    gdf[["code_circonscription", "geometry"]].to_file(dest, driver="GeoJSON")
+    gdf["dep"] = gdf["code_circonscription"].str.split("-").str[0]
+    circ_dir.mkdir(parents=True, exist_ok=True)
+    for d, sous in gdf.groupby("dep"):
+        sous[["code_circonscription", "geometry"]].to_file(
+            circ_dir / f"{d}.geojson", driver="GeoJSON"
+        )
 
 
 def contours_iris(iris_gpkg: Path, geo_dir: Path) -> None:

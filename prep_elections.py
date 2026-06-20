@@ -92,12 +92,9 @@ def _par_bureau(scrutin: Scrutin) -> pd.DataFrame:
     meta = df.groupby("code_bv", as_index=False)[base_cols[1:]].first()
     base = base.merge(meta, on="code_bv")
 
-    voix = (
-        df.pivot_table(
-            index="code_bv", columns="famille", values="voix", aggfunc="sum", fill_value=0
-        )
-        .reset_index()
-    )
+    voix = df.pivot_table(
+        index="code_bv", columns="famille", values="voix", aggfunc="sum", fill_value=0
+    ).reset_index()
     out = base.merge(voix, on="code_bv", how="left")
     for fam in FAMILLES:
         if fam not in out.columns:
@@ -113,7 +110,9 @@ def _indicateurs(g: pd.DataFrame) -> dict:
         "votants": int(g["votants"]),
         "exprimes": int(g["exprimes"]),
         "participation": round(100 * g["votants"] / inscrits, 2) if inscrits else None,
-        "abstention": round(100 * (1 - g["votants"] / inscrits), 2) if inscrits else None,
+        "abstention": round(100 * (1 - g["votants"] / inscrits), 2)
+        if inscrits
+        else None,
     }
     fam_voix = {fam: g.get(fam, 0) for fam in FAMILLES}
     for bloc in BLOC6_ORDRE:
@@ -131,13 +130,22 @@ def _indicateurs(g: pd.DataFrame) -> dict:
     return res
 
 
-def _agreger(bv: pd.DataFrame, cle_groupe: str, niveau: str, scrutin: Scrutin) -> pd.DataFrame:
+def _agreger(
+    bv: pd.DataFrame, cle_groupe: str, niveau: str, scrutin: Scrutin
+) -> pd.DataFrame:
     cols_somme = ["inscrits", "votants", "exprimes", *FAMILLES]
     grp = bv.groupby(cle_groupe, as_index=False)[cols_somme].sum()
     lignes = [
-        {"niveau": niveau, "code": row[cle_groupe], "scrutin": scrutin.cle,
-         "scrutin_libelle": scrutin.libelle, "annee": scrutin.annee,
-         "type": scrutin.type, "tour": scrutin.tour, **_indicateurs(row)}
+        {
+            "niveau": niveau,
+            "code": row[cle_groupe],
+            "scrutin": scrutin.cle,
+            "scrutin_libelle": scrutin.libelle,
+            "annee": scrutin.annee,
+            "type": scrutin.type,
+            "tour": scrutin.tour,
+            **_indicateurs(row),
+        }
         for _, row in grp.iterrows()
     ]
     return pd.DataFrame(lignes)
@@ -154,7 +162,15 @@ def construire_resultats(
         .to_dict()
     )
     accum: dict[str, list[pd.DataFrame]] = {
-        n: [] for n in ("bureau", "commune", "circonscription", "departement", "region", "france")
+        n: []
+        for n in (
+            "bureau",
+            "commune",
+            "circonscription",
+            "departement",
+            "region",
+            "france",
+        )
     }
     for scrutin in lister_scrutins(dossier_clean):
         try:
@@ -170,12 +186,21 @@ def construire_resultats(
 
         accum["bureau"].append(_agreger(bv, "code_bv", "bureau", scrutin))
         accum["commune"].append(_agreger(bv, "code_commune", "commune", scrutin))
-        accum["departement"].append(_agreger(bv, "code_departement", "departement", scrutin))
+        accum["departement"].append(
+            _agreger(bv, "code_departement", "departement", scrutin)
+        )
         accum["region"].append(_agreger(bv, "code_region", "region", scrutin))
         accum["france"].append(_agreger(bv, "france", "france", scrutin))
         if "circonscription" in bv.columns and bv["circonscription"].notna().any():
             accum["circonscription"].append(
-                _agreger(bv[bv["circonscription"].notna()], "circonscription", "circonscription", scrutin)
+                _agreger(
+                    bv[bv["circonscription"].notna()],
+                    "circonscription",
+                    "circonscription",
+                    scrutin,
+                )
             )
         print(f"  ✓ {scrutin.cle}: {len(bv)} bureaux")
-    return {n: pd.concat(parts, ignore_index=True) for n, parts in accum.items() if parts}
+    return {
+        n: pd.concat(parts, ignore_index=True) for n, parts in accum.items() if parts
+    }

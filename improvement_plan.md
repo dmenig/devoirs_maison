@@ -14,11 +14,11 @@ déjà calculée dans `data_app/` mais jamais branchée** côté front.
 ## Constat structurant
 
 - Le site servi est **uniquement** [map.html](map.html) (injecté par
-  [streamlit_app.py](streamlit_app.py)). L'application Streamlit riche décrite dans
-  [DOCUMENTATION.md](DOCUMENTATION.md) ([panels.py](panels.py), [indicators.py](indicators.py))
-  **n'est pas livrée**. La doc surévalue le produit.
-- Plusieurs indicateurs sont **bakés puis ignorés** (`dpart`, `abst`), pendant que le front
-  recalcule des proxys plus faibles ([map.html](map.html), `rawVal`).
+  [streamlit_app.py](streamlit_app.py)). L'application Streamlit riche d'un ancien prototype
+  ([panels.py](panels.py), [viz.py](viz.py), [dataio.py](dataio.py)) **n'est pas livrée** ;
+  ces modules sont désormais signalés *legacy* dans la doc (#7 fait).
+- Diagnostic initial désormais traité : les indicateurs bakés sont lus par le front (réservoirs
+  recalculés à la volée sur voix réelles, #3/#4) et la doc a été réalignée sur le produit (#7).
 
 ---
 
@@ -34,26 +34,31 @@ déjà calculée dans `data_app/` mais jamais branchée** côté front.
 | Différentiel participation P22→E24 par BV (44) | ✅ | #3 fait |
 | Report LFI E24→M26 par BV (46) | ✅ | #3 fait |
 | Taux de perte / différentiels par cycle (43) | ✅ | #4 fait |
-| **IRIS : contours + revenu + pauvreté** (30–32) | ❌ baké, non navigable | #1 |
-| Fiche circonscription INSEE — situation (24) | ❌ baké, non branché | #1 |
-| Renouvellement de population (25) | ❌ absent du pipeline | #6 |
-| Pyramide des âges (26) | ❌ absent du pipeline | #6 |
-| Niveau de vie / propriétaires-locataires (27) | ❌ | #6 |
-| Déplacements domicile-travail (28) | ❌ | #6 |
-| Histoire électorale (maires, tradition) (22) | ❌ | #6 |
+| **IRIS : contours + revenu + pauvreté** (30–32) | ✅ navigable (toggle sous commune) | #1 fait |
+| Fiche circonscription INSEE — situation (24) | ✅ échelle navigable + profil INSEE commune | #1 + #6 faits |
+| Renouvellement de population (25) | ✅ | #6 fait |
+| Pyramide des âges (26) | ✅ | #6 fait |
+| Niveau de vie / propriétaires-locataires (27) | ✅ | #6 fait |
+| Déplacements domicile-travail (28) | ✅ | #6 fait |
+| Histoire électorale (maires, tradition) (22) | ✅ maire ; historique éditorial | #6 fait |
 | Pont carte → action (quartier dense / logement social) (51) | ✅ | #5 |
 
 ---
 
 ## Chantiers, par ROI décroissant
 
-### #1 — Brancher les niveaux IRIS et circonscription (déjà bakés)
+### #1 — Brancher les niveaux IRIS et circonscription (déjà bakés) ✅ fait
 La prez consacre 4 slides à l'IRIS et à la fiche circonscription. Les données et contours
-existent (`values/iris.json`, `geo/iris/*`, `circonscription.geojson`,
-`values/circonscription.json`) mais [map.html](map.html) ne descend jamais à ces niveaux.
-- Ajouter IRIS sous la commune (revenu médian, taux de pauvreté par quartier, choroplèthe).
-- Ajouter la circonscription comme échelle navigable.
-- **Travail purement front** : aucun nouveau calcul.
+existaient (`values/iris.json`, `geo/iris/*`, `values/circonscription.json`) mais
+[map.html](map.html) ne descendait jamais à ces niveaux.
+- ✅ IRIS sous la commune (revenu médian, taux de pauvreté par quartier, choroplèthe) via le
+  toggle « 🏙️ Quartiers IRIS ».
+- ✅ Circonscription insérée comme **échelle navigable** (France→Région→Département→**Circo**→Commune→BV/IRIS) :
+  [prep_geo.py](prep_geo.py) découpe les contours par département (`geo/circ/<dep>.geojson`,
+  chargement léger) ; en vue circo, les communes sont rabattues sur leur circonscription par
+  **centroïde** (rattachement approché côté carte, faute de table de correspondance embarquée —
+  les circos urbaines découpant une grande commune rabattent la commune englobante).
+- **Travail purement front** (hors découpage geojson) : aucun nouveau calcul électoral.
 
 ### #2 — Reproduire le tableau de recomposition (artefact central de la prez) ✅ fait
 Les 6 blocs distincts (`b6_*`) étaient calculés mais fondus dans un seul « gauche » à
@@ -118,10 +123,16 @@ de la commune », chaque indicateur comparé à la France) :
 Réserves : Paris / Lyon / Marseille (codés par arrondissement dans les bases infracommunales)
 n'ont pas de fiche commune ; le renouvellement est au grain canton-ou-ville.
 
-### #7 — Réconcilier la documentation
-Mettre [DOCUMENTATION.md](DOCUMENTATION.md) et [README.md](README.md) en cohérence avec ce
-que `map.html` livre réellement (ou livrer l'app riche). Aujourd'hui la doc décrit IRIS,
-circonscription et tableau de recomposition qui ne sont pas dans le site.
+### #7 — Réconcilier la documentation ✅ fait
+[DOCUMENTATION.md](DOCUMENTATION.md) et [README.md](README.md) alignés sur ce que `map.html`
+livre réellement :
+- ✅ Échelles décrites = chaîne réelle (circonscription désormais navigable, #1).
+- ✅ Retrait des fonctionnalités jamais livrées : écarts interdéciles / Gini IRIS (non bakés).
+- ✅ Formule du différentiel de participation corrigée (points d'inscrits `part_B − part_A`,
+  et non un ratio).
+- ✅ README : commande de lancement réelle (`streamlit run` du wrapper, sans folium), pipeline
+  de régénération (`prepare_data.py` + `prep_bake.py`), `data_app` **versionné**, et modules
+  `panels.py`/`viz.py`/`dataio.py` signalés comme **legacy** (prototype Streamlit non servi).
 
 ---
 

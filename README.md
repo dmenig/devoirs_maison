@@ -1,7 +1,7 @@
 # Atlas électoral militant 🗳️
 
 Carte de France **cliquable**, à **toutes les échelles** (France → région → département →
-commune → IRIS / bureau de vote, + circonscriptions), qui met à disposition des
+circonscription → commune → IRIS / bureau de vote), qui met à disposition des
 militant·es **toutes les données que la présentation « Analyse électorale » de l'Institut
 La Boétie recommande de regarder** : recomposition en blocs, participation, **réservoirs
 de voix** (reports, différentiels, abstention mobilisable), revenu médian et taux de
@@ -11,39 +11,28 @@ pauvreté.
 
 ## Lancer en local
 
-Les données (`data_app/`) sont générées sur la machine et **ne sont pas versionnées**
-(trop volumineuses). Deux cas :
-
-**A. Les données existent déjà** (`data_app/` présent) :
-
 ```bash
-uv run --with streamlit --with streamlit-folium --with folium --with branca \
-        --with pandas --with pyarrow streamlit run streamlit_app.py
+uv run --with streamlit streamlit run streamlit_app.py
 ```
 
-**B. Les régénérer depuis [hexagonal](https://github.com/) :**
-
-```bash
-# nécessite le dépôt hexagonal construit localement (résultats électoraux, FILOSOFI, COG)
-uv run --project /chemin/vers/hexagonal python prepare_data.py   # tables + socio + contours
-uv run --project /chemin/vers/hexagonal python regen_geo.py       # contours pleine résolution
-```
+La carte ([map.html](map.html)) va chercher elle-même les données (versionnées dans `data_app/`)
+en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_app.py).
 
 ## Architecture
 
 | Fichier | Rôle |
 | --- | --- |
-| `streamlit_app.py` | application Streamlit, navigation cliquable + recherche adaptative |
-| `panels.py` | panneaux commune (IRIS + bureaux de vote) et circonscription |
-| `viz.py` | cartes choroplèthes folium |
-| `indicators.py` | catalogue d'indicateurs + calcul des réservoirs de voix |
+| `map.html` | **le produit servi** : la carte Leaflet 100 % client (navigation toutes échelles, fiches dépliables, sélecteur de scrutins, pastilles d'indicateurs) |
+| `streamlit_app.py` | wrapper plein écran : injecte `map.html` en remplaçant `__BASE__` |
+| `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
+| `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
+| `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
+| `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |
 | `nuances.py` | mapping nuances Min. Intérieur → blocs (recomposition / tripartition) |
-| `dataio.py` | chargement (lazy, mis en cache) des données par zone |
-| `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, référentiels) |
-| `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, contours) |
+| `panels.py`, `viz.py`, `dataio.py` | **legacy** : prototype Streamlit natif (folium), non utilisé par la carte servie |
 
-Les contours sont chargés **paresseusement par zone** (un département / une commune à la
-fois), en pleine résolution.
+Les contours sont chargés **paresseusement par zone** (un département à la fois) par le
+navigateur, en pleine résolution.
 
 ## Données
 
@@ -53,7 +42,8 @@ INSEE / france-geojson.
 
 ## Déploiement
 
-Streamlit Community Cloud / serveur : pointer sur `streamlit_app.py`. Comme `data_app/` n'est pas
-dans git, soit l'ajouter au déploiement (Git LFS ou stockage objet), soit régénérer via
-`prepare_data.py`. Voir DOCUMENTATION.md pour les limites connues (contours de bureaux de
-vote non disponibles nationalement, etc.).
+Streamlit Community Cloud / serveur : pointer sur `streamlit_app.py`. Les valeurs et contours
+(`data_app/values`, `data_app/geo`) étant versionnés, la carte les sert directement depuis
+GitHub raw (`__BASE__`) ; seuls les intermédiaires volumineux et caches INSEE sont régénérables
+via `prepare_data.py` + `prep_bake.py`. Voir DOCUMENTATION.md pour les limites connues (contours
+de bureaux de vote non disponibles nationalement, rattachement commune↔circo approché, etc.).
