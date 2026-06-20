@@ -89,7 +89,14 @@ window.__feats=()=>{const a=[];layer&&layer.eachLayer(l=>l.feature&&a.push(l.fea
 function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let best=null,ba=1e18;
   layer.eachLayer(ly=>{ if(ly.getBounds){const b=ly.getBounds(); if(b.contains(c)){
     const a=(b.getEast()-b.getWest())*(b.getNorth()-b.getSouth()); if(a<ba){ba=a;best=ly;}}}}); return best; }
+// verrou de remontée : un dézoom continu (molette) ne doit faire remonter que d'UN niveau.
+// `busy` ne couvre que l'animation flyTo (~1s) ; une fois levé, la molette qui tourne
+// encore relancerait jumpTo en cascade. On garde le verrou tant que la molette tourne
+// (chaque event la ré-arme) et on le libère 350ms après l'arrêt du défilement.
+let upLocked=false, upTimer=null;
+function lockUp(ms){ upLocked=true; clearTimeout(upTimer); upTimer=setTimeout(()=>upLocked=false,ms); }
+map.getContainer().addEventListener("wheel",()=>{ if(upLocked)lockUp(350); },{passive:true});
 map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
   if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
   else if(d>=1){ const ez=stack[d-1].enterZoom, thr=Math.max(ZOUT[d], ez!=null?ez-ZBACK:ZOUT[d]);
-    if(z<=thr) jumpTo(d-1); } });
+    if(z<=thr && !upLocked){ lockUp(600); jumpTo(d-1); } } });
