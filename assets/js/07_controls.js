@@ -1,11 +1,14 @@
 
 // pastilles d'indicateurs (pas de menu déroulant) ; les pastilles « dyn_* » affichent
 // la paire de scrutins choisie (ex. « Report LFI P22→E24 »).
+const usesPair=k=>k.startsWith("dyn_")||STAT.has(k);
 const labelFor=k=>{ const p=PAST.find(x=>x[0]===k); if(!p)return k;
-  return k.startsWith("dyn_")?`${p[1]} ${selA}→${selB}`:p[1]; };
-// la paire de scrutins ne colore la carte que pour les indicateurs « dyn_* » : on allume
-// le cadre ⚖️ quand l'un d'eux est l'indicateur actif, on le grise sinon.
-const updatePairActive=()=>$("pairgroup").classList.toggle("active",indicKey.startsWith("dyn_"));
+  if(k.startsWith("dyn_"))return `${p[1]} ${selA}→${selB}`;
+  return STAT.has(k)?`${p[1]} · ${selB}`:p[1]; };
+// le sélecteur ⚖️ pilote les réservoirs dyn_* (paire A→B) ET le scrutin affiché des
+// pastilles statiques (instantané en B) : on allume le cadre quand l'indicateur actif
+// dépend de la paire, on le grise sinon (Abstention / Revenu / Pauvreté).
+const updatePairActive=()=>$("pairgroup").classList.toggle("active",usesPair(indicKey));
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
   indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
@@ -22,8 +25,8 @@ function buildSelecteur(){
     sel.innerHTML=SCR.map(([c,l])=>`<option value="${c}"${c===cur?" selected":""}>${l}</option>`).join("");
     sel.onchange=()=>{ selA=$("selA").value; selB=$("selB").value; refreshPair(); }; } }
 function refreshPair(){
-  $("pastilles").querySelectorAll(".chip").forEach(c=>{ if(c.dataset.k.startsWith("dyn_"))c.textContent=labelFor(c.dataset.k); });
-  if(indicKey.startsWith("dyn_")){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
+  $("pastilles").querySelectorAll(".chip").forEach(c=>{ if(usesPair(c.dataset.k))c.textContent=labelFor(c.dataset.k); });
+  if(usesPair(indicKey)){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
@@ -36,5 +39,5 @@ $("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slide
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
   const socio=indicKey==="rev"||indicKey==="pauv";
-  if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi_E24");
+  if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi");
   const t=stack[stack.length-1]; if(t&&t.niveau==="commune")vueCommune(t.code); });

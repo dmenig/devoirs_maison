@@ -47,6 +47,7 @@ function rawVal(o,k){ if(!o)return null;
   if(k==="dyn_report")return pairMetrics(o).report;
   if(k==="dyn_dpart") return pairMetrics(o).dpart;
   if(k==="dyn_perte") return pairMetrics(o).perte;
+  if(STAT.has(k)) return o[`${k}_${selB}`];  // instantané du scrutin B (lfi/part/rn/gauche)
   return o[k]; }
 const valOf=p=>rawVal(curVals[p.__code],indicKey);
 

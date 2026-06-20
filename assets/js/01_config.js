@@ -2,8 +2,12 @@ const BASE="__BASE__";
 const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
-const PAST=[["lfi_E24","Vote LFI","%"],["part_E24","Participation","%"],["rn_E24","Vote RN","%"],
-            ["gauche_E24","Gauche","%"],["dyn_report","Report LFI","%"],
+// pastilles « statiques » (lfi/part/rn/gauche) : instantané du scrutin B choisi dans
+// le sélecteur ⚖️ — d'où la reproduction des cartes BV de la prez à n'importe quel
+// scrutin (Vote LFI Europ. 2024, Munic. 2026, Présid. 2022…), pas seulement aux européennes.
+const STAT=new Set(["lfi","part","rn","gauche"]);
+const PAST=[["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
+            ["gauche","Gauche","%"],["dyn_report","Report LFI","%"],
             ["dyn_dpart","Δ Participation"," pts"],["dyn_perte","Perte gauche","%"],
             ["abst","Abstention (stock)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
 // profil INSEE de la commune (fiche circonscription de la prez, slides 25-28)
@@ -27,7 +31,7 @@ window.__map=map;
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
-const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", indicUnit="%",
+const cache={}; let layer=null, stack=[], indicKey="lfi", indicLabel="Vote LFI", indicUnit="%",
     curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[];
 // entête cliquable d'une section : le détail est poussé dans le volet de droite (slide)
 const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;

@@ -11,10 +11,13 @@ function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adm
     `<div class="bar">${f!=null?`<u style="left:${Math.min(100,f/max*100)}%"></u>`:""}`+
     `<i style="width:${Math.max(2,Math.min(100,v/max*100))}%;background:${col}"></i></div>`;
   let h="";
-  if(a.maire) h+=exp(sec("Maire en exercice")+
-    `<div class="row"><span>${a.maire}</span><b class="frtag">${a.csp||""}</b></div>`,
-    `<b>Maire actuel</b> (Répertoire national des élus, data.gouv). Point de départ de l'<b>histoire `+
-    `électorale</b> locale (slide 22) : complétez avec les maires successifs et la tradition politique connue des militant·es.`);
+  if(a.maire){ const sub=[a.csp||"",a.maire_age!=null?`${a.maire_age} ans`:""].filter(Boolean).join(" · ");
+    h+=exp(sec("Maire en exercice")+
+    `<div class="row"><span>${a.maire}</span><b class="frtag">${sub}</b></div>`,
+    `<b>Maire actuel</b> — nom, catégorie socio-professionnelle et âge (Répertoire national des élus, data.gouv, `+
+    `mai 2026). C'est l'amorce de l'<b>histoire électorale</b> locale (slide 22) ; le détail des maires successifs `+
+    `n'existe dans aucune base ouverte. Pour la trajectoire du territoire, lisez le <b>tableau de recomposition</b> `+
+    `ci-dessus (blocs en % des inscrits, 2012→2026) et confrontez-le à la tradition politique connue des militant·es.`); }
   if(a.ageh&&a.ageh.some(v=>v!=null)){
     const all=[...a.ageh,...a.agef,...(fr.ageh||[]),...(fr.agef||[])].filter(v=>v!=null), mx=Math.max(...all,1);
     let rows="";

@@ -43,8 +43,8 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
 | **Circonscription** | blocs + participation par circo ; tableau de recomposition | reports LFI entre scrutins, capacité de mobilisation | — |
 | **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
-| **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté** par IRIS (carte choroplèthe) |
-| **Bureau de vote** | blocs + participation par BV ; carte/tableau | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
+| **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) |
+| **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
 
@@ -60,6 +60,10 @@ réelles (région, département, circonscription, commune, bureau de vote) :
 
 - **Revenu médian disponible** par IRIS et par commune
 - **Taux de pauvreté** (seuil 60 %) par IRIS et par commune
+- **Dispersion des revenus** par IRIS : **quartiles Q1/Q3**, **déciles D1/D9**, **rapport interdécile
+  D9/D1** et **indice de Gini** — l'écart riches/pauvres au sein du quartier, rendu par une barre de
+  distribution dans la fiche (slide « niveau de vie des ménages »). À la commune : médiane, pauvreté et
+  quartiles (moyenne des IRIS) ; déciles et Gini restent au seul niveau IRIS.
 
 > Note : FILOSOFI à l'IRIS n'existe que pour les communes de ≥ 5 000 habitants ; ailleurs
 > la commune forme un seul IRIS. Le revenu médian communal est ici la moyenne de ses IRIS
@@ -74,7 +78,7 @@ commune et comparée à la moyenne France :
 - **Statut d'occupation** des résidences principales : propriétaires / locataires / HLM (slide 27)
 - **Déplacements domicile-travail** par mode (voiture, transports en commun, marche, vélo…) (slide 28)
 - **Renouvellement de population** : lieu de résidence un an auparavant, 5 catégories (slide 25)
-- **Maire en exercice** (nom + catégorie socio-professionnelle), amorce de l'histoire
+- **Maire en exercice** (nom, catégorie socio-professionnelle, **âge**), amorce de l'histoire
   électorale locale (slide 22)
 
 > Agrégés à la commune depuis les **bases infracommunales (IRIS)** du recensement ; le
@@ -96,9 +100,11 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 
 ## Limites connues
 
-- Les **contours polygonaux de bureaux de vote** n'existent pas nationalement (seul Paris
-  les publie) : au niveau BV, les résultats sont servis en **tableau** (et points quand le
-  REU fournit les coordonnées), pas en choroplèthe.
+- Les **contours de bureaux de vote** sont servis **nationalement en choroplèthe** depuis le jeu
+  data.gouv « Proposition de contours des bureaux de vote » (découpage **Voronoï** autour des adresses
+  des électeurs, méthode Etalab). Ce sont donc des contours **approchés** (pas les périmètres
+  administratifs officiels) ; et tout bureau n'a pas de contour (résultats présents mais non
+  cartographiés là où le Voronoï n'a pu être calculé) — la zone reste alors non colorée.
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
 - Le rattachement bureau de vote → circonscription utilise la table de correspondance 2024.

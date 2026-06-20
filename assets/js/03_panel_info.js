@@ -1,3 +1,18 @@
+// Barre de dispersion des revenus (niveau de vie par UC) : moustaches D1→D9, segment
+// épais Q1→Q3, trait blanc = médiane. Échelle bornée à [D1..D9] (ou [Q1..Q3] à la commune).
+function distBand(o){ const lo=o.d1??o.q1, hi=o.d9??o.q3;
+  if(lo==null||hi==null||hi<=lo)return "";
+  const pos=v=>v==null?null:Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));
+  const q1=pos(o.q1),q3=pos(o.q3),md=pos(o.rev),d1=pos(o.d1),d9=pos(o.d9);
+  const seg=(a,b,bg,ht)=> a==null||b==null?"":
+    `<i style="position:absolute;left:${a}%;width:${Math.max(.5,b-a)}%;top:50%;transform:translateY(-50%);height:${ht}px;background:${bg};border-radius:2px"></i>`;
+  const tick=p=>p==null?"":`<u style="position:absolute;left:${p}%;top:2px;bottom:2px;width:2px;background:#fff;opacity:.9"></u>`;
+  const eur=v=>v.toLocaleString('fr')+" €";
+  return `<div style="position:relative;height:20px;margin:6px 0 3px;background:#2c2640;border-radius:5px">`+
+    seg(d1,d9,"rgba(123,73,179,.4)",6)+seg(q1,q3,"#6b4d94",12)+tick(md)+`</div>`+
+    `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut)">`+
+    `<span>${eur(lo)}</span><span>médiane ${o.rev!=null?eur(o.rev):"—"}</span><span>${eur(hi)}</span></div>`; }
+
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
@@ -90,13 +105,24 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
       `C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
   if(resRows)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
+  // Contexte social (FILOSOFI 2021) : niveau de vie + dispersion (quartiles/déciles,
+  // interdécile, Gini). À l'IRIS le jeu est complet ; à la commune, médiane/pauvreté + Q1/Q3.
+  const eur=v=>v.toLocaleString('fr')+" €";
   const s=[];
-  if(o.rev!=null)s.push(["Revenu médian",o.rev.toLocaleString('fr')+" €"]);
+  if(o.rev!=null)s.push(["Revenu médian disponible",eur(o.rev)]);
   if(o.pauv!=null)s.push(["Taux de pauvreté",o.pauv+" %"]);
-  if(s.length)h+=exp(sec("Contexte social")+
+  if(o.q1!=null)s.push(["1ᵉʳ quartile (Q1)",eur(o.q1)]);
+  if(o.q3!=null)s.push(["3ᵉ quartile (Q3)",eur(o.q3)]);
+  if(o.ridec!=null)s.push(["Rapport interdécile (D9/D1)",o.ridec]);
+  if(o.gini!=null)s.push(["Indice de Gini",o.gini]);
+  if(s.length)h+=exp(sec("Contexte social")+distBand(o)+
     s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
-    `<b>Revenu médian</b> disponible par unité de consommation et <b>taux de pauvreté</b> (part sous le seuil de `+
-    `pauvreté). Source : INSEE FILOSOFI 2021, à la commune (ou à l'IRIS en vue quartiers).`);
+    `<b>Revenu médian disponible</b> par unité de consommation et <b>taux de pauvreté</b> (part sous 60 % du `+
+    `revenu médian national). La barre montre la <b>dispersion</b> des revenus : segment épais = Q1→Q3 (la moitié `+
+    `centrale des ménages), fines moustaches = D1→D9 (8 ménages sur 10), trait blanc = médiane. `+
+    `<b>Rapport interdécile</b> D9/D1 et <b>indice de Gini</b> (0 = égalité, 1 = inégalité maximale) mesurent `+
+    `l'écart riches/pauvres dans la zone. Source : INSEE FILOSOFI 2021 — à l'<b>IRIS</b> (quartier) le détail est `+
+    `complet ; à la <b>commune</b>, médiane et quartiles (moyenne des IRIS).`);
   h+=adminPanel(o);
   h+=actionPanel(o);
   info.innerHTML=`<div class="slider"><div class="pane">${h}</div>`+
