@@ -1,0 +1,38 @@
+{
+  "scrutins": [
+    "2012-presidentielle",
+    "2014-europeenne",
+    "2014-municipales",
+    "2017-legislatives-1",
+    "2017-legislatives-2",
+    "2017-presidentielle-1",
+    "2017-presidentielle-2",
+    "2019-europeenne",
+    "2020-municipales-1",
+    "2020-municipales-2",
+    "2021-departementales-1",
+    "2021-departementales-2",
+    "2021-regionales-1",
+    "2021-regionales-2",
+    "2022-legislatives-1",
+    "2022-legislatives-2",
+    "2022-presidentielle-1",
+    "2022-presidentielle-2",
+    "2024-europeenne",
+    "2024-legislatives-1",
+    "2024-legislatives-2",
+    "2026-conseils-PLM-1",
+    "2026-conseils-PLM-2",
+    "2026-municipales-1",
+    "2026-municipales-2"
+  ],
+  "niveaux": [
+    "bureau",
+    "circonscription",
+    "commune",
+    "departement",
+    "france",
+    "region"
+  ],
+  "iris_contours": true
+}

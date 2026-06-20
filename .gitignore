@@ -1,6 +1,8 @@
-# Données générées (volumineuses) : régénérées par prepare_data.py / regen_geo.py
-data_app/
 __pycache__/
 *.pyc
 .venv/
 node_modules/
+data_app/data_app.tar.gz
+# Intermédiaires volumineux (régénérables)
+data_app/geo/_*.geojson
+data_app/geo/_circo_src/

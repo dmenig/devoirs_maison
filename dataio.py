@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import tarfile
+import urllib.request
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +13,26 @@ import streamlit as st
 
 DATA = Path(__file__).parent / "data_app"
 GEO = DATA / "geo"
+
+# Les données (volumineuses) ne sont pas dans git : en déploiement, elles sont
+# téléchargées une fois depuis une release GitHub puis mises en cache sur le disque.
+DATA_URL = os.environ.get(
+    "ATLAS_DATA_URL",
+    "https://github.com/dmenig/devoirs_maison/releases/download/data-v1/data_app.tar.gz",
+)
+
+
+@st.cache_resource(show_spinner="Téléchargement des données (une seule fois)…")
+def assurer_donnees() -> bool:
+    """Télécharge et extrait data_app/ si absent."""
+    if (DATA / "manifest.json").exists():
+        return True
+    tmp = DATA.parent / "data_app.tar.gz"
+    urllib.request.urlretrieve(DATA_URL, tmp)
+    with tarfile.open(tmp) as t:
+        t.extractall(DATA.parent)
+    tmp.unlink(missing_ok=True)
+    return (DATA / "manifest.json").exists()
 
 
 @st.cache_data(show_spinner=False)

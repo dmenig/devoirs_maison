@@ -211,8 +211,9 @@ def main() -> None:
     st.title("🗳️ Atlas électoral militant")
     st.caption("Connaître le territoire à toutes les échelles — d'après la présentation "
                "« Analyse électorale » de l'Institut La Boétie. Voir DOCUMENTATION.md.")
-    if not io.manifest()["scrutins"]:
-        st.error("Données absentes : lancez `prepare_data.py`.")
+    if not io.assurer_donnees() or not io.manifest()["scrutins"]:
+        st.error("Données indisponibles. En local : lancez `prepare_data.py`. "
+                 "En ligne : vérifiez l'accès à la release de données.")
         return
     recherche_commune_globale()
     fil_ariane()
