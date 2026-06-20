@@ -262,13 +262,16 @@ def main() -> None:
     print(f"  ✓ values commune (par département, {len(par_dep)})")
 
     iris = pd.read_parquet(DA / "socio_iris.parquet")
-    _ecrire(
-        "iris",
-        {
-            str(r.code_iris): _socio_champs(r._asdict())
-            for r in iris.itertuples(index=False)
-        },
-    )
+    iris_vals = {
+        str(r.code_iris): _socio_champs(r._asdict())
+        for r in iris.itertuples(index=False)
+    }
+    # Communes sans découpage IRIS (FILOSOFI infra-communal non diffusé) : leur unique
+    # contour {commune}0000 n'a pas de ligne socio_iris. On y rabat le revenu/pauvreté
+    # communal (FILOSOFI commune) pour que la vue Quartiers ne soit pas vide (ex. Mortery).
+    for r in sc.itertuples(index=False):
+        iris_vals.setdefault(f"{r.code_commune}0000", _socio_champs(r._asdict()))
+    _ecrire("iris", iris_vals)
     print("  ✓ values iris")
 
     bv = pd.read_parquet(DA / "resultats_bureau.parquet")
