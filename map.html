@@ -297,9 +297,10 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
     resDet+=`<p><b>Taux de perte gauche</b> : la gauche (bloc social-écologique) a perdu <b>${pm.perte}%</b> de ses voix entre `+
       `${scLab(selA)} et ${scLab(selB)} (voix réelles). Une valeur négative = progression.</p>`; }
   if(o.abst!=null){
-    resRows+=`<div class="row"><span>Abstention mobilisable (stock, E24)</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`;
-    resDet+=`<p><b>Abstention mobilisable</b> : nombre d'inscrits n'ayant pas voté aux européennes 2024 `+
-      `(inscrits × taux d'abstention). Réservoir brut de voix à ramener aux urnes.</p>`; }
+    resRows+=`<div class="row"><span>Abstentionnistes à remobiliser · E24</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`;
+    resDet+=`<p><b>Abstentionnistes à remobiliser</b> : <b>nombre</b> d'inscrits n'ayant pas voté aux européennes 2024 `+
+      `(inscrits × taux d'abstention) — et non le <b>taux</b> d'abstention en % affiché plus haut. `+
+      `C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
   if(resRows)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
   const s=[];
