@@ -55,12 +55,8 @@
   #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
   #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
-  #info .exp .exph{cursor:pointer}
-  #info .exp .exph .ico{float:right;color:var(--lav);font-size:10px;font-weight:600;margin-top:3px}
-  #info .exp.open .exph .ico::after{content:" ▴"}
-  #info .exp .det,#info .det2{display:none;font-size:11.5px;color:#cabfdc;line-height:1.5;
+  #info .exp .det,#info .det2{display:block;font-size:11.5px;color:#cabfdc;line-height:1.5;
        background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:7px 9px;border-radius:0 6px 6px 0;margin:6px 0 2px}
-  #info .exp.open .det,#info .exp.open .det2{display:block}
   #info .det b,#info .det2 b{color:var(--txt)}
   #info .bar{position:relative}
   #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85;z-index:2}
@@ -209,9 +205,9 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
   const barRow=(lab,v,col,max=50)=> v==null?"":
     `<div class="lab"><span>${lab}</span><b>${v} %</b></div>`+
     `<div class="bar"><i style="width:${w(v,max)}%;background:${col}"></i></div>`;
-  // bloc dépliable : entête cliquable + détail caché révélant le calcul
+  // bloc : entête + détail affiché révélant le calcul
   const exp=(body,det)=> det?
-    `<div class="exp"><div class="exph">${body}<span class="ico">détails ▾</span></div><div class="det">${det}</div></div>`
+    `<div class="exp"><div class="exph">${body}</div><div class="det">${det}</div></div>`
     : `<div class="exp">${body}</div>`;
   const sec=t=>`<div class="sec">${t}</div>`;
 
@@ -311,7 +307,7 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
 // pyramide des âges, statut d'occupation, déplacements domicile-travail,
 // renouvellement de population et maire en exercice — chacun comparé à la France.
 function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adminFr||{};
-  const exp=(body,det)=>`<div class="exp"><div class="exph">${body}<span class="ico">détails ▾</span></div><div class="det">${det}</div></div>`;
+  const exp=(body,det)=>`<div class="exp"><div class="exph">${body}</div><div class="det">${det}</div></div>`;
   const sec=t=>`<div class="sec">${t}</div>`;
   // barre comparative : remplissage commune + repère France (trait blanc « u »)
   const cmp=(lab,v,f,col,max)=> v==null?"":
@@ -468,8 +464,6 @@ $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.da
   const socio=indicKey==="rev"||indicKey==="pauv";
   if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi_E24");
   const t=stack[stack.length-1]; if(t&&t.niveau==="commune")vueCommune(t.code); });
-// déplier le détail d'une section de la fiche
-$("info").addEventListener("click",e=>{ const h=e.target.closest(".exph"); if(h)h.parentElement.classList.toggle("open"); });
 
 async function initSearch(){ const idx=await getJSON("values/communes_index.json"); if(!idx)return;
   $("search").__idx=idx; const dl=$("communes");
