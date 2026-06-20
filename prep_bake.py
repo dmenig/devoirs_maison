@@ -8,11 +8,27 @@ suffisant pour l'usage militant et léger à charger."""
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
 
 import indicators as ind
+
+
+def _clean(o):
+    """Remplace NaN/Infinity par None : JSON valide pour les navigateurs."""
+    if isinstance(o, float):
+        return None if (math.isnan(o) or math.isinf(o)) else o
+    if isinstance(o, dict):
+        return {k: _clean(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_clean(v) for v in o]
+    return o
+
+
+def _dumps(data) -> str:
+    return json.dumps(_clean(data), ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 OUT = Path(__file__).parent / "data_app" / "values"
 
@@ -66,7 +82,7 @@ def _valeurs_niveau(df: pd.DataFrame) -> dict[str, dict[str, float]]:
 
 
 def _ecrire(nom: str, data: dict) -> None:
-    (OUT / f"{nom}.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+    (OUT / f"{nom}.json").write_text(_dumps(data))
 
 
 def main() -> None:
@@ -89,7 +105,7 @@ def main() -> None:
     (OUT / "bv").mkdir(exist_ok=True)
     for dep, sous in bv.groupby("dep"):
         (OUT / "bv" / f"{dep}.json").write_text(
-            json.dumps(_valeurs_niveau(sous), ensure_ascii=False, separators=(",", ":")))
+            _dumps(_valeurs_niveau(sous)))
     print("  ✓ values bv (par département)")
 
     _ecrire("_catalogue", {"indicateurs": catalogue()})
