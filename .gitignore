@@ -1,0 +1,6 @@
+# Données générées (volumineuses) : régénérées par prepare_data.py / regen_geo.py
+data_app/
+__pycache__/
+*.pyc
+.venv/
+node_modules/
