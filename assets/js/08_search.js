@@ -15,7 +15,7 @@ async function initSearch(){
   if(!idx)return;
   idx.forEach(e=>{e.__nom=norm(e.nom);e.__n=e.__nom+" "+e.code.toLowerCase();});
   const sb=$("search"),dl=$("zones"); sb.__byval={};
-  const fill=q=>{ dl.innerHTML=""; sb.__byval={};
+  const fill=q=>{ dl.innerHTML="";
     const toks=norm(q.trim()).split(/\s+/).filter(Boolean); if(!toks.length)return;
     const hits=[];
     for(const e of idx){ if(!toks.every(t=>e.__n.includes(t)))continue;
