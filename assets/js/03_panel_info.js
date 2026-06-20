@@ -27,11 +27,19 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
 
   const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
   let h=`<div class="t">${nom}</div>`;
-  h+=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
-         `<div class="head">${lfi==null?"—":lfi+" %"}<small> des inscrits</small></div>`,
-    `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+
-    `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
-    `Source : Ministère de l'Intérieur.`);
+  if(lfi!=null){
+    h+=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
+           `<div class="head">${lfi} %<small> des inscrits</small></div>`,
+      `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+
+      `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
+      `Source : Ministère de l'Intérieur.`);
+  } else if(o.rev!=null){
+    h+=exp(`<div class="lead">Revenu médian · quartier</div>`+
+           `<div class="head">${o.rev.toLocaleString('fr')} €<small> par personne / an</small></div>`,
+      `À l'échelle du <b>quartier (IRIS)</b>, les résultats électoraux ne sont pas disponibles : le vote se compte `+
+      `par <b>bureau de vote</b>, pas par IRIS. On affiche donc le <b>contexte social</b> — revenu médian par personne `+
+      `après impôts et aides. Source : INSEE FILOSOFI 2021.`);
+  }
 
   if(SCR.some(([sc])=>o[`lfi_${sc}`]!=null)){
     h+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
