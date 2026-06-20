@@ -63,8 +63,9 @@
   #info .slider.on{transform:translateX(-50%)}
   #info .pane{width:50%;flex:0 0 50%;box-sizing:border-box}
   #info .detpane{padding-left:2px}
-  #info .back{cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--lav);font-weight:700;
+  #info .back{cursor:pointer;display:none;align-items:center;gap:5px;color:var(--lav);font-weight:700;
        font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px}
+  #info .slider.on .back{display:inline-flex}
   #info .detbody{font-size:12px;color:#cabfdc;line-height:1.55;
        background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:9px 11px;border-radius:0 8px 8px 0}
   #info .detbody b{color:var(--txt)}
