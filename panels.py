@@ -89,6 +89,32 @@ def _socio_commune_repli(code_commune: str) -> None:
                 ",", " "
             )
         )
+    _socio_repli_recensement(r)
+
+
+def _socio_repli_recensement(r: pd.Series) -> None:
+    """Déterminants du vote (recensement 2021) : CSP, diplômes, logement, chômage."""
+    pct = lambda c: f"{r[c]:.0f} %" if c in r and pd.notna(r[c]) else None  # noqa: E731
+    lignes = {
+        "Ouvriers": pct("csp_ouvriers"),
+        "Employés": pct("csp_employes"),
+        "Cadres / prof. sup.": pct("csp_cadres"),
+        "Retraités": pct("csp_retraites"),
+        "Taux de chômage (15-64)": pct("taux_chomage"),
+        "Diplômé·e du supérieur": pct("part_sup"),
+        "Sans diplôme / brevet": pct("part_sans_diplome"),
+        "Propriétaires": pct("part_proprietaires"),
+        "Logement social (HLM)": pct("part_hlm"),
+    }
+    lignes = {k: v for k, v in lignes.items() if v}
+    if not lignes:
+        return
+    st.markdown("**Profil social (recensement 2021)**")
+    st.dataframe(
+        pd.DataFrame({"Indicateur": list(lignes), "Valeur": list(lignes.values())}),
+        width="stretch",
+        hide_index=True,
+    )
 
 
 def _carte_iris(code_commune: str) -> None:

@@ -35,7 +35,9 @@ COLS_COMMUNE = {
 
 
 def construire_socio(
-    filosofi_csv: Path, filosofi_commune_csv: Path | None = None
+    filosofi_csv: Path,
+    filosofi_commune_csv: Path | None = None,
+    rp_iris_csv: Path | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(filosofi_csv, dtype={"code_iris": str})
     garde = [c for c in COLS if c in df.columns]
@@ -55,7 +57,48 @@ def construire_socio(
         commune = _commune_depuis_filosofi(filosofi_commune_csv, iris_agg)
     else:
         commune = iris_agg.round({"revenu_median": 0, "taux_pauvrete": 0})
+
+    if rp_iris_csv and rp_iris_csv.exists():
+        rp_iris, rp_com = _charger_rp(rp_iris_csv)
+        iris = iris.merge(
+            rp_iris.drop(columns="code_commune"), on="code_iris", how="outer"
+        )
+        iris["code_commune"] = iris["code_commune"].fillna(iris["code_iris"].str[:5])
+        commune = commune.merge(rp_com, on="code_commune", how="outer")
+        commune["nb_iris"] = commune["nb_iris"].fillna(0).astype(int)
     return iris, commune
+
+
+# --- recensement (âge, CSP, diplômes, logement) : comptages -> parts (% ) ----------
+_AGE = ("0014", "1529", "3044", "4559", "6074", "75p")
+_CSP = ("cadres", "interm", "employes", "ouvriers", "retraites")
+
+
+def _rp_parts(c: pd.DataFrame) -> pd.DataFrame:
+    def pct(num: str, den: str) -> pd.Series:
+        return (100 * c[num] / c[den]).where(c[den] > 0).round(1)
+
+    out = pd.DataFrame(index=c.index)
+    for b in _AGE:
+        out[f"age_{b}"] = pct(f"age_{b}", "pop")
+    for cs in _CSP:
+        out[f"csp_{cs}"] = pct(f"cs_{cs}", "pop15p")
+    out["taux_chomage"] = pct("chom1564", "act1564")
+    out["part_sans_diplome"] = pct("dipl_aucun", "nscol15p")
+    out["part_sup"] = pct("dipl_sup", "nscol15p")
+    out["part_proprietaires"] = pct("rp_prop", "rp")
+    out["part_locataires"] = pct("rp_loc", "rp")
+    out["part_hlm"] = pct("rp_hlm", "rp")
+    return out
+
+
+def _charger_rp(rp_csv: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    c = pd.read_csv(rp_csv, dtype={"code_iris": str, "code_commune": str})
+    iris = c.set_index("code_iris")
+    iris_parts = _rp_parts(iris)
+    iris_parts.insert(0, "code_commune", iris["code_commune"])
+    com = c.groupby("code_commune").sum(numeric_only=True)
+    return iris_parts.reset_index(), _rp_parts(com).reset_index()
 
 
 def _commune_depuis_filosofi(chemin: Path, iris_agg: pd.DataFrame) -> pd.DataFrame:

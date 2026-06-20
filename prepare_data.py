@@ -93,7 +93,9 @@ def main() -> None:
     filosofi = CLEAN / "filosofi" / "disponible.csv"
     if filosofi.exists():
         iris, commune_socio = construire_socio(
-            filosofi, CLEAN / "filosofi" / "commune.csv"
+            filosofi,
+            CLEAN / "filosofi" / "commune.csv",
+            CLEAN / "recensement" / "iris.csv",
         )
         iris.to_parquet(OUT / "socio_iris.parquet", index=False)
         commune_socio.to_parquet(OUT / "socio_commune.parquet", index=False)

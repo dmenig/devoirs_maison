@@ -200,6 +200,24 @@ _SOCIO_KEYS = {
     "d9": ("d9", 0),
     "rapport_interdecile": ("ridec", 1),
     "gini": ("gini", 3),
+    # recensement 2021 : âge, CSP, chômage, diplômes, logement (% — déterminants du vote)
+    "age_0014": ("a014", 1),
+    "age_1529": ("a1529", 1),
+    "age_3044": ("a3044", 1),
+    "age_4559": ("a4559", 1),
+    "age_6074": ("a6074", 1),
+    "age_75p": ("a75", 1),
+    "csp_cadres": ("cad", 1),
+    "csp_interm": ("pint", 1),
+    "csp_employes": ("emp", 1),
+    "csp_ouvriers": ("ouv", 1),
+    "csp_retraites": ("ret", 1),
+    "taux_chomage": ("chom", 1),
+    "part_sans_diplome": ("dipl0", 1),
+    "part_sup": ("diplsup", 1),
+    "part_proprietaires": ("logprop", 1),
+    "part_locataires": ("logloc", 1),
+    "part_hlm": ("loghlm", 1),
 }
 
 

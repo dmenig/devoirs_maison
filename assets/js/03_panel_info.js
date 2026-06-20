@@ -132,6 +132,28 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
     `riches gagnent plus que les 10 % les plus pauvres) et l'<b>indice de Gini</b> (0 = égalité parfaite, 1 = inégalité `+
     `maximale) mesurent les inégalités dans la zone. Source : INSEE FILOSOFI 2021 (données fiscales) — par <b>quartier</b> `+
     `le détail est complet ; à l'échelle de la <b>commune</b>, médiane et seuils (moyenne des quartiers).`);
+
+  // Déterminants du vote (recensement INSEE 2021) : âge, CSP, diplômes, logement.
+  const pctRows=arr=>arr.filter(x=>o[x[1]]!=null)
+    .map(x=>`<div class="row"><span>${x[0]}</span><b>${o[x[1]]} %</b></div>`).join("");
+  const age=pctRows([["0-14 ans","a014"],["15-29 ans","a1529"],["30-44 ans","a3044"],
+    ["45-59 ans","a4559"],["60-74 ans","a6074"],["75 ans et +","a75"]]);
+  if(age)h+=exp(sec("Âge de la population · 2021")+age,
+    `Répartition par tranche d'âge (INSEE, recensement 2021). L'âge est l'un des principaux `+
+    `déterminants du vote et de la participation.`);
+  const csp=pctRows([["Cadres / prof. sup.","cad"],["Professions intermédiaires","pint"],
+    ["Employés","emp"],["Ouvriers","ouv"],["Retraités","ret"],["Taux de chômage (15-64 ans)","chom"]]);
+  if(csp)h+=exp(sec("Catégories sociales · 2021")+csp,
+    `Composition socioprofessionnelle des 15 ans et plus (en % de cette population) et taux de `+
+    `chômage des actifs (INSEE 2021). Le métier (PCS) structure fortement le vote.`);
+  const dip=pctRows([["Sans diplôme ou brevet seul","dipl0"],["Diplômé·e du supérieur","diplsup"]]);
+  if(dip)h+=exp(sec("Diplômes · 2021")+dip,
+    `Part des 15 ans et plus non scolarisés sans diplôme (ou brevet seul) et part diplômés du `+
+    `supérieur (INSEE 2021).`);
+  const log=pctRows([["Propriétaires","logprop"],["Locataires","logloc"],["Logement social (HLM)","loghlm"]]);
+  if(log)h+=exp(sec("Logement · 2021")+log,
+    `Statut d'occupation des résidences principales (INSEE 2021). Le mode d'habitat est un `+
+    `déterminant du vote.`);
   h+=adminPanel(o);
   h+=actionPanel(o);
   info.innerHTML=`<div class="slider"><div class="pane">${h}</div>`+
