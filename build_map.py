@@ -18,9 +18,10 @@ JS_MARK = "/*__JS__*/"
 
 def assemble_map(base: str | None = None) -> str:
     css = (ASSETS / "map.css").read_text(encoding="utf-8")
-    js = "\n".join(
+    parts = [
         f.read_text(encoding="utf-8") for f in sorted((ASSETS / "js").glob("*.js"))
-    )
+    ]
+    js = "".join(p if p.endswith("\n") else p + "\n" for p in parts)
     html = (ROOT / "map.html").read_text(encoding="utf-8")
     if CSS_MARK not in html or JS_MARK not in html:
         raise ValueError("map.html : marqueurs __CSS__ / __JS__ introuvables")

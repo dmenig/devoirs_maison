@@ -187,6 +187,31 @@ def _ecrire(nom: str, data: dict) -> None:
     (OUT / f"{nom}.json").write_text(_dumps(data))
 
 
+# FILOSOFI -> clés client compactes. Niveau de vie (revenu disponible par UC), seuil de
+# pauvreté, et la dispersion (quartiles / déciles / interdécile / Gini) que la prez
+# demande de regarder (slide « niveau de vie des ménages »). IRIS = jeu complet ;
+# commune = revenu/pauvreté + quartiles (moyenne de ses IRIS).
+_SOCIO_KEYS = {
+    "revenu_median": ("rev", 0),
+    "taux_pauvrete": ("pauv", 1),
+    "q1": ("q1", 0),
+    "q3": ("q3", 0),
+    "d1": ("d1", 0),
+    "d9": ("d9", 0),
+    "rapport_interdecile": ("ridec", 1),
+    "gini": ("gini", 3),
+}
+
+
+def _socio_champs(row: dict) -> dict:
+    out: dict = {}
+    for col, (cle, dec) in _SOCIO_KEYS.items():
+        v = row.get(col)
+        if v is not None and pd.notna(v):
+            out[cle] = round(float(v), dec) if dec else round(float(v))
+    return out
+
+
 def _baker_admin(com: dict[str, dict], da: Path) -> None:
     """Fusionne admin_commune dans les valeurs communales + écrit la référence France."""
     f = da / "admin_commune.parquet"
@@ -224,14 +249,8 @@ def main() -> None:
         pd.read_parquet(DA / "resultats_commune.parquet"), ordre, fiables
     )
     sc = pd.read_parquet(DA / "socio_commune.parquet")
-    for code, rev, pauv in zip(
-        sc["code_commune"], sc["revenu_median"], sc["taux_pauvrete"]
-    ):
-        o = com.setdefault(str(code), {})
-        if pd.notna(rev):
-            o["rev"] = int(rev)
-        if pd.notna(pauv):
-            o["pauv"] = round(float(pauv), 1)
+    for r in sc.itertuples(index=False):
+        com.setdefault(str(r.code_commune), {}).update(_socio_champs(r._asdict()))
     _baker_admin(com, DA)
     (OUT / "commune").mkdir(exist_ok=True)
     par_dep: dict[str, dict] = {}
@@ -246,13 +265,8 @@ def main() -> None:
     _ecrire(
         "iris",
         {
-            str(c): {
-                "rev": (round(r) if pd.notna(r) else None),
-                "pauv": (round(p, 1) if pd.notna(p) else None),
-            }
-            for c, r, p in zip(
-                iris["code_iris"], iris["revenu_median"], iris["taux_pauvrete"]
-            )
+            str(r.code_iris): _socio_champs(r._asdict())
+            for r in iris.itertuples(index=False)
         },
     )
     print("  ✓ values iris")

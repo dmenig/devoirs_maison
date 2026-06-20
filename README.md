@@ -24,7 +24,7 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 | --- | --- |
 | `map.html` | **squelette** de la carte servie : balisage des panneaux + marqueurs `/*__CSS__*/` et `/*__JS__*/` |
 | `assets/map.css` | thème et mise en page de la carte |
-| `assets/js/0{1..4}_*.js` | logique de la carte, éclatée par responsabilité (core · panels · navigation · controls) ; concaténée dans l'ordre des noms |
+| `assets/js/*.js` | logique de la carte, un fichier par responsabilité (config · data/geo · panneau info · panneau admin · panneau action · navigation · contrôles · recherche) ; concaténée dans l'ordre des noms (préfixe `NN_`) |
 | `build_map.py` | `assemble_map(base)` : recolle squelette + CSS + JS en une string et injecte `__BASE__` |
 | `streamlit_app.py` | wrapper plein écran : sert `assemble_map(BASE)` |
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |

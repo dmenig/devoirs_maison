@@ -30,6 +30,7 @@ TRANSPORTS = ["PAS", "MAR", "VELO", "2ROUESMOT", "VOIT", "TCOM"]  # slide 28
 # même logement / autre logement même commune / autre commune du dépt / hors dépt en
 # France (autre dépt, hors région, DOM, COM) / à l'étranger (UE + hors UE). Z = sans objet.
 IRAN_CAT = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 3, "6": 3, "7": 3, "8": 4, "9": 4}
+ANNEE_REF = 2026  # année de référence pour l'âge du maire (snapshot RNE 2026)
 
 
 @dataclass(frozen=True)
@@ -170,12 +171,14 @@ def _maires(cache: Path) -> pd.DataFrame:
             "Nom de l'élu": "nom",
             "Prénom de l'élu": "prenom",
             "Libellé de la catégorie socio-professionnelle": "maire_csp",
+            "Date de naissance": "naissance",
         }
     )
     df["maire"] = (
         df["prenom"].str.strip() + " " + df["nom"].str.title().str.strip()
     ).str.strip()
-    return df.set_index("COM")[["maire", "maire_csp"]]
+    df["maire_naissance"] = pd.to_numeric(df["naissance"].str[:4], errors="coerce")
+    return df.set_index("COM")[["maire", "maire_csp", "maire_naissance"]]
 
 
 def champs_client(row: pd.Series) -> dict:
@@ -199,6 +202,8 @@ def champs_client(row: pd.Series) -> dict:
         d["maire"] = str(row["maire"])
         if pd.notna(row.get("maire_csp")):
             d["csp"] = str(row["maire_csp"])
+        if "maire_naissance" in row and pd.notna(row.get("maire_naissance")):
+            d["maire_age"] = ANNEE_REF - int(row["maire_naissance"])
     return d
 
 
