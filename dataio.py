@@ -90,6 +90,12 @@ def geojson_iris(dep: str) -> dict | None:
 
 
 @st.cache_data(show_spinner=False)
+def geojson_bv(dep: str) -> dict | None:
+    f = GEO / "bv" / f"{dep}.geojson"
+    return json.loads(f.read_text()) if f.exists() else None
+
+
+@st.cache_data(show_spinner=False)
 def noms() -> dict[str, dict[str, str]]:
     """Tables code -> nom pour chaque niveau."""
     out: dict[str, dict[str, str]] = {}

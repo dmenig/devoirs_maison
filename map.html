@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Atlas électoral militant</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,sans-serif}
+  #map{position:absolute;inset:0}
+  .panel{position:absolute;z-index:1000;background:#fff;border-radius:10px;
+         box-shadow:0 1px 8px rgba(0,0,0,.25);padding:8px 11px;font-size:13px}
+  #top{top:10px;left:52px;right:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #fil{font-weight:700;color:#5b2a86}
+  #back{cursor:pointer;border:none;background:#5b2a86;color:#fff;border-radius:7px;padding:5px 10px}
+  #back:disabled{opacity:.3;cursor:default}
+  #search{min-width:230px;padding:5px 7px;border:1px solid #ccc;border-radius:7px;font-size:13px}
+  #info{top:64px;right:10px;max-width:300px;display:none}
+  #info .t{font-weight:700;font-size:15px;color:#5b2a86;margin-bottom:4px}
+  #info table{border-collapse:collapse;width:100%}
+  #info th,#info td{padding:2px 5px;text-align:right;font-variant-numeric:tabular-nums}
+  #info th:first-child,#info td:first-child{text-align:left;color:#444}
+  #info thead th{border-bottom:1px solid #ddd;font-size:11px;color:#888}
+  #info .res{margin-top:6px;font-size:12px;color:#333}
+  #legend{bottom:14px;right:10px}
+  #legend select{font-size:13px;padding:3px 5px;border:1px solid #ccc;border-radius:6px;max-width:230px}
+  .bar{display:inline-block;width:140px;height:10px;border-radius:3px;vertical-align:middle;
+       background:linear-gradient(to right,#2166ac,#67a9cf,#f7f7f7,#ef8a62,#b2182b)}
+  .hint{color:#777;font-size:11px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="top" class="panel">
+  <button id="back" disabled title="Remonter">⬅</button>
+  <span id="fil">🇫🇷 France</span>
+  <input id="search" list="communes" placeholder="🔎 Rechercher une commune…"/>
+  <datalist id="communes"></datalist>
+  <span id="loading" class="hint"></span>
+</div>
+<div id="info" class="panel"></div>
+<div id="legend" class="panel">
+  <div id="legtitle" style="font-weight:600;color:#5b2a86">Vote LFI</div>
+  <div style="margin-top:4px"><span style="color:#2166ac">– faible</span>
+    <span class="bar"></span><span style="color:#b2182b">élevé +</span></div>
+  <div class="hint">couleur = écart à la moyenne · cliquez une zone pour tous ses chiffres</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const BASE="__BASE__";
+const FRANCE=[[41.3,-5.2],[51.2,9.7]];
+const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
+const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
+const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+
+const cache={}; let layer=null, stack=[], catalogue=[], indicKey=null, curVals={};
+const $=id=>document.getElementById(id);
+
+async function getJSON(p){ if(cache[p])return cache[p];
+  $("loading").textContent="chargement…";
+  const r=await fetch(BASE+"/"+p); const j=r.ok?await r.json():null; cache[p]=j;
+  $("loading").textContent=""; return j; }
+const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
+
+function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v));
+  if(!xs.length)return()=>"#dddddd";
+  const m=xs.reduce((a,b)=>a+b,0)/xs.length, sp=Math.max(...xs.map(v=>Math.abs(v-m)),1e-6);
+  const s=["#2166ac","#67a9cf","#f7f7f7","#ef8a62","#b2182b"];
+  return v=>{ if(v==null||isNaN(v))return"#dddddd"; let t=Math.max(-1,Math.min(1,(v-m)/sp));
+    const x=(t+1)/2*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
+const valOf=(p)=>{const o=curVals[p.__code];return o?o[indicKey]:null;};
+
+function infoPanel(nom,o){ const info=$("info");
+  if(!o){info.style.display="none";return;}
+  let h=`<div class="t">${nom}</div><table><thead><tr><th></th>`+
+    MET.map(m=>`<th>${m[1]}</th>`).join("")+`</tr></thead><tbody>`;
+  SCR.forEach(([sc,lab])=>{ if(MET.some(m=>o[`${m[0]}_${sc}`]!=null)){
+    h+=`<tr><td>${lab}</td>`+MET.map(m=>{const v=o[`${m[0]}_${sc}`];
+      return `<td>${v==null?"·":v+" %"}</td>`;}).join("")+`</tr>`; }});
+  h+="</tbody></table>";
+  const r=[]; if(o.rep_lfi!=null)r.push(`Report LFI P22→E24 : <b>${o.rep_lfi} %</b>`);
+  if(o.dpart!=null)r.push(`Δ participation P22→E24 : <b>${o.dpart} %</b>`);
+  if(o.abst!=null)r.push(`Abstentionnistes E24 : <b>${o.abst.toLocaleString('fr')}</b>`);
+  if(o.rev!=null)r.push(`Revenu médian : <b>${o.rev.toLocaleString('fr')} €</b>`);
+  if(o.pauv!=null)r.push(`Taux de pauvreté : <b>${o.pauv} %</b>`);
+  if(r.length)h+=`<div class="res">${r.join("<br>")}</div>`;
+  info.innerHTML=h; info.style.display="block"; }
+
+function dessiner(geo,valeurs,codeProp,nameProp,onClick){
+  if(layer)layer.remove(); curVals=valeurs;
+  geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
+    f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
+  const fc=colorer(geo.features.map(f=>valOf(f.properties)));
+  layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#555",weight:.6,fillOpacity:.82}),
+    onEachFeature:(f,ly)=>{ ly.bindTooltip(f.properties.__nom,{sticky:true});
+      ly.on("mouseover",()=>ly.setStyle({weight:2.5,color:"#000"}));
+      ly.on("mouseout",()=>layer.resetStyle(ly));
+      ly.on("click",()=>{ infoPanel(f.properties.__nom,valeurs[f.properties.__code]);
+        if(onClick)onClick(f,ly); }); }}).addTo(map); }
+
+function setFil(){ $("fil").textContent=["🇫🇷 France",...stack.map(s=>s.nom)].join("  ›  ");
+  $("back").disabled=stack.length===0; }
+
+async function vueFrance(){ stack=[]; setFil(); map.flyToBounds(FRANCE,{duration:.7});
+  dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
+    (f,ly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+async function vueRegion(code){
+  const [geo,val,hier]=await Promise.all([getJSON("geo/departements.geojson"),
+    getJSON("values/departement.json"),getJSON("values/_hierarchie.json")]);
+  const deps=new Set(hier.departements.filter(d=>d.region===code).map(d=>d.code));
+  dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
+    val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+async function vueDepartement(code){
+  const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON("values/commune.json")]);
+  if(!geo){$("loading").textContent="contours indisponibles";return;}
+  dessiner(geo,val,"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+async function vueCommune(code){ const dep=depOf(code);
+  const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
+  if(!geo){$("loading").textContent="contours BV indisponibles";return;}
+  const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_commune)===code)};
+  if(!fc.features.length){$("loading").textContent="pas de bureaux pour cette commune";return;}
+  dessiner(fc,val,"bureau","bureau",(f)=>infoPanel("Bureau "+f.properties.bureau,val[f.properties.__code])); }
+
+async function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
+  if(bounds)map.flyToBounds(bounds,{duration:.8,maxZoom:niveau==="commune"?15:11});
+  setTimeout(()=>render(niveau,code),320); }
+function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
+  else if(n==="commune")vueCommune(c); }
+$("back").onclick=()=>{ stack.pop(); const t=stack[stack.length-1]; setFil(); infoPanel(null);
+  if(t){map.flyToBounds(t.bounds,{duration:.7});render(t.niveau,t.code);}else vueFrance(); };
+
+async function initSearch(){ const idx=await getJSON("values/communes_index.json"); if(!idx)return;
+  $("search").__idx=idx; const dl=$("communes");
+  idx.slice(0,8000).forEach(c=>{const o=document.createElement("option");o.value=`${c.nom} · ${c.code}`;dl.appendChild(o);}); }
+$("search").addEventListener("change",async()=>{
+  const m=$("search").value.match(/(\d[\dAB]\d{3})\s*$/i); if(!m)return;
+  const code=m[1].toUpperCase(),idx=$("search").__idx||[],c=idx.find(x=>x.code===code); if(!c)return;
+  stack=[{niveau:"region",code:c.region,nom:c.region,bounds:null},
+         {niveau:"departement",code:c.dep,nom:c.dep,bounds:null}];
+  await vueCommune(code); stack.push({niveau:"commune",code,nom:c.nom}); setFil();
+  infoPanel(c.nom,(cache["values/commune.json"]||{})[code]);
+  const b=layer&&layer.getBounds&&layer.getBounds(); if(b&&b.isValid())map.flyToBounds(b,{duration:.8,maxZoom:15}); });
+
+async function init(){ const cat=await getJSON("values/_catalogue.json"); catalogue=cat?cat.indicateurs:[];
+  indicKey="lfi_E24"; await initSearch(); vueFrance(); }
+init();
+</script>
+</body>
+</html>

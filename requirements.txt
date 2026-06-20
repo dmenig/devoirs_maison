@@ -1,7 +1,1 @@
 streamlit>=1.40
-streamlit-folium>=0.23
-folium>=0.17
-branca>=0.7
-pandas>=2.2
-pyarrow>=17
-geopandas>=1.0
