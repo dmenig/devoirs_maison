@@ -12,9 +12,11 @@ Indicateurs produits par (échelle × scrutin), comme demandé par la présentat
 
 from __future__ import annotations
 
+import collections
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+import geopandas as gpd
 import pandas as pd
 
 from nuances import (
@@ -33,6 +35,60 @@ FAMILLES = sorted(set(FAMILLE_BLOC6) | {"UDI"})
 def _norm_bv(s: pd.Series) -> pd.Series:
     """Clé de jointure bureau de vote insensible au zéro-padding ('0001' ⇄ '1')."""
     return s.astype(str).str.replace(r"^0+", "", regex=True).replace("", "0")
+
+
+PLM_COMMUNES = ("75056", "69123", "13055")
+
+
+def _canon_suffix(s: pd.Series) -> pd.Series:
+    """Numéro de bureau canonique = zéro-padding sur 4 chiffres ('1' → '0001'), pour
+    matcher les contours et homogénéiser les scrutins entre eux (certains fichiers du
+    ministère paddent, d'autres non : sans ça le même bureau a deux clés)."""
+    s = s.astype(str)
+    return s.where(~s.str.fullmatch(r"\d+"), s.str.zfill(4))
+
+
+def construire_crosswalk_plm(dossier_clean: Path, geo_dir: Path) -> dict[str, str]:
+    """Crosswalk {code_bv continu → code_bv local} pour Paris/Lyon/Marseille.
+
+    Depuis 2024 le ministère numérote les bureaux de façon continue à l'intérieur d'un
+    secteur (à Paris, les arr. 1-4 fusionnés : arr2 commence à 11, arr3 à 21…) au lieu
+    de repartir de 01 à chaque arrondissement. Les contours et les scrutins ≤ 2022
+    utilisent la numérotation locale : sans remappage, les bureaux 2024+ tombent sur des
+    codes orphelins (« none » sur la carte). On aligne par rang, par (commune, arr.),
+    uniquement là où les effectifs coïncident — sinon on s'abstient (un mauvais
+    remappage attribuerait les voix d'un bureau au contour d'un autre)."""
+    geo_by: dict[tuple[str, str], list[str]] = collections.defaultdict(list)
+    for dep in ("75", "69", "13"):
+        f = geo_dir / f"{dep}.geojson"
+        if not f.exists():
+            continue
+        for code in gpd.read_file(f, ignore_geometry=True)["bureau"].astype(str):
+            com, _, suf = code.partition("_")
+            if com in PLM_COMMUNES and suf.isdigit():
+                geo_by[(com, suf[:2])].append(suf)
+    src = dossier_clean / "2024-europeenne-bureau_de_vote.parquet"
+    if not src.exists():
+        return {}
+    df = pd.read_parquet(src, columns=["code_commune", "bureau_de_vote"])
+    df = df[df["code_commune"].astype(str).isin(PLM_COMMUNES)].drop_duplicates()
+    cont_by: dict[tuple[str, str], list[str]] = collections.defaultdict(list)
+    for com, bv in zip(
+        df["code_commune"].astype(str), df["bureau_de_vote"].astype(str)
+    ):
+        if bv.isdigit():
+            suf = bv.zfill(4)
+            cont_by[(com, suf[:2])].append(suf)
+    crosswalk: dict[str, str] = {}
+    for key, conts in cont_by.items():
+        com, _ = key
+        locs = sorted(geo_by.get(key, []))
+        conts = sorted(conts)
+        if len(conts) == len(locs):
+            crosswalk.update(
+                {f"{com}_{c}": f"{com}_{l}" for c, l in zip(conts, locs) if c != l}
+            )
+    return crosswalk
 
 
 @dataclass(frozen=True)
@@ -70,7 +126,9 @@ def lister_scrutins(dossier_clean: Path) -> list[Scrutin]:
     return scrutins
 
 
-def _bureau_depuis_df(df: pd.DataFrame, scrutin: Scrutin) -> pd.DataFrame:
+def _bureau_depuis_df(
+    df: pd.DataFrame, scrutin: Scrutin, crosswalk: dict[str, str]
+) -> pd.DataFrame:
     """Renvoie une ligne par bureau de vote, avec voix ventilées par famille."""
     df = df.copy()
     if "voix" not in df.columns:
@@ -82,7 +140,9 @@ def _bureau_depuis_df(df: pd.DataFrame, scrutin: Scrutin) -> pd.DataFrame:
         df["code_commune"] = df["code_secteur"].astype(str).str[:5]
     df["bureau_de_vote"] = df.get("bureau_de_vote", "")
     base_bv = df["code_secteur"] if "code_secteur" in df.columns else df["code_commune"]
-    df["code_bv"] = base_bv.astype(str) + "_" + df["bureau_de_vote"].astype(str)
+    df["code_bv"] = base_bv.astype(str) + "_" + _canon_suffix(df["bureau_de_vote"])
+    if crosswalk:
+        df["code_bv"] = df["code_bv"].map(lambda c: crosswalk.get(c, c))
 
     nuance = df["nuance"] if "nuance" in df.columns else pd.Series([None] * len(df))
     nom = df["nom"] if "nom" in df.columns else pd.Series([None] * len(df))
@@ -107,7 +167,9 @@ def _bureau_depuis_df(df: pd.DataFrame, scrutin: Scrutin) -> pd.DataFrame:
     return out
 
 
-def _par_bureau(scrutin: Scrutin) -> list[tuple[Scrutin, pd.DataFrame]]:
+def _par_bureau(
+    scrutin: Scrutin, crosswalk: dict[str, str]
+) -> list[tuple[Scrutin, pd.DataFrame]]:
     """Lit le fichier d'un scrutin et renvoie un (scrutin, table BV) par tour. Les fichiers
     legacy regroupant plusieurs tours (présidentielle 2012, municipales 2014) sont séparés
     en un scrutin par tour : sans cela, le pivot somme les voix des deux tours et double-compte."""
@@ -116,9 +178,9 @@ def _par_bureau(scrutin: Scrutin) -> list[tuple[Scrutin, pd.DataFrame]]:
         sorties = []
         for t, sub in df.groupby("numero_tour"):
             sc = replace(scrutin, cle=f"{scrutin.cle}-{int(t)}", tour=int(t))
-            sorties.append((sc, _bureau_depuis_df(sub, sc)))
+            sorties.append((sc, _bureau_depuis_df(sub, sc, crosswalk)))
         return sorties
-    return [(scrutin, _bureau_depuis_df(df, scrutin))]
+    return [(scrutin, _bureau_depuis_df(df, scrutin, crosswalk))]
 
 
 def _indicateurs(g: pd.DataFrame) -> dict:
@@ -171,9 +233,13 @@ def _agreger(
 
 
 def construire_resultats(
-    dossier_clean: Path, communes: pd.DataFrame, corr_circo: pd.DataFrame | None
+    dossier_clean: Path,
+    communes: pd.DataFrame,
+    corr_circo: pd.DataFrame | None,
+    geo_dir: Path | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Construit un dict {niveau: DataFrame} agrégeant tous les scrutins."""
+    crosswalk = construire_crosswalk_plm(dossier_clean, geo_dir) if geo_dir else {}
     com2dep = communes.set_index("code_commune")["code_departement"].to_dict()
     dep2reg = (
         communes.drop_duplicates("code_departement")
@@ -193,7 +259,7 @@ def construire_resultats(
     }
     for scrutin in lister_scrutins(dossier_clean):
         try:
-            bureaux = _par_bureau(scrutin)
+            bureaux = _par_bureau(scrutin, crosswalk)
         except Exception as e:  # un scrutin atypique ne doit pas tout bloquer
             print(f"  ⚠ {scrutin.cle} ignoré : {e}")
             continue

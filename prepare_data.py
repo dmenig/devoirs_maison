@@ -84,15 +84,17 @@ def main() -> None:
     corr = charger_correspondances()
 
     print("→ Résultats électoraux (toutes échelles)")
-    resultats = construire_resultats(CLEAN / "elections", communes, corr)
+    resultats = construire_resultats(CLEAN / "elections", communes, corr, GEO / "bv")
     for niveau, df in resultats.items():
         df.to_parquet(OUT / f"resultats_{niveau}.parquet", index=False)
         print(f"   {niveau}: {len(df)} lignes")
 
-    print("→ Socio-économique (FILOSOFI IRIS)")
+    print("→ Socio-économique (FILOSOFI IRIS + commune)")
     filosofi = CLEAN / "filosofi" / "disponible.csv"
     if filosofi.exists():
-        iris, commune_socio = construire_socio(filosofi)
+        iris, commune_socio = construire_socio(
+            filosofi, CLEAN / "filosofi" / "commune.csv"
+        )
         iris.to_parquet(OUT / "socio_iris.parquet", index=False)
         commune_socio.to_parquet(OUT / "socio_commune.parquet", index=False)
         print(f"   IRIS: {len(iris)} | communes: {len(commune_socio)}")

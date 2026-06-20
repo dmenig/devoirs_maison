@@ -12,7 +12,7 @@ OUT = Path(__file__).parent / "data_app"
 
 communes, _ = charger_cog()
 resultats = construire_resultats(
-    CLEAN / "elections", communes, charger_correspondances()
+    CLEAN / "elections", communes, charger_correspondances(), OUT / "geo" / "bv"
 )
 for niveau, df in resultats.items():
     df.to_parquet(OUT / f"resultats_{niveau}.parquet", index=False)
