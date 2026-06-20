@@ -40,6 +40,13 @@
   #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
   #info .bal .bg{background:#cf2e5b;display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
+  #info .exp .exph{cursor:pointer}
+  #info .exp .exph .ico{float:right;color:#b39ddb;font-size:10px;font-weight:600;margin-top:3px}
+  #info .exp.open .exph .ico::after{content:" ▴"}
+  #info .exp .det,#info .det2{display:none;font-size:11.5px;color:#5a5a5a;line-height:1.5;
+       background:#faf7fd;border-left:3px solid #d9c7ec;padding:7px 9px;border-radius:0 6px 6px 0;margin:6px 0 2px}
+  #info .exp.open .det,#info .exp.open .det2{display:block}
+  #subtoggle{top:54px;right:10px;display:none;gap:6px}
   #legend{bottom:14px;right:10px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
        background:linear-gradient(to right,#2166ac,#67a9cf,#f7f7f7,#ef8a62,#b2182b)}
@@ -56,12 +63,16 @@
   <span id="loading" class="hint"></span>
 </div>
 <div id="pastilles" class="panel"></div>
+<div id="subtoggle" class="panel">
+  <span class="chip on" data-m="bv">🗳️ Bureaux de vote</span>
+  <span class="chip" data-m="iris">🏙️ Quartiers IRIS</span>
+</div>
 <div id="info" class="panel"></div>
 <div id="legend" class="panel">
   <div id="legtitle" style="font-weight:600;color:#5b2a86"></div>
   <div style="margin-top:4px"><span style="color:#2166ac">– faible</span>
     <span class="bar"></span><span style="color:#b2182b">élevé +</span></div>
-  <div class="hint">couleur = écart à la moyenne · zoomez ou cliquez pour descendre</div>
+  <div class="hint">couleur = rang parmi les zones affichées (bleu = plus faible, rouge = plus élevé) · zoomez ou cliquez pour descendre</div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -69,17 +80,20 @@ const BASE="__BASE__";
 const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
-const PAST=[["lfi_E24","Vote LFI"],["part_E24","Participation"],["rn_E24","Vote RN"],
-            ["gauche_E24","Gauche"],["rep_lfi","Réservoir LFI"],["abst","Abstention"]];
+const PAST=[["lfi_E24","Vote LFI","%"],["part_E24","Participation","%"],["rn_E24","Vote RN","%"],
+            ["gauche_E24","Gauche","%"],["reservoir_lfi","Réservoir LFI"," pts"],
+            ["abst_pct","Abstention","%"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
 // seuils de zoom pour descendre/remonter automatiquement, par profondeur affichée
 const ZIN=[6.6,8.2,10.6], ZOUT=[0,6.1,7.9,10.1];
 const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
-const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", curVals={}, busy=false;
+const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", indicUnit="%",
+    curVals={}, busy=false, sousMode="bv";
+const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":v+(u||""));
 
 async function getJSON(p){ if(p in cache)return cache[p];
   $("loading").textContent="…"; let j=null;
@@ -87,58 +101,96 @@ async function getJSON(p){ if(p in cache)return cache[p];
   cache[p]=j; $("loading").textContent=""; return j; }
 const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
 
-function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v));
-  if(!xs.length)return()=>"#dddddd";
-  const m=xs.reduce((a,b)=>a+b,0)/xs.length, sp=Math.max(...xs.map(v=>Math.abs(v-m)),1e-6);
-  const s=["#2166ac","#67a9cf","#f7f7f7","#ef8a62","#b2182b"];
-  return v=>{ if(v==null||isNaN(v))return"#dddddd"; let t=Math.max(-1,Math.min(1,(v-m)/sp));
-    const x=(t+1)/2*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
-const valOf=p=>{const o=curVals[p.__code];return o?o[indicKey]:null;};
+// Coloration par RANG (percentile) parmi les zones affichées : les couleurs
+// s'étalent sur toute la distribution (chaque zone ayant une valeur est colorée).
+// Le centre (blanc) = la médiane des zones ; bleu = plus faible, rouge = plus élevé.
+function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>a-b);
+  if(!xs.length)return()=>"#3a3a3a";
+  const n=xs.length, s=["#2166ac","#67a9cf","#f7f7f7","#ef8a62","#b2182b"];
+  const rang=v=>{ let lo=0,hi=n; while(lo<hi){const md=(lo+hi)>>1; xs[md]<v?lo=md+1:hi=md;}
+    let hi2=lo; while(hi2<n&&xs[hi2]===v)hi2++; return ((lo+hi2)/2)/n; };
+  return v=>{ if(v==null||isNaN(v))return"#3a3a3a";
+    const x=rang(v)*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
+// Indicateurs dérivés (calculés à la volée, jamais >100 % et toujours lisibles).
+function rawVal(o,k){ if(!o)return null;
+  if(k==="reservoir_lfi"){ if(o.lfi_P22==null||o.lfi_E24==null)return null;
+    return Math.round((o.lfi_P22-o.lfi_E24)*10)/10; }
+  if(k==="abst_pct")return o.part_E24==null?null:Math.round((100-o.part_E24)*10)/10;
+  return o[k]; }
+const valOf=p=>rawVal(curVals[p.__code],indicKey);
 
-// Fiche claire : tous les chiffres clés du rapport pour la zone cliquée.
+// Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
+// (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o){ const info=$("info");
   if(!o){info.style.display="none";return;}
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
-  const barRow=(lab,v,col,max=50,unit=" %")=> v==null?"":
-    `<div class="lab"><span>${lab}</span><b>${v}${unit}</b></div>`+
+  const barRow=(lab,v,col,max=50)=> v==null?"":
+    `<div class="lab"><span>${lab}</span><b>${v} %</b></div>`+
     `<div class="bar"><i style="width:${w(v,max)}%;background:${col}"></i></div>`;
+  // bloc dépliable : entête cliquable + détail caché révélant le calcul
+  const exp=(body,det)=> det?
+    `<div class="exp"><div class="exph">${body}<span class="ico">détails ▾</span></div><div class="det">${det}</div></div>`
+    : `<div class="exp">${body}</div>`;
+  const sec=t=>`<div class="sec">${t}</div>`;
+
   const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
-  let h=`<div class="t">${nom}</div><div class="lead">Vote LFI · Europ. 2024</div>`;
-  h+=`<div class="head">${lfi==null?"—":lfi+" %"}<small> des inscrits</small></div>`;
+  let h=`<div class="t">${nom}</div>`;
+  h+=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
+         `<div class="head">${lfi==null?"—":lfi+" %"}<small> des inscrits</small></div>`,
+    `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+
+    `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
+    `Source : Ministère de l'Intérieur.`);
 
   if(SCR.some(([sc])=>o[`lfi_${sc}`]!=null)){
-    h+=`<div class="sec">Évolution du vote LFI</div><div class="trend">`+
+    h+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
       SCR.map(([sc,lab])=>{const v=o[`lfi_${sc}`];
         return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%"></div></div>`+
-               `<div class="tv">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`;
-  }
-  if(o.part_E24!=null){ const abst=Math.round((100-o.part_E24)*10)/10;
-    h+=`<div class="sec">Participation · Europ. 2024</div>`+
-      barRow("Participation",o.part_E24,"#2e8b57",100)+
-      `<div class="row"><span>Abstention</span><b>${abst} %</b></div>`; }
+               `<div class="tv">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`,
+      `Vote LFI en % des inscrits à chaque scrutin : <b>Présid.</b> avril 2022 (voix Mélenchon, 1<sup>er</sup> tour) · `+
+      `<b>Europ.</b> juin 2024 · <b>Légis.</b> juin 2024 (1<sup>er</sup> tour) · <b>Munic.</b> mars 2026 (1<sup>er</sup> tour, `+
+      `là où disponible). « · » = donnée indisponible.`); }
 
-  // recomposition / rapport de force (Europ. 2024)
+  if(o.part_E24!=null){ const abst=Math.round((100-o.part_E24)*10)/10;
+    h+=exp(sec("Participation · Europ. 2024")+barRow("Participation",o.part_E24,"#2e8b57",100)+
+      `<div class="row"><span>Abstention</span><b>${abst} %</b></div>`,
+      `<b>Participation</b> = votants ÷ inscrits aux européennes de juin 2024. `+
+      `<b>Abstention</b> = 100 − participation = part des inscrits qui ne se sont pas déplacés.`); }
+
   if([o.gauche_E24,o.em_E24,o.lr_E24,o.rn_E24].some(v=>v!=null)){
-    h+=`<div class="sec">Rapport de force · Europ. 2024</div>`+
+    h+=exp(sec("Rapport de force · Europ. 2024")+
       barRow("Gauche (LFI-PS-EELV-PCF)",o.gauche_E24,"#cf2e5b")+
       barRow("Macron (Renaissance)",o.em_E24,"#e6902e")+
       barRow("Droite (LR)",o.lr_E24,"#3b6ea5")+
-      barRow("RN / extrême droite",o.rn_E24,"#1f3a63"); }
+      barRow("RN / extrême droite",o.rn_E24,"#1f3a63"),
+      `Poids de chaque bloc en <b>% des inscrits</b> aux européennes 2024. `+
+      `<b>Gauche</b> = LFI + PS + EELV + PCF + divers gauche. <b>Macron</b> = Renaissance / MoDem / Horizons. `+
+      `<b>Droite</b> = LR + divers droite. <b>RN</b> = RN + Reconquête + extrême droite.`); }
 
-  // réservoirs de voix
-  const res=[];
-  if(o.rep_lfi!=null)res.push(["Réserve de report LFI (P22→E24)",o.rep_lfi+" %",
-    "voix LFI retrouvées à l'européenne par rapport à la présidentielle"]);
-  if(o.part_E24!=null)res.push(["Abstention mobilisable (E24)",(Math.round((100-o.part_E24)*10)/10)+" %",
-    "part des inscrits qui n'ont pas voté = potentiel à mobiliser"]);
-  if(res.length)h+=`<div class="sec">Réservoirs de voix</div>`+
-    res.map(x=>`<div class="row"><span title="${x[2]}">${x[0]}</span><b>${x[1]}</b></div>`).join("");
+  // réservoirs de voix : chiffres bornés et explicités
+  let resHTML="";
+  if(o.lfi_P22!=null&&o.lfi_E24!=null){ const r=Math.round((o.lfi_P22-o.lfi_E24)*10)/10;
+    resHTML+=`<div class="row"><span>Insoumis à reconquérir</span><b>${r>0?r+" pts":"—"}</b></div>`+
+      `<div class="det2">${r>0
+        ? `Mélenchon a réuni <b>${o.lfi_P22}%</b> des inscrits à la présidentielle 2022 ; LFI n'en a retrouvé que `+
+          `<b>${o.lfi_E24}%</b> aux européennes 2024. L'écart (<b>${r} pts</b>) = électeurs insoumis non remobilisés, `+
+          `cible prioritaire à reconquérir.`
+        : `LFI s'est maintenue ou a progressé entre 2022 (<b>${o.lfi_P22}%</b>) et 2024 (<b>${o.lfi_E24}%</b>) : `+
+          `pas de perte à reconquérir ici.`}</div>`; }
+  if(o.part_E24!=null){ const am=Math.round((100-o.part_E24)*10)/10;
+    resHTML+=`<div class="row"><span>Abstention mobilisable</span><b>${am} %</b></div>`+
+      `<div class="det2">Part des inscrits qui n'ont pas voté aux européennes 2024 (100 − participation = `+
+      `<b>${am}%</b>). Réservoir de voix si on les ramène aux urnes.</div>`; }
+  if(resHTML)h+=exp(sec("Réservoirs de voix")+resHTML,
+    `Le « réservoir » mesure les voix à aller chercher : d'un côté les électeurs <b>insoumis de 2022</b> qui n'ont `+
+    `pas reconfirmé en 2024, de l'autre les <b>abstentionnistes</b>. Tous deux exprimés en points / % des inscrits.`);
 
   const s=[];
   if(o.rev!=null)s.push(["Revenu médian",o.rev.toLocaleString('fr')+" €"]);
   if(o.pauv!=null)s.push(["Taux de pauvreté",o.pauv+" %"]);
-  if(s.length)h+=`<div class="sec">Contexte social</div>`+
-    s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join("");
+  if(s.length)h+=exp(sec("Contexte social")+
+    s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
+    `<b>Revenu médian</b> disponible par unité de consommation et <b>taux de pauvreté</b> (part sous le seuil de `+
+    `pauvreté). Source : INSEE FILOSOFI 2021, à la commune (ou à l'IRIS en vue quartiers).`);
   info.innerHTML=h; info.style.display="block"; }
 
 function dessiner(geo,valeurs,codeProp,nameProp,enter){
@@ -146,10 +198,10 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter){
   geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
     f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
   const fc=colorer(geo.features.map(f=>valOf(f.properties)));
-  layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#555",weight:.6,fillOpacity:.82}),
+  layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#1a1a1a",weight:.5,fillOpacity:.85}),
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
-      ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${v==null?"—":v}`,{sticky:true});
-      ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#000"}));
+      ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
+      ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#fff"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
       if(enter){ ly.__enter=()=>enter(f,ly);
         ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code]);enter(f,ly);}); }
@@ -165,20 +217,27 @@ function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`
 function flyTo(b,maxZoom){ if(!b)return; busy=true; map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11});
   map.once("moveend",()=>setTimeout(()=>busy=false,200)); }
 
-async function vueFrance(){ stack=[]; setFil(); flyTo(FRANCE,6);
+async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
     (f,ly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-async function vueRegion(code){
+async function vueRegion(code){ subToggle(false);
   const [geo,val,hier]=await Promise.all([getJSON("geo/departements.geojson"),
     getJSON("values/departement.json"),getJSON("values/_hierarchie.json")]);
   const deps=new Set(hier.departements.filter(d=>d.region===code).map(d=>d.code));
   dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
     val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-async function vueDepartement(code){
+async function vueDepartement(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
   if(!geo){$("loading").textContent="contours indisponibles";return;}
   dessiner(geo,val||{},"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-async function vueCommune(code){ const dep=depOf(code);
+const subToggle=show=>{$("subtoggle").style.display=show?"flex":"none";};
+async function vueCommune(code){ const dep=depOf(code); subToggle(true);
+  if(sousMode==="iris"){
+    const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON("values/iris.json")]);
+    if(!geo){$("loading").textContent="contours IRIS indisponibles";return;}
+    const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_iris).slice(0,5)===code)};
+    if(!fc.features.length){$("loading").textContent="pas d'IRIS";return;}
+    dessiner(fc,val||{},"code_iris","nom_iris",null); return; }
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
   if(!geo){$("loading").textContent="contours BV indisponibles";return;}
   const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_commune)===code)};
@@ -200,13 +259,22 @@ map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
   else if(d>=1 && z<=ZOUT[d]){ jumpTo(d-1); } });
 
 // pastilles d'indicateurs (pas de menu déroulant)
+function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
+  indicKey=p[0]; indicLabel=p[1]; indicUnit=p[2]||""; $("legtitle").textContent=p[1];
+  $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k)); }
 function buildPastilles(){ const box=$("pastilles");
   PAST.forEach(([k,lab])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
-    c.textContent=lab; c.dataset.k=k; c.dataset.l=lab;
-    c.onclick=()=>{ indicKey=k; indicLabel=lab; $("legtitle").textContent=lab;
-      box.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
-      const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
+    c.textContent=lab; c.dataset.k=k;
+    c.onclick=()=>{ setIndic(k); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
     box.appendChild(c); }); $("legtitle").textContent=indicLabel; }
+// bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
+$("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
+  sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
+  const socio=indicKey==="rev"||indicKey==="pauv";
+  if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi_E24");
+  const t=stack[stack.length-1]; if(t&&t.niveau==="commune")vueCommune(t.code); });
+// déplier le détail d'une section de la fiche
+$("info").addEventListener("click",e=>{ const h=e.target.closest(".exph"); if(h)h.parentElement.classList.toggle("open"); });
 
 async function initSearch(){ const idx=await getJSON("values/communes_index.json"); if(!idx)return;
   $("search").__idx=idx; const dl=$("communes");
