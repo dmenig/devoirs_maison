@@ -561,7 +561,7 @@ $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.da
 // pousse que les ~50 meilleurs résultats dans le datalist (insensible aux accents/casse).
 const LVLAB={region:"région",departement:"dép.",circonscription:"circ.",commune:"commune"};
 const LVRANK={region:0,departement:1,circonscription:2,commune:3};
-const norm=s=>s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const norm=s=>s.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/ᵉ/g,"e").toLowerCase();
 const regNom=c=>(window.__hier&&window.__hier.regions[c])||c;
 const depNom=c=>(window.__hier&&window.__hier.depNom[c])||c;
 
@@ -572,10 +572,11 @@ async function initSearch(){
   if(!idx)return;
   idx.forEach(e=>{e.__nom=norm(e.nom);e.__n=e.__nom+" "+e.code.toLowerCase();});
   const sb=$("search"),dl=$("zones"); sb.__byval={};
-  const fill=q=>{ dl.innerHTML=""; sb.__byval={}; const nq=norm(q.trim()); if(!nq)return;
+  const fill=q=>{ dl.innerHTML=""; sb.__byval={};
+    const toks=norm(q.trim()).split(/\s+/).filter(Boolean); if(!toks.length)return;
     const hits=[];
-    for(const e of idx){ const i=e.__n.indexOf(nq); if(i<0)continue;
-      hits.push([e,e.__nom.startsWith(nq)?0:1,LVRANK[e.niveau],i,e.nom.length]);
+    for(const e of idx){ if(!toks.every(t=>e.__n.includes(t)))continue;
+      hits.push([e,e.__nom.startsWith(toks[0])?0:1,LVRANK[e.niveau],e.__n.indexOf(toks[0]),e.nom.length]);
       if(hits.length>600)break; }
     hits.sort((a,b)=>a[1]-b[1]||a[2]-b[2]||a[3]-b[3]||a[4]-b[4]);
     for(const [e] of hits.slice(0,50)){ const val=`${e.nom} · ${LVLAB[e.niveau]} ${e.code}`;
