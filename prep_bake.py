@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 import indicators as ind
+import nuances
 
 
 def _clean(o):
@@ -28,7 +29,10 @@ def _clean(o):
 
 
 def _dumps(data) -> str:
-    return json.dumps(_clean(data), ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    return json.dumps(
+        _clean(data), ensure_ascii=False, separators=(",", ":"), allow_nan=False
+    )
+
 
 OUT = Path(__file__).parent / "data_app" / "values"
 
@@ -46,9 +50,32 @@ COLS = {  # clé courte -> colonne
     "em": ("b6_MoDem-EM", "Bloc MoDem-EM"),
     "lr": ("b6_LR-DVD", "Bloc LR-DVD"),
 }
+# tableau de recomposition (slide 23) : tous les scrutins disponibles, 6 blocs + abstention
+BLOCS_RECOMPO = [f"b6_{b}" for b in nuances.BLOC6_ORDRE] + ["abstention"]
+ORDRE_TYPE = {  # ordre de lecture dans une même année
+    "presidentielle": 0,
+    "legislatives": 1,
+    "europeenne": 2,
+    "municipales": 3,
+    "conseils": 3,
+    "departementales": 4,
+    "regionales": 5,
+    "referendum": 6,
+}
+TYPE_COURT = {
+    "presidentielle": "Prés",
+    "legislatives": "Lég",
+    "europeenne": "Eur",
+    "municipales": "Mun",
+    "conseils": "PLM",
+    "departementales": "Dép",
+    "regionales": "Rég",
+    "referendum": "Réf",
+}
 # réservoirs : clé -> (métrique, scrutin départ, scrutin arrivée)
 RESERVOIRS = {
     "rep_lfi": ("report_lfi", "2022-presidentielle-1", "2024-europeenne"),
+    "rep_lfi_em": ("report_lfi", "2024-europeenne", "2026-municipales-1"),
     "dpart": ("ratio_participation", "2022-presidentielle-1", "2024-europeenne"),
     "abst": ("stock_abstention", "2024-europeenne", "2024-europeenne"),
 }
@@ -59,15 +86,85 @@ def catalogue() -> list[dict]:
     cat = []
     for sc, scl in SCRUTINS.items():
         for c, (_col, lab) in COLS.items():
-            cat.append({"key": f"{c}_{sc}", "label": f"{lab} — {sc}",
-                        "unit": "%", "groupe": "Électoral"})
-    cat.append({"key": "rep_lfi", "label": "Report LFI P2022→E2024", "unit": "%", "groupe": "Réservoirs"})
-    cat.append({"key": "dpart", "label": "Différentiel particip. P2022→E2024", "unit": "%", "groupe": "Réservoirs"})
-    cat.append({"key": "abst", "label": "Stock abstentionnistes E2024", "unit": "voix", "groupe": "Réservoirs"})
+            cat.append(
+                {
+                    "key": f"{c}_{sc}",
+                    "label": f"{lab} — {sc}",
+                    "unit": "%",
+                    "groupe": "Électoral",
+                }
+            )
+    cat.append(
+        {
+            "key": "rep_lfi",
+            "label": "Report LFI P2022→E2024",
+            "unit": "%",
+            "groupe": "Réservoirs",
+        }
+    )
+    cat.append(
+        {
+            "key": "rep_lfi_em",
+            "label": "Report LFI E2024→M2026",
+            "unit": "%",
+            "groupe": "Réservoirs",
+        }
+    )
+    cat.append(
+        {
+            "key": "dpart",
+            "label": "Différentiel particip. P2022→E2024",
+            "unit": "%",
+            "groupe": "Réservoirs",
+        }
+    )
+    cat.append(
+        {
+            "key": "abst",
+            "label": "Stock abstentionnistes E2024",
+            "unit": "voix",
+            "groupe": "Réservoirs",
+        }
+    )
     return cat
 
 
-def _valeurs_niveau(df: pd.DataFrame) -> dict[str, dict[str, float]]:
+def ordre_scrutins(df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
+    """Ordre chronologique des scrutins + libellés courts/longs pour le client."""
+    m = (
+        df[["scrutin", "scrutin_libelle", "annee", "type", "tour"]]
+        .drop_duplicates()
+        .copy()
+    )
+    m["o"] = m["type"].map(ORDRE_TYPE).fillna(9)
+    m = m.sort_values(["annee", "o", "tour"])
+    ordre, meta = [], []
+    for _, r in m.iterrows():
+        court = f"{TYPE_COURT.get(r['type'], r['type'][:3])}{int(r['annee']) % 100:02d}"
+        if pd.notna(r["tour"]):
+            court += f"·{int(r['tour'])}"
+        ordre.append(r["scrutin"])
+        meta.append({"c": court, "l": r["scrutin_libelle"]})
+    return ordre, meta
+
+
+def _recompo_par_code(df: pd.DataFrame, ordre: list[str]) -> dict[str, dict[str, list]]:
+    """Par code : {position scrutin -> [6 blocs + abstention]} (dict creux, % inscrits)."""
+    pos = {cle: i for i, cle in enumerate(ordre)}
+    sub = df[df["scrutin"].isin(pos)][["code", "scrutin", *BLOCS_RECOMPO]]
+    out: dict[str, dict[str, list]] = {}
+    for code, g in sub.groupby("code", sort=False):
+        rec: dict[str, list] = {}
+        for row in g.itertuples(index=False):
+            vals = [round(float(v), 1) if pd.notna(v) else None for v in row[2:]]
+            if any(v is not None for v in vals):
+                rec[str(pos[row[1]])] = vals
+        if rec:
+            out[str(code)] = rec
+    return out
+
+
+def _valeurs_niveau(df: pd.DataFrame, ordre: list[str]) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     for sc, scl in SCRUTINS.items():
         sub = df[df["scrutin"] == scl]
@@ -75,9 +172,19 @@ def _valeurs_niveau(df: pd.DataFrame) -> dict[str, dict[str, float]]:
             for code, v in zip(sub["code"], sub[col]):
                 if pd.notna(v):
                     out.setdefault(str(code), {})[f"{c}_{sc}"] = round(float(v), 1)
+        for code, lv, gv in zip(sub["code"], sub["lfi_voix"], sub["gauche_voix"]):
+            o = out.setdefault(
+                str(code), {}
+            )  # voix réelles : report/perte recalculés pour toute paire choisie
+            if pd.notna(lv):
+                o[f"lfiv_{sc}"] = int(lv)
+            if pd.notna(gv):
+                o[f"gv_{sc}"] = int(gv)
     for key, (metr, sa, sb) in RESERVOIRS.items():
         for code, v in ind.reservoirs_par_code(df, sa, sb, metr).items():
             out.setdefault(str(code), {})[key] = v
+    for code, rec in _recompo_par_code(df, ordre).items():
+        out.setdefault(code, {})["rec"] = rec
     return out
 
 
@@ -89,15 +196,22 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     DA = Path(__file__).parent / "data_app"
 
+    ordre, scrutins_meta = ordre_scrutins(
+        pd.read_parquet(DA / "resultats_france.parquet")
+    )
+    _ecrire("_scrutins", scrutins_meta)
+
     for niveau in ("region", "departement", "circonscription"):
         df = pd.read_parquet(DA / f"resultats_{niveau}.parquet")
-        _ecrire(niveau, _valeurs_niveau(df))
+        _ecrire(niveau, _valeurs_niveau(df, ordre))
         print(f"  ✓ values {niveau}")
 
     # communes : valeurs électorales + revenu/pauvreté, découpées par département
-    com = _valeurs_niveau(pd.read_parquet(DA / "resultats_commune.parquet"))
+    com = _valeurs_niveau(pd.read_parquet(DA / "resultats_commune.parquet"), ordre)
     sc = pd.read_parquet(DA / "socio_commune.parquet")
-    for code, rev, pauv in zip(sc["code_commune"], sc["revenu_median"], sc["taux_pauvrete"]):
+    for code, rev, pauv in zip(
+        sc["code_commune"], sc["revenu_median"], sc["taux_pauvrete"]
+    ):
         o = com.setdefault(str(code), {})
         if pd.notna(rev):
             o["rev"] = int(rev)
@@ -113,17 +227,27 @@ def main() -> None:
     print(f"  ✓ values commune (par département, {len(par_dep)})")
 
     iris = pd.read_parquet(DA / "socio_iris.parquet")
-    _ecrire("iris", {str(c): {"rev": (round(r) if pd.notna(r) else None),
-                              "pauv": (round(p, 1) if pd.notna(p) else None)}
-                     for c, r, p in zip(iris["code_iris"], iris["revenu_median"], iris["taux_pauvrete"])})
+    _ecrire(
+        "iris",
+        {
+            str(c): {
+                "rev": (round(r) if pd.notna(r) else None),
+                "pauv": (round(p, 1) if pd.notna(p) else None),
+            }
+            for c, r, p in zip(
+                iris["code_iris"], iris["revenu_median"], iris["taux_pauvrete"]
+            )
+        },
+    )
     print("  ✓ values iris")
 
     bv = pd.read_parquet(DA / "resultats_bureau.parquet")
-    bv["dep"] = bv["code"].str[:3].where(bv["code"].str.startswith("97"), bv["code"].str[:2])
+    bv["dep"] = (
+        bv["code"].str[:3].where(bv["code"].str.startswith("97"), bv["code"].str[:2])
+    )
     (OUT / "bv").mkdir(exist_ok=True)
     for dep, sous in bv.groupby("dep"):
-        (OUT / "bv" / f"{dep}.json").write_text(
-            _dumps(_valeurs_niveau(sous)))
+        (OUT / "bv" / f"{dep}.json").write_text(_dumps(_valeurs_niveau(sous, ordre)))
     print("  ✓ values bv (par département)")
 
     _ecrire("_catalogue", {"indicateurs": catalogue()})

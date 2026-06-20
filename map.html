@@ -17,6 +17,9 @@
   #back:disabled{opacity:.3;cursor:default}
   #search{min-width:220px;padding:5px 7px;border:1px solid #ccc;border-radius:7px;font-size:13px}
   #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
+  #pairsel{display:flex;gap:4px;align-items:center;margin-right:6px;font-size:12px;font-weight:700;color:#5b2a86}
+  #pairsel select{font-weight:400;font-size:12px;padding:2px 4px;border:1px solid #ccc;border-radius:7px;background:#fff;color:#333;cursor:pointer}
+  #pairsel .arr{color:#aaa;font-weight:700}
   .chip{cursor:pointer;border:1px solid #ccc;border-radius:14px;padding:3px 10px;background:#fff;font-size:12px}
   .chip.on{background:#5b2a86;color:#fff;border-color:#5b2a86}
   #info{top:100px;right:10px;width:268px;max-height:82vh;overflow:auto;display:none;padding:12px 14px}
@@ -46,6 +49,18 @@
   #info .exp .det,#info .det2{display:none;font-size:11.5px;color:#5a5a5a;line-height:1.5;
        background:#faf7fd;border-left:3px solid #d9c7ec;padding:7px 9px;border-radius:0 6px 6px 0;margin:6px 0 2px}
   #info .exp.open .det,#info .exp.open .det2{display:block}
+  #info .rwrap{overflow-x:auto;margin-top:2px}
+  #info table.recompo{border-collapse:collapse;font-size:10px;width:100%;font-variant-numeric:tabular-nums}
+  #info table.recompo th,#info table.recompo td{padding:1px 3px;text-align:right;white-space:nowrap}
+  #info table.recompo td.sc{text-align:left;color:#777}
+  #info table.recompo tbody tr:nth-child(odd){background:#faf7fd}
+  #info .act{background:#2d1640;color:#f3ecfa;border-radius:8px;padding:9px 11px;margin:12px 0 2px}
+  #info .act .ah{font-weight:800;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:#d9c7ec;margin-bottom:6px}
+  #info .act ul{margin:0;padding-left:16px} #info .act li{margin:5px 0;line-height:1.45}
+  #info .act b{color:#fff}
+  #info .act .leg{margin-top:8px;font-size:11px;line-height:1.7;border-top:1px solid #4a2d63;padding-top:7px}
+  #info .act .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  #info .act .inv{margin-top:8px;font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.5}
   #subtoggle{top:54px;right:10px;display:none;gap:6px}
   #legend{bottom:14px;right:10px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
@@ -62,7 +77,8 @@
   <datalist id="communes"></datalist>
   <span id="loading" class="hint"></span>
 </div>
-<div id="pastilles" class="panel"></div>
+<div id="pastilles" class="panel"><span id="pairsel" title="Choisir les deux scrutins comparés">⚖️
+    <select id="selA"></select><span class="arr">→</span><select id="selB"></select></span></div>
 <div id="subtoggle" class="panel">
   <span class="chip on" data-m="bv">🗳️ Bureaux de vote</span>
   <span class="chip" data-m="iris">🏙️ Quartiers IRIS</span>
@@ -81,8 +97,12 @@ const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
 const PAST=[["lfi_E24","Vote LFI","%"],["part_E24","Participation","%"],["rn_E24","Vote RN","%"],
-            ["gauche_E24","Gauche","%"],["reservoir_lfi","Réservoir LFI"," pts"],
-            ["abst_pct","Abstention","%"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
+            ["gauche_E24","Gauche","%"],["dyn_report","Report LFI","%"],
+            ["dyn_dpart","Δ Participation"," pts"],["dyn_perte","Perte gauche","%"],
+            ["abst","Abstention (stock)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
+// scrutins comparés par le sélecteur de réservoir (report / différentiel / taux de perte)
+let selA="P22", selB="E24";
+const scLab=c=>(SCR.find(s=>s[0]===c)||[,c])[1];
 // seuils de zoom pour descendre/remonter automatiquement, par profondeur affichée
 const ZIN=[6.6,8.2,10.6], ZOUT=[0,6.1,7.9,10.1];
 const $=id=>document.getElementById(id);
@@ -93,7 +113,8 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
 
 const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", indicUnit="%",
     curVals={}, busy=false, sousMode="bv";
-const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":v+(u||""));
+const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
+  (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 
 async function getJSON(p){ if(p in cache)return cache[p];
   $("loading").textContent="…"; let j=null;
@@ -111,11 +132,23 @@ function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>
     let hi2=lo; while(hi2<n&&xs[hi2]===v)hi2++; return ((lo+hi2)/2)/n; };
   return v=>{ if(v==null||isNaN(v))return"#3a3a3a";
     const x=rang(v)*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
-// Indicateurs dérivés (calculés à la volée, jamais >100 % et toujours lisibles).
+// Réservoirs entre les deux scrutins choisis (A→B), recalculés à la volée à partir des
+// voix réelles bakées (lfiv_*, gv_*) et de la participation — mêmes formules que
+// indicators.reservoirs : report = voixB/voixA, perte gauche = (voixA−voixB)/voixA,
+// différentiel de participation = part B − part A (points).
+function pairMetrics(o){ if(!o)return {};
+  const lvA=o[`lfiv_${selA}`], lvB=o[`lfiv_${selB}`], gvA=o[`gv_${selA}`], gvB=o[`gv_${selB}`],
+        pA=o[`part_${selA}`], pB=o[`part_${selB}`];
+  return {
+    report: lvA?Math.round(1000*lvB/lvA)/10:null,
+    perte:  gvA?Math.round(1000*(gvA-gvB)/gvA)/10:null,
+    dpart:  (pA!=null&&pB!=null)?Math.round((pB-pA)*10)/10:null };
+}
+// Les autres valeurs sont bakées par prep_bake.py et lues telles quelles.
 function rawVal(o,k){ if(!o)return null;
-  if(k==="reservoir_lfi"){ if(o.lfi_P22==null||o.lfi_E24==null)return null;
-    return Math.round((o.lfi_P22-o.lfi_E24)*10)/10; }
-  if(k==="abst_pct")return o.part_E24==null?null:Math.round((100-o.part_E24)*10)/10;
+  if(k==="dyn_report")return pairMetrics(o).report;
+  if(k==="dyn_dpart") return pairMetrics(o).dpart;
+  if(k==="dyn_perte") return pairMetrics(o).perte;
   return o[k]; }
 const valOf=p=>rawVal(curVals[p.__code],indicKey);
 
@@ -166,23 +199,45 @@ function infoPanel(nom,o){ const info=$("info");
       `<b>Gauche</b> = LFI + PS + EELV + PCF + divers gauche. <b>Macron</b> = Renaissance / MoDem / Horizons. `+
       `<b>Droite</b> = LR + divers droite. <b>RN</b> = RN + Reconquête + extrême droite.`); }
 
-  // réservoirs de voix : chiffres bornés et explicités
+  // tableau de recomposition (slide 23) : 1 ligne / scrutin × 6 blocs + Abs., % inscrits
+  if(window.__scr&&o.rec){
+    const heads=["FI","PS","EM","LR","RN","Div","Abs"],
+      cols=["#cf2e5b","#c2348b","#e6902e","#3b6ea5","#1f3a63","#8a8a8a","#666"];
+    let rows="";
+    window.__scr.forEach((s,i)=>{ const r=o.rec[i]; if(!r)return;
+      rows+=`<tr><td class="sc" title="${s.l}">${s.c}</td>`+
+        r.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
+    if(rows)h+=exp(sec("Recomposition · % des inscrits")+
+      `<div class="rwrap"><table class="recompo"><thead><tr><th></th>`+
+      heads.map((x,j)=>`<th style="color:${cols[j]}">${x}</th>`).join("")+
+      `</tr></thead><tbody>${rows}</tbody></table></div>`,
+      `Tableau de <b>recomposition</b> (slide 23) : poids de chaque bloc en % des inscrits, scrutin par `+
+      `scrutin (2012→2026). <b>FI</b> = LFI-PCF-EXG · <b>PS</b> = PS-EELV · <b>EM</b> = MoDem-Renaissance · `+
+      `<b>LR</b> = LR-DVD · <b>RN</b> = RN-EXD · <b>Div</b> = autres · <b>Abs</b> = abstention. `+
+      `« · » = scrutin non disponible ici.`); }
+
+  // réservoirs de voix : valeurs bakées (prep_bake.py), lues telles quelles
   let resHTML="";
-  if(o.lfi_P22!=null&&o.lfi_E24!=null){ const r=Math.round((o.lfi_P22-o.lfi_E24)*10)/10;
-    resHTML+=`<div class="row"><span>Insoumis à reconquérir</span><b>${r>0?r+" pts":"—"}</b></div>`+
-      `<div class="det2">${r>0
-        ? `Mélenchon a réuni <b>${o.lfi_P22}%</b> des inscrits à la présidentielle 2022 ; LFI n'en a retrouvé que `+
-          `<b>${o.lfi_E24}%</b> aux européennes 2024. L'écart (<b>${r} pts</b>) = électeurs insoumis non remobilisés, `+
-          `cible prioritaire à reconquérir.`
-        : `LFI s'est maintenue ou a progressé entre 2022 (<b>${o.lfi_P22}%</b>) et 2024 (<b>${o.lfi_E24}%</b>) : `+
-          `pas de perte à reconquérir ici.`}</div>`; }
-  if(o.part_E24!=null){ const am=Math.round((100-o.part_E24)*10)/10;
-    resHTML+=`<div class="row"><span>Abstention mobilisable</span><b>${am} %</b></div>`+
-      `<div class="det2">Part des inscrits qui n'ont pas voté aux européennes 2024 (100 − participation = `+
-      `<b>${am}%</b>). Réservoir de voix si on les ramène aux urnes.</div>`; }
+  if(o.rep_lfi!=null){ const perte=Math.round((100-o.rep_lfi)*10)/10;
+    resHTML+=`<div class="row"><span>Report LFI 2022→2024</span><b>${o.rep_lfi} %</b></div>`+
+      `<div class="det2">LFI a conservé <b>${o.rep_lfi}%</b> de ses voix entre la présidentielle 2022 et les `+
+      `européennes 2024${perte>0?` (soit <b>${perte}%</b> de voix insoumises perdues à reconquérir)`:""}. `+
+      `Taux de report en <b>voix réelles</b> (voix LFI E2024 ÷ voix Mélenchon P2022), non en % d'inscrits.</div>`; }
+  if(o.rep_lfi_em!=null){
+    resHTML+=`<div class="row"><span>Report LFI 2024→2026</span><b>${o.rep_lfi_em} %</b></div>`+
+      `<div class="det2">Voix LFI conservées entre les européennes 2024 et les municipales 2026 `+
+      `(voix M2026 ÷ voix E2024). Disponible là où LFI était présente aux deux scrutins.</div>`; }
+  if(o.dpart!=null){ const baisse=Math.round((100-o.dpart)*10)/10;
+    resHTML+=`<div class="row"><span>Différentiel participation 2022→2024</span><b>${o.dpart} %</b></div>`+
+      `<div class="det2">La participation aux européennes 2024 représente <b>${o.dpart}%</b> de celle de la `+
+      `présidentielle 2022${baisse>0?` (recul de <b>${baisse}%</b>)`:""}. Mesure l'ampleur de la démobilisation.</div>`; }
+  if(o.abst!=null){
+    resHTML+=`<div class="row"><span>Abstention mobilisable (stock)</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`+
+      `<div class="det2">Nombre d'inscrits n'ayant pas voté aux européennes 2024 `+
+      `(inscrits × taux d'abstention). Réservoir brut de voix à ramener aux urnes.</div>`; }
   if(resHTML)h+=exp(sec("Réservoirs de voix")+resHTML,
-    `Le « réservoir » mesure les voix à aller chercher : d'un côté les électeurs <b>insoumis de 2022</b> qui n'ont `+
-    `pas reconfirmé en 2024, de l'autre les <b>abstentionnistes</b>. Tous deux exprimés en points / % des inscrits.`);
+    `Le « réservoir » mesure les voix à aller chercher : les électeurs <b>insoumis</b> non reconfirmés d'un `+
+    `scrutin à l'autre (taux de report en voix réelles) et les <b>abstentionnistes</b> (stock d'inscrits non votants).`);
 
   const s=[];
   if(o.rev!=null)s.push(["Revenu médian",o.rev.toLocaleString('fr')+" €"]);
@@ -191,7 +246,33 @@ function infoPanel(nom,o){ const info=$("info");
     s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
     `<b>Revenu médian</b> disponible par unité de consommation et <b>taux de pauvreté</b> (part sous le seuil de `+
     `pauvreté). Source : INSEE FILOSOFI 2021, à la commune (ou à l'IRIS en vue quartiers).`);
+  h+=actionPanel(o);
   info.innerHTML=h; info.style.display="block"; }
+
+// Pont « de la carte à l'action » (slide 51) : traduit le profil de la zone en
+// recommandations de terrain, rappelle la composition des blocs et invite à
+// confronter les chiffres à la connaissance des militant·es.
+function actionPanel(o){ if(!o)return "";
+  const tips=[], abst=o.part_E24==null?null:Math.round(100-o.part_E24),
+    recon=(o.lfi_P22!=null&&o.lfi_E24!=null)?Math.round((o.lfi_P22-o.lfi_E24)*10)/10:null;
+  if(abst!=null&&abst>=50)
+    tips.push(`Abstention massive (<b>${abst}%</b>) : la priorité est de <b>ramener aux urnes</b> avant de convaincre — ciblez les inscrits non-votants.`);
+  else if(abst!=null&&abst>=40)
+    tips.push(`Forte abstention (<b>${abst}%</b>) : gros réservoir de remobilisation, porte-à-porte civique.`);
+  if(recon!=null&&recon>=5)
+    tips.push(`<b>${recon} pts</b> d'insoumis de 2022 non remobilisés en 2024 : <b>renouer le contact</b>, ils nous connaissent déjà.`);
+  if(o.pauv!=null&&o.pauv>=20)
+    tips.push(`Pauvreté élevée (<b>${o.pauv}%</b>), souvent quartier dense / logement social : <b>le porte-à-porte y est le plus efficace</b>.`);
+  if(!tips.length)
+    tips.push(`Pas de réservoir dominant : combinez mobilisation des abstentionnistes et conviction, en vous appuyant sur le terrain.`);
+  const dot=(c,n,d)=>`<div><span class="dot" style="background:${c}"></span><b>${n}</b> — ${d}</div>`;
+  return `<div class="act"><div class="ah">🎯 De la carte à l'action</div>`+
+    `<ul>${tips.map(t=>`<li>${t}</li>`).join("")}</ul>`+
+    `<div class="leg">Blocs : `+
+      dot("#cf2e5b","Gauche","LFI · PS · EELV · PCF")+dot("#e6902e","Macron","Renaissance · MoDem · Horizons")+
+      dot("#3b6ea5","Droite","LR · divers droite")+dot("#1f3a63","RN / ED","RN · Reconquête")+`</div>`+
+    `<div class="inv">Ces chiffres ne remplacent pas le terrain : confrontez-les à ce que vous savez de la commune `+
+    `(présence militante, marché, vie associative, traditions locales).</div></div>`; }
 
 function dessiner(geo,valeurs,codeProp,nameProp,enter){
   if(layer)layer.remove(); curVals=valeurs;
@@ -288,7 +369,7 @@ $("search").addEventListener("change",async()=>{
   const cv=await getJSON(`values/commune/${c.dep}.json`); infoPanel(c.nom,(cv||{})[code]);
   const b=layer&&layer.getBounds&&layer.getBounds(); if(b&&b.isValid())flyTo(b,15); });
 
-async function init(){ buildPastilles(); await initSearch(); vueFrance(); }
+async function init(){ buildPastilles(); window.__scr=await getJSON("values/_scrutins.json"); await initSearch(); vueFrance(); }
 init();
 </script>
 </body>
