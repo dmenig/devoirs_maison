@@ -75,7 +75,7 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
           rr.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
       h+=exp(sec("Recomposition · "+window.__scr[li].c)+
         `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`,
-        `Poids de chaque <b>bloc en % des inscrits</b> (slide 23). Historique scrutin par scrutin (2012→2026) : `+
+        `Poids de chaque <b>bloc en % des inscrits</b>. Historique scrutin par scrutin (2012→2026) : `+
         `<b>FI</b>=LFI-PCF-EXG · <b>PS</b>=PS-EELV · <b>EM</b>=MoDem-Renaissance · <b>LR</b>=LR-DVD · `+
         `<b>RN</b>=RN-EXD · <b>Div</b>=autres · <b>Abs</b>=abstention. « · » = indisponible.`+
         `<div class="rwrap"><table class="recompo"><thead><tr><th></th>`+
@@ -86,17 +86,17 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
   const pm=pairMetrics(o), arrow=`${selA}→${selB}`;
   let resRows="", resDet=`<p>Réservoirs entre les <b>deux scrutins choisis</b> dans le sélecteur en haut de carte.</p>`;
   if(pm.report!=null){ const perte=Math.round((100-pm.report)*10)/10;
-    resRows+=`<div class="row"><span>Report LFI ${arrow}</span><b>${pm.report} %</b></div>`;
-    resDet+=`<p><b>Report LFI</b> : LFI a conservé <b>${pm.report}%</b> de ses voix entre ${scLab(selA)} et ${scLab(selB)}`+
+    resRows+=`<div class="row"><span>Voix LFI conservées ${arrow}</span><b>${pm.report} %</b></div>`;
+    resDet+=`<p><b>Voix LFI conservées</b> : LFI a conservé <b>${pm.report}%</b> de ses voix entre ${scLab(selA)} et ${scLab(selB)}`+
       `${perte>0?` (soit <b>${perte}%</b> de voix insoumises perdues à reconquérir)`:""}. `+
       `Taux de report en <b>voix réelles</b> (voix LFI ${selB} ÷ voix LFI ${selA}), non en % d'inscrits.</p>`; }
   if(pm.dpart!=null){
-    resRows+=`<div class="row"><span>Différentiel participation ${arrow}</span><b>${pm.dpart>0?"+":""}${pm.dpart} pts</b></div>`;
-    resDet+=`<p><b>Différentiel participation</b> : participation ${pm.dpart>=0?"plus forte":"plus faible"} de <b>${Math.abs(pm.dpart)} pts</b> `+
+    resRows+=`<div class="row"><span>Évolution participation ${arrow}</span><b>${pm.dpart>0?"+":""}${pm.dpart} pts</b></div>`;
+    resDet+=`<p><b>Évolution participation</b> : participation ${pm.dpart>=0?"plus forte":"plus faible"} de <b>${Math.abs(pm.dpart)} pts</b> `+
       `en ${scLab(selB)} qu'en ${scLab(selA)} (en points d'inscrits). Mesure la (dé)mobilisation entre les deux scrutins.</p>`; }
   if(pm.perte!=null){
-    resRows+=`<div class="row"><span>Taux de perte gauche ${arrow}</span><b>${pm.perte>0?pm.perte+" %":"—"}</b></div>`;
-    resDet+=`<p><b>Taux de perte gauche</b> : la gauche (bloc social-écologique) a perdu <b>${pm.perte}%</b> de ses voix entre `+
+    resRows+=`<div class="row"><span>Voix perdues à gauche ${arrow}</span><b>${pm.perte>0?pm.perte+" %":"—"}</b></div>`;
+    resDet+=`<p><b>Voix perdues à gauche</b> : la gauche (LFI, PS, EELV, PCF) a perdu <b>${pm.perte}%</b> de ses voix entre `+
       `${scLab(selA)} et ${scLab(selB)} (voix réelles). Une valeur négative = progression.</p>`; }
   if(o.abst!=null){
     resRows+=`<div class="row"><span>Abstentionnistes à remobiliser · E24</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`;
@@ -109,20 +109,21 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
   // interdécile, Gini). À l'IRIS le jeu est complet ; à la commune, médiane/pauvreté + Q1/Q3.
   const eur=v=>v.toLocaleString('fr')+" €";
   const s=[];
-  if(o.rev!=null)s.push(["Revenu médian disponible",eur(o.rev)]);
+  if(o.rev!=null)s.push(["Revenu médian (après impôts et aides)",eur(o.rev)]);
   if(o.pauv!=null)s.push(["Taux de pauvreté",o.pauv+" %"]);
-  if(o.q1!=null)s.push(["1ᵉʳ quartile (Q1)",eur(o.q1)]);
-  if(o.q3!=null)s.push(["3ᵉ quartile (Q3)",eur(o.q3)]);
-  if(o.ridec!=null)s.push(["Rapport interdécile (D9/D1)",o.ridec]);
-  if(o.gini!=null)s.push(["Indice de Gini",o.gini]);
+  if(o.q1!=null)s.push(["Les 25 % les plus modestes gagnent moins de",eur(o.q1)]);
+  if(o.q3!=null)s.push(["Les 25 % les plus aisés gagnent plus de",eur(o.q3)]);
+  if(o.ridec!=null)s.push(["Écart riches / pauvres",o.ridec+" ×"]);
+  if(o.gini!=null)s.push(["Indice d'inégalité (Gini)",o.gini]);
   if(s.length)h+=exp(sec("Contexte social")+distBand(o)+
     s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
-    `<b>Revenu médian disponible</b> par unité de consommation et <b>taux de pauvreté</b> (part sous 60 % du `+
-    `revenu médian national). La barre montre la <b>dispersion</b> des revenus : segment épais = Q1→Q3 (la moitié `+
-    `centrale des ménages), fines moustaches = D1→D9 (8 ménages sur 10), trait blanc = médiane. `+
-    `<b>Rapport interdécile</b> D9/D1 et <b>indice de Gini</b> (0 = égalité, 1 = inégalité maximale) mesurent `+
-    `l'écart riches/pauvres dans la zone. Source : INSEE FILOSOFI 2021 — à l'<b>IRIS</b> (quartier) le détail est `+
-    `complet ; à la <b>commune</b>, médiane et quartiles (moyenne des IRIS).`);
+    `<b>Revenu médian (après impôts et aides)</b> par personne, corrigé de la taille du foyer, et <b>taux de pauvreté</b> `+
+    `(part des habitants vivant sous 60 % du revenu médian national). La barre montre la répartition des revenus : `+
+    `la barre épaisse = la moitié des foyers autour de la médiane, les traits fins vont du plus modeste au plus aisé `+
+    `(8 foyers sur 10), le trait blanc = la médiane. L'<b>écart riches / pauvres</b> (combien de fois les 10 % les plus `+
+    `riches gagnent plus que les 10 % les plus pauvres) et l'<b>indice de Gini</b> (0 = égalité parfaite, 1 = inégalité `+
+    `maximale) mesurent les inégalités dans la zone. Source : INSEE FILOSOFI 2021 (données fiscales) — par <b>quartier</b> `+
+    `le détail est complet ; à l'échelle de la <b>commune</b>, médiane et seuils (moyenne des quartiers).`);
   h+=adminPanel(o);
   h+=actionPanel(o);
   info.innerHTML=`<div class="slider"><div class="pane">${h}</div>`+

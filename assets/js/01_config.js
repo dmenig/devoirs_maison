@@ -10,9 +10,9 @@ const STAT=new Set(["lfi","part","rn","gauche"]);
 // région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
 const SOCIO=new Set(["rev","pauv"]);
 const PAST=[["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
-            ["gauche","Gauche","%"],["dyn_report","Report LFI","%"],
-            ["dyn_dpart","Δ Participation"," pts"],["dyn_perte","Perte gauche","%"],
-            ["abst","Abstention (stock)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
+            ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
+            ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
+            ["abst","Abstention (nb de voix)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
 // profil INSEE de la commune (fiche circonscription de la prez, slides 25-28)
 const AGE_LAB=["0-14","15-29","30-44","45-59","60-74","75+"];
 // indices tr_ : PAS=0,MAR=1,VELO=2,2ROUESMOT=3,VOIT=4,TCOM=5 ; ordre d'affichage = slide 28

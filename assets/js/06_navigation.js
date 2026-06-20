@@ -94,9 +94,9 @@ const subToggle=show=>{ $("subtoggle").style.display=show?"flex":"none";
 async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(sousMode==="iris"){
     const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON("values/iris.json")]);
-    if(!geo){$("loading").textContent="contours IRIS indisponibles";return;}
+    if(!geo){$("loading").textContent="quartiers indisponibles ici";return;}
     const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_iris).slice(0,5)===code)};
-    if(!fc.features.length){$("loading").textContent="pas d'IRIS";return;}
+    if(!fc.features.length){$("loading").textContent="pas de données par quartier";return;}
     dessiner(fc,val||{},"code_iris","nom_iris",null); return; }
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
   if(!geo){$("loading").textContent="contours BV indisponibles";return;}
