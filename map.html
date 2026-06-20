@@ -28,7 +28,16 @@
           background:var(--pbg2);color:var(--txt)}
   #search::placeholder{color:var(--mut2)}
   #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
-  #pairsel{display:flex;gap:4px;align-items:center;margin-right:6px;font-size:12px;font-weight:700;color:var(--lav)}
+  /* groupe « comparaison de scrutins » : le sélecteur ⚖️ ne pilote QUE les pastilles
+     qu'il contient (Report / Δ Participation / Perte). La bordure s'allume quand l'une
+     d'elles colore la carte, et se grise sinon — pour montrer ce que la paire affecte. */
+  #pairgroup{display:flex;gap:6px;align-items:center;padding:3px 8px 3px 7px;
+       border:1px solid var(--bord);border-radius:16px;background:rgba(90,60,130,.12);transition:.2s}
+  #pairgroup:not(.active){opacity:.62}
+  #pairgroup.active{border-color:var(--lav);background:rgba(123,73,179,.22)}
+  #pairlab{font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.03em;white-space:nowrap}
+  #pairgroup.active #pairlab{color:var(--lav)}
+  #pairsel{display:flex;gap:4px;align-items:center;font-size:12px;font-weight:700;color:var(--lav)}
   #pairsel select{font-weight:400;font-size:12px;padding:2px 4px;border:1px solid var(--bord);border-radius:7px;background:var(--pbg2);color:var(--txt);cursor:pointer}
   #pairsel .arr{color:var(--mut);font-weight:700}
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
@@ -126,8 +135,11 @@
   <datalist id="communes"></datalist>
   <span id="loading" class="hint"></span>
 </div>
-<div id="pastilles" class="panel"><span id="pairsel" title="Choisir les deux scrutins comparés">⚖️
-    <select id="selA"></select><span class="arr">→</span><select id="selB"></select></span></div>
+<div id="pastilles" class="panel"><span id="pairgroup"
+    title="Scrutins comparés — pilote uniquement les pastilles de ce cadre (Report LFI, Δ Participation, Perte gauche)">
+    <span id="pairlab">⚖️ Comparaison</span>
+    <span id="pairsel"><select id="selA"></select><span class="arr">→</span><select id="selB"></select></span>
+    </span></div>
 <div id="subtoggle" class="panel">
   <span class="chip on" data-m="bv">🗳️ Bureaux de vote</span>
   <span class="chip" data-m="iris">🏙️ Quartiers IRIS</span>
@@ -420,7 +432,11 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter){
       else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code])); }}).addTo(map); }
 
 function jumpTo(d){ stack=stack.slice(0,d); infoPanel(null); setFil();
-  if(d===0)return vueFrance(); const t=stack[d-1]; flyTo(t.bounds); render(t.niveau,t.code); }
+  if(d===0)return vueFrance(); const t=stack[d-1];
+  // remonter : on plafonne le zoom d'arrivée juste sous le seuil de redescente ZIN[d]
+  // (tout en restant au-dessus de ZOUT[d]), sinon l'ajustement aux contours du parent
+  // retombe pile sur le seuil et on replonge aussitôt dans la zone qu'on vient de quitter.
+  flyTo(t.bounds, ZIN[d]!=null?ZIN[d]-0.1:15); render(t.niveau,t.code); }
 function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`;
   stack.forEach((s,i)=>h+=` › <span class="crumb" data-d="${i+1}">${s.nom}</span>`);
   $("fil").innerHTML=h; $("fil").querySelectorAll(".crumb").forEach(e=>e.onclick=()=>jumpTo(+e.dataset.d));
@@ -498,14 +514,19 @@ map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
 // la paire de scrutins choisie (ex. « Report LFI P22→E24 »).
 const labelFor=k=>{ const p=PAST.find(x=>x[0]===k); if(!p)return k;
   return k.startsWith("dyn_")?`${p[1]} ${selA}→${selB}`:p[1]; };
+// la paire de scrutins ne colore la carte que pour les indicateurs « dyn_* » : on allume
+// le cadre ⚖️ quand l'un d'eux est l'indicateur actif, on le grise sinon.
+const updatePairActive=()=>$("pairgroup").classList.toggle("active",indicKey.startsWith("dyn_"));
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
   indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
-  $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k)); }
-function buildPastilles(){ const box=$("pastilles");
+  $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
+  updatePairActive(); }
+function buildPastilles(){ const box=$("pastilles"), grp=$("pairgroup");
   PAST.forEach(([k])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
     c.textContent=labelFor(k); c.dataset.k=k;
     c.onclick=()=>{ setIndic(k); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
-    box.appendChild(c); }); $("legtitle").textContent=labelFor(indicKey); }
+    (k.startsWith("dyn_")?grp:box).appendChild(c); });
+  $("legtitle").textContent=labelFor(indicKey); updatePairActive(); }
 // sélecteur de deux scrutins : peuple A/B et recalcule réservoirs (carte + fiche) à la volée
 function buildSelecteur(){
   for(const id of ["selA","selB"]){ const sel=$(id), cur=id==="selA"?selA:selB;
