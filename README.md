@@ -18,7 +18,7 @@ Les données (`data_app/`) sont générées sur la machine et **ne sont pas vers
 
 ```bash
 uv run --with streamlit --with streamlit-folium --with folium --with branca \
-        --with pandas --with pyarrow streamlit run app.py
+        --with pandas --with pyarrow streamlit run streamlit_app.py
 ```
 
 **B. Les régénérer depuis [hexagonal](https://github.com/) :**
@@ -33,7 +33,7 @@ uv run --project /chemin/vers/hexagonal python regen_geo.py       # contours ple
 
 | Fichier | Rôle |
 | --- | --- |
-| `app.py` | application Streamlit, navigation cliquable + recherche adaptative |
+| `streamlit_app.py` | application Streamlit, navigation cliquable + recherche adaptative |
 | `panels.py` | panneaux commune (IRIS + bureaux de vote) et circonscription |
 | `viz.py` | cartes choroplèthes folium |
 | `indicators.py` | catalogue d'indicateurs + calcul des réservoirs de voix |
@@ -53,7 +53,7 @@ INSEE / france-geojson.
 
 ## Déploiement
 
-Streamlit Community Cloud / serveur : pointer sur `app.py`. Comme `data_app/` n'est pas
+Streamlit Community Cloud / serveur : pointer sur `streamlit_app.py`. Comme `data_app/` n'est pas
 dans git, soit l'ajouter au déploiement (Git LFS ou stockage objet), soit régénérer via
 `prepare_data.py`. Voir DOCUMENTATION.md pour les limites connues (contours de bureaux de
 vote non disponibles nationalement, etc.).

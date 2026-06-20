@@ -37,8 +37,15 @@ def _bornes(features: list[dict]) -> list[list[float]] | None:
     return [[min(ys), min(xs)], [max(ys), max(xs)]]
 
 
+def _propre(v) -> float | None:
+    """None pour les valeurs manquantes (None / NaN)."""
+    if v is None or v != v:  # NaN != NaN
+        return None
+    return float(v)
+
+
 def _colormap(values, scheme: str) -> cm.LinearColormap | None:
-    vals = [float(v) for v in values if v is not None]
+    vals = [x for x in (_propre(v) for v in values) if x is not None]
     if not vals:
         return None
     vmin, vmax = min(vals), max(vals)
@@ -55,11 +62,11 @@ def choropleth(
     feats = []
     for f in gj["features"]:
         code = str(f["properties"].get(code_prop))
-        v = values.get(code)
+        v = _propre(values.get(code))
         nf = {"type": "Feature", "geometry": f["geometry"], "properties": dict(f["properties"])}
         nf["properties"]["_code"] = code
         nf["properties"]["_nom"] = f["properties"].get("nom") or f["properties"].get("nom_iris") or code
-        nf["properties"]["_val"] = None if v is None else round(float(v), 1)
+        nf["properties"]["_val"] = None if v is None else round(v, 1)
         feats.append(nf)
     data = {"type": "FeatureCollection", "features": feats}
 
@@ -69,7 +76,7 @@ def choropleth(
         m.fit_bounds(bornes)
 
     def style(feat):
-        v = feat["properties"]["_val"]
+        v = feat["properties"].get("_val")
         return {
             "fillColor": cmap(v) if (cmap and v is not None) else "#dddddd",
             "color": "#444", "weight": 0.6, "fillOpacity": 0.78,
