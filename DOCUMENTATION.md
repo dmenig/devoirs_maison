@@ -42,7 +42,7 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **Région** | idem, agrégé région | différentiels et reports entre scrutins | — |
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
 | **Circonscription** | blocs + participation par circo ; tableau de recomposition | reports LFI entre scrutins, capacité de mobilisation | — |
-| **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI, moyenne des IRIS) |
+| **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
 | **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté**, **écarts interdéciles** par IRIS (carte choroplèthe) |
 | **Bureau de vote** | blocs + participation par BV ; carte/tableau | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
@@ -66,6 +66,21 @@ Calculés dynamiquement entre deux scrutins choisis, à l'échelle commune **et*
 > la commune forme un seul IRIS. Le revenu médian communal est ici la moyenne de ses IRIS
 > (approximation), à confronter au terrain.
 
+### Profil administratif de la commune (recensement INSEE 2021)
+
+Reprend la **fiche circonscription INSEE** de la prez (slides 22, 25-28), ramenée à la
+commune et comparée à la moyenne France :
+
+- **Pyramide des âges** par sexe et tranche d'âge (slide 26)
+- **Statut d'occupation** des résidences principales : propriétaires / locataires / HLM (slide 27)
+- **Déplacements domicile-travail** par mode (voiture, transports en commun, marche, vélo…) (slide 28)
+- **Renouvellement de population** : lieu de résidence un an auparavant, 5 catégories (slide 25)
+- **Maire en exercice** (nom + catégorie socio-professionnelle), amorce de l'histoire
+  électorale locale (slide 22)
+
+> Agrégés à la commune depuis les **bases infracommunales (IRIS)** du recensement ; le
+> renouvellement provient du **fichier détail « individus localisés »** (variable IRAN).
+
 ## Sources des données
 
 Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
@@ -73,6 +88,9 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 - **Résultats électoraux** : Ministère de l'Intérieur / data.gouv (par bureau de vote,
   commune, circonscription) — scrutins 2012 → 2026.
 - **Socio-économique** : INSEE **FILOSOFI 2021** (revenu disponible par IRIS).
+- **Administratif (commune)** : **recensement INSEE 2021** — bases infracommunales (âges,
+  logement, activité/déplacements) et fichier détail « individus localisés » (renouvellement) ;
+  **Répertoire national des élus** (data.gouv) pour le maire en exercice.
 - **Découpage administratif** : INSEE **COG 2025** (communes, départements, régions).
 - **Fonds de carte** : régions/départements/communes (france-geojson), circonscriptions
   législatives (INSEE), contours IRIS 2025 (IGN, quand disponibles).

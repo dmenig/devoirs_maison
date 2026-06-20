@@ -30,10 +30,10 @@ déjà calculée dans `data_app/` mais jamais branchée** côté front.
 | Vote LFI par BV E24/M26 (33–34) | ✅ | — |
 | Report LFI P22→E24 (45) | ✅ | — |
 | Abstention mobilisable en **stock** (46, 57) | ✅ | #3 fait |
-| **Tableau de recomposition 6 blocs × tous scrutins** (23) | ⚠️ | #2 |
+| **Tableau de recomposition 6 blocs × tous scrutins** (23) | ✅ | #2 fait |
 | Différentiel participation P22→E24 par BV (44) | ✅ | #3 fait |
 | Report LFI E24→M26 par BV (46) | ✅ | #3 fait |
-| Taux de perte / différentiels par cycle (43) | ❌ | #4 |
+| Taux de perte / différentiels par cycle (43) | ✅ | #4 fait |
 | **IRIS : contours + revenu + pauvreté** (30–32) | ❌ baké, non navigable | #1 |
 | Fiche circonscription INSEE — situation (24) | ❌ baké, non branché | #1 |
 | Renouvellement de population (25) | ❌ absent du pipeline | #6 |
@@ -55,12 +55,22 @@ existent (`values/iris.json`, `geo/iris/*`, `circonscription.geojson`,
 - Ajouter la circonscription comme échelle navigable.
 - **Travail purement front** : aucun nouveau calcul.
 
-### #2 — Reproduire le tableau de recomposition (artefact central de la prez)
-Aujourd'hui réduit à un « rapport de force » E24 sur 4 barres ; **PS-EELV et LFI-PCF sont
-fondus** dans un seul « gauche » (`tri_social_ecologique`).
-- Baker les colonnes `b6_*` (6 blocs distincts) dans [prep_bake.py](prep_bake.py).
-- Afficher dans le panneau un tableau **1 ligne par scrutin (2012→2026) × 6 blocs + Abs.**,
-  en % des inscrits, comme slide 23.
+### #2 — Reproduire le tableau de recomposition (artefact central de la prez) ✅ fait
+Les 6 blocs distincts (`b6_*`) étaient calculés mais fondus dans un seul « gauche » à
+l'affichage.
+- ✅ [prep_bake.py](prep_bake.py) bake une structure `rec` par code : **tous les scrutins
+  (2012→2026) × 6 blocs + abstention**, en % des inscrits (dict creux indexé sur l'ordre
+  chronologique baké dans `_scrutins.json`).
+- ✅ Garde-fou d'intégrité (`scrutins_fiables`) : les scrutins legacy multi-tours qui
+  **double-comptent** les voix (2012-présidentielle, municipales 2014/2020 — somme
+  blocs+abstention hors [50, 105] %) sont **écartés et loggués**, pour ne jamais afficher
+  un tableau à >100 %.
+- ✅ Fiche ([map.html](map.html)) : **essentiel d'abord** — barre de recomposition empilée
+  du dernier scrutin + légende ; le **tableau complet** 1 ligne/scrutin × 6 blocs + Abs.
+  (slide 23) est révélé au clic sur « détails ».
+- ⚠️ Cause racine du double-comptage non corrigée (hors périmètre #2) : `_par_bureau`
+  ([prep_elections.py](prep_elections.py)) somme les voix sans filtrer `numero_tour` pour
+  les fichiers contenant plusieurs tours ; à traiter en amont (rebuild du pipeline).
 
 ### #3 — Exposer / corriger les réservoirs déjà calculés ✅ fait
 - ✅ Pastilles `dpart` (différentiel de participation 22→24) et `abst` (**stock**
@@ -70,10 +80,16 @@ fondus** dans un seul « gauche » (`tri_social_ecologique`).
 - ✅ Proxys front supprimés (`reservoir_lfi`, `abst_pct`) : la carte et la fiche lisent
   désormais les valeurs bakées (taux de report en **voix réelles**, non en % d'inscrits).
 
-### #4 — Sélecteur de deux scrutins
-La logique de réservoir de la prez est « entre deux élections **choisies** ». Le site fige
-P22→E24. Ajouter un sélecteur (scrutin A / scrutin B) recalculant report, différentiel de
-participation et taux de perte à la volée.
+### #4 — Sélecteur de deux scrutins ✅ fait
+La logique de réservoir de la prez est « entre deux élections **choisies** ». Le site figeait
+P22→E24.
+- ✅ Sélecteur `scrutin A → scrutin B` (⚖️, en tête de carte) couvrant les 4 scrutins nationaux.
+- ✅ `prep_bake.py` bake les **voix réelles** par scrutin (`lfiv_*`, `gv_*`) ; le front recalcule
+  pour la paire choisie, **à la volée et sans proxy** : report LFI (= voix B ÷ voix A), taux de
+  perte de la gauche, et différentiel de participation (points d'inscrits, = part B − part A).
+  Mêmes formules que `indicators.reservoirs` (report P22→E24 recalculé = valeur bakée `rep_lfi`).
+- ✅ Pilote à la fois les **pastilles** de la carte (`Report LFI`, `Δ Participation`, `Perte
+  gauche`, relibellées avec la paire) et la section « Réservoirs de voix · A→B » de la fiche.
 
 ### #5 — Pont « de la carte à l'action » (slide 51) ✅
 Bloc « 🎯 De la carte à l'action » ajouté en bas de la fiche ([map.html](map.html), `actionPanel`) :
@@ -84,13 +100,23 @@ Bloc « 🎯 De la carte à l'action » ajouté en bas de la fiche ([map.html](m
 - Invitation explicite à confronter les chiffres à la connaissance du terrain.
 - **Front-only**, aucun nouveau calcul.
 
-### #6 — Données administratives manquantes (nouveau pipeline INSEE)
-Absentes des tables actuelles, à ajouter en amont :
-- Renouvellement de population (lieu de résidence 1 an avant).
-- Pyramide des âges (population par sexe et âge).
-- Niveau de vie (pauvres/modestes/médians/aisés) + part propriétaires/locataires.
-- Déplacements domicile-travail par mode de transport.
-- Histoire électorale de la commune (maires successifs / tradition).
+### #6 — Données administratives manquantes (nouveau pipeline INSEE) ✅
+Nouveau module [prep_admin.py](prep_admin.py) (téléchargement + agrégation à la commune des
+recensements INSEE 2021), baké par [prep_bake.py](prep_bake.py) (champ `adm` par commune +
+référence France `_admin_fr.json`), affiché dans [map.html](map.html) (section « Profil INSEE
+de la commune », chaque indicateur comparé à la France) :
+- ✅ Pyramide des âges (6 tranches × sexe) — base-ic-evol-struct-pop (slide 26).
+- ✅ Propriétaires / locataires / HLM — base-ic-logement (slide 27) ; niveau de vie
+  (revenu médian, pauvreté) toujours servi via FILOSOFI (#1).
+- ✅ Déplacements domicile-travail (6 modes) — base-ic-activite-residents (slide 28).
+- ✅ Renouvellement de population (résidence 1 an avant, 5 catégories) — fichier détail
+  « individus localisés » (variable IRAN), agrégé au **canton-ou-ville** (grain le plus fin
+  publié, confidentialité) puis rabattu sur la commune via son canton COG (slide 25).
+- ✅ Maire en exercice (nom + CSP) — RNE / data.gouv (amorce de l'histoire électorale,
+  slide 22 ; l'historique des maires reste éditorial, sans source ouverte).
+
+Réserves : Paris / Lyon / Marseille (codés par arrondissement dans les bases infracommunales)
+n'ont pas de fiche commune ; le renouvellement est au grain canton-ou-ville.
 
 ### #7 — Réconcilier la documentation
 Mettre [DOCUMENTATION.md](DOCUMENTATION.md) et [README.md](README.md) en cohérence avec ce

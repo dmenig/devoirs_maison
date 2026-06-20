@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import prep_admin
 import prep_geo
 from prep_elections import construire_resultats
 from prep_socio import construire_socio
@@ -44,7 +45,11 @@ def charger_cog() -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
 
 
 def charger_correspondances() -> pd.DataFrame | None:
-    f = CLEAN / "elections" / "2024-legislatives-correspondances-bureau_de_vote-circonscription.csv"
+    f = (
+        CLEAN
+        / "elections"
+        / "2024-legislatives-correspondances-bureau_de_vote-circonscription.csv"
+    )
     if not f.exists():
         return None
     df = _lire_csv(f)
@@ -58,8 +63,16 @@ def charger_correspondances() -> pd.DataFrame | None:
         elif "bureau" in cl or cl in ("code_bv", "bv"):
             ren[c] = "bureau_de_vote"
     df = df.rename(columns=ren)
-    cols = [c for c in ("code_commune", "bureau_de_vote", "circonscription") if c in df.columns]
-    return df[cols].drop_duplicates() if {"code_commune", "circonscription"} <= set(cols) else None
+    cols = [
+        c
+        for c in ("code_commune", "bureau_de_vote", "circonscription")
+        if c in df.columns
+    ]
+    return (
+        df[cols].drop_duplicates()
+        if {"code_commune", "circonscription"} <= set(cols)
+        else None
+    )
 
 
 def main() -> None:
@@ -84,6 +97,14 @@ def main() -> None:
         commune_socio.to_parquet(OUT / "socio_commune.parquet", index=False)
         print(f"   IRIS: {len(iris)} | communes: {len(commune_socio)}")
 
+    print("→ Données administratives INSEE (âges, logement, transport, maires)")
+    admin_insee = prep_admin.construire_admin(OUT / "_insee_cache", communes)
+    if not admin_insee.commune.empty:
+        admin_insee.commune.to_parquet(OUT / "admin_commune.parquet", index=False)
+        print(f"   admin commune: {len(admin_insee.commune) - 1} communes (+ France)")
+    else:
+        print("   admin indisponible (téléchargements INSEE échoués)")
+
     print("→ Référentiels (noms)")
     communes[["code_commune", "nom", "code_departement", "code_region"]].to_parquet(
         OUT / "ref_communes.parquet", index=False
@@ -94,20 +115,29 @@ def main() -> None:
     print("→ Contours (fonds de carte)")
     prep_geo.contours_de_base(GEO)
     prep_geo.contours_communes(GEO)
-    prep_geo.contours_circonscriptions(RAW / "insee" / "insee_circonscriptions_legislatives.zip", GEO)
+    prep_geo.contours_circonscriptions(
+        RAW / "insee" / "insee_circonscriptions_legislatives.zip", GEO
+    )
     gpkg = RAW / "ign" / "iris-metropole.gpkg"
-    if prep_geo.telecharger_iris_ign(IRIS_IGN_URL, RAW / "ign" / "iris-metropole.7z", gpkg):
+    if prep_geo.telecharger_iris_ign(
+        IRIS_IGN_URL, RAW / "ign" / "iris-metropole.7z", gpkg
+    ):
         prep_geo.contours_iris(gpkg, GEO)
         print("   IRIS contours OK")
     else:
-        print("   IRIS contours indisponibles (IGN throttling) — tables IRIS quand même servies")
+        print(
+            "   IRIS contours indisponibles (IGN throttling) — tables IRIS quand même servies"
+        )
 
     manifest = {
         "scrutins": sorted(resultats["commune"]["scrutin"].unique().tolist()),
         "niveaux": sorted(resultats.keys()),
         "iris_contours": (GEO / "iris").exists(),
+        "admin_commune": (OUT / "admin_commune.parquet").exists(),
     }
-    (OUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+    (OUT / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2)
+    )
     print("✓ prepare_data terminé")
 
 

@@ -6,55 +6,86 @@
 <title>Atlas électoral militant</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  html,body{margin:0;height:100%;font-family:system-ui,sans-serif}
-  #map{position:absolute;inset:0}
-  .panel{position:absolute;z-index:1000;background:#fff;border-radius:10px;
-         box-shadow:0 1px 8px rgba(0,0,0,.25);padding:7px 10px;font-size:13px}
+  /* Thème sombre cohérent avec le fond de carte CARTO dark_all.
+     Panneaux anthracite teintés violet, texte lavande clair,
+     accents violet (#b39ddb) et cramoisi (#e8456f) repris de la charte. */
+  :root{
+    --pbg:rgba(26,22,36,.93); --pbg2:#221d30; --bord:#3a3350;
+    --txt:#e9e4f2; --mut:#9b93ad; --mut2:#7d7591; --lav:#b39ddb; --cram:#e8456f;
+  }
+  html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:#0f0d15;color:var(--txt)}
+  #map{position:absolute;inset:0;background:#0f0d15}
+  .panel{position:absolute;z-index:1000;background:var(--pbg);color:var(--txt);
+         border:1px solid var(--bord);border-radius:10px;
+         box-shadow:0 2px 14px rgba(0,0,0,.5);padding:7px 10px;font-size:13px;backdrop-filter:blur(6px)}
   #top{top:10px;left:52px;right:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  #fil{font-weight:700;color:#5b2a86}
+  #fil{font-weight:700;color:var(--lav)}
   .crumb{cursor:pointer} .crumb:hover{text-decoration:underline}
-  #back{cursor:pointer;border:none;background:#5b2a86;color:#fff;border-radius:7px;padding:5px 10px}
+  #back{cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 10px}
+  #back:hover:not(:disabled){background:#7d49b3}
   #back:disabled{opacity:.3;cursor:default}
-  #search{min-width:220px;padding:5px 7px;border:1px solid #ccc;border-radius:7px;font-size:13px}
+  #search{min-width:220px;padding:5px 7px;border:1px solid var(--bord);border-radius:7px;font-size:13px;
+          background:var(--pbg2);color:var(--txt)}
+  #search::placeholder{color:var(--mut2)}
   #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
-  #pairsel{display:flex;gap:4px;align-items:center;margin-right:6px;font-size:12px;font-weight:700;color:#5b2a86}
-  #pairsel select{font-weight:400;font-size:12px;padding:2px 4px;border:1px solid #ccc;border-radius:7px;background:#fff;color:#333;cursor:pointer}
-  #pairsel .arr{color:#aaa;font-weight:700}
-  .chip{cursor:pointer;border:1px solid #ccc;border-radius:14px;padding:3px 10px;background:#fff;font-size:12px}
-  .chip.on{background:#5b2a86;color:#fff;border-color:#5b2a86}
+  #pairsel{display:flex;gap:4px;align-items:center;margin-right:6px;font-size:12px;font-weight:700;color:var(--lav)}
+  #pairsel select{font-weight:400;font-size:12px;padding:2px 4px;border:1px solid var(--bord);border-radius:7px;background:var(--pbg2);color:var(--txt);cursor:pointer}
+  #pairsel .arr{color:var(--mut);font-weight:700}
+  .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
+  .chip:hover{border-color:var(--lav)}
+  .chip.on{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
   #info{top:100px;right:10px;width:268px;max-height:82vh;overflow:auto;display:none;padding:12px 14px}
-  #info .t{font-weight:800;font-size:16px;color:#5b2a86;margin-bottom:2px}
-  #info .lead{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.04em}
-  #info .head{font-size:30px;font-weight:800;color:#cf2e5b;line-height:1;margin:2px 0 8px}
-  #info .head small{font-size:13px;color:#999;font-weight:600}
-  #info .sec{font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:.05em;
-             margin:11px 0 5px;border-top:1px solid #eee;padding-top:7px}
+  #info .t{font-weight:800;font-size:16px;color:var(--lav);margin-bottom:2px}
+  #info .lead{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+  #info .head{font-size:30px;font-weight:800;color:var(--cram);line-height:1;margin:2px 0 8px}
+  #info .head small{font-size:13px;color:var(--mut);font-weight:600}
+  #info .sec{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;
+             margin:11px 0 5px;border-top:1px solid var(--bord);padding-top:7px}
   #info .row{display:flex;justify-content:space-between;gap:8px;margin:4px 0;font-size:13px}
-  #info .row span{color:#555} #info .row b{color:#222;font-variant-numeric:tabular-nums}
-  #info .bar{margin:3px 0 7px;background:#f0f0f3;border-radius:5px;height:8px;overflow:hidden}
+  #info .row span{color:var(--mut)} #info .row b{color:var(--txt);font-variant-numeric:tabular-nums}
+  #info .bar{margin:3px 0 7px;background:#2c2640;border-radius:5px;height:8px;overflow:hidden}
   #info .bar i{display:block;height:100%;border-radius:5px}
-  #info .lab{display:flex;justify-content:space-between;font-size:12.5px;color:#444;margin-top:6px}
-  #info .lab b{font-variant-numeric:tabular-nums;color:#222}
+  #info .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut);margin-top:6px}
+  #info .lab b{font-variant-numeric:tabular-nums;color:var(--txt)}
   #info .trend{display:flex;gap:5px;align-items:flex-end;height:54px;margin-top:4px}
-  #info .tcol{flex:1;text-align:center;font-size:10px;color:#888}
+  #info .tcol{flex:1;text-align:center;font-size:10px;color:var(--mut)}
   #info .tbarwrap{height:38px;display:flex;align-items:flex-end;justify-content:center}
-  #info .tbar{width:60%;background:#cf2e5b;border-radius:3px 3px 0 0;min-height:2px}
-  #info .tv{font-weight:700;color:#cf2e5b;font-size:11px}
+  #info .tbar{width:60%;background:var(--cram);border-radius:3px 3px 0 0;min-height:2px}
+  #info .tv{font-weight:700;color:var(--cram);font-size:11px}
   #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
-  #info .bal .bg{background:#cf2e5b;display:flex;align-items:center;justify-content:center;min-width:30px}
+  #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .exp .exph{cursor:pointer}
-  #info .exp .exph .ico{float:right;color:#b39ddb;font-size:10px;font-weight:600;margin-top:3px}
+  #info .exp .exph .ico{float:right;color:var(--lav);font-size:10px;font-weight:600;margin-top:3px}
   #info .exp.open .exph .ico::after{content:" ▴"}
-  #info .exp .det,#info .det2{display:none;font-size:11.5px;color:#5a5a5a;line-height:1.5;
-       background:#faf7fd;border-left:3px solid #d9c7ec;padding:7px 9px;border-radius:0 6px 6px 0;margin:6px 0 2px}
+  #info .exp .det,#info .det2{display:none;font-size:11.5px;color:#cabfdc;line-height:1.5;
+       background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:7px 9px;border-radius:0 6px 6px 0;margin:6px 0 2px}
   #info .exp.open .det,#info .exp.open .det2{display:block}
-  #info .rwrap{overflow-x:auto;margin-top:2px}
+  #info .det b,#info .det2 b{color:var(--txt)}
+  #info .bar{position:relative}
+  #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85;z-index:2}
+  #info .frtag{color:var(--mut2);font-weight:400}
+  #info .pyr{margin:5px 0 2px}
+  #info .pyrhead{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-bottom:3px}
+  #info .pyrow{display:flex;align-items:center;gap:4px;margin:2px 0}
+  #info .ph,#info .pf{flex:1;height:9px;background:#2c2640;border-radius:3px;position:relative}
+  #info .ph{display:flex;justify-content:flex-end}
+  #info .ph i,#info .pf i{display:block;height:100%}
+  #info .ph i{border-radius:3px 0 0 3px}#info .pf i{border-radius:0 3px 3px 0}
+  #info .pmid{width:42px;text-align:center;font-size:10px;color:var(--mut);flex:none}
+  #info .ph u,#info .pf u{position:absolute;top:-1px;bottom:-1px;width:2px;background:#fff;opacity:.8}
+  #info .recbar{display:flex;height:20px;border-radius:6px;overflow:hidden;margin:5px 0 6px;background:rgba(140,140,150,.15)}
+  #info .recbar i{display:block;height:100%}
+  #info .reclg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--mut)}
+  #info .reclg span{display:flex;align-items:center;gap:4px}
+  #info .reclg i{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
+  #info .rwrap{overflow-x:auto;margin-top:8px}
   #info table.recompo{border-collapse:collapse;font-size:10px;width:100%;font-variant-numeric:tabular-nums}
   #info table.recompo th,#info table.recompo td{padding:1px 3px;text-align:right;white-space:nowrap}
-  #info table.recompo td.sc{text-align:left;color:#777}
-  #info table.recompo tbody tr:nth-child(odd){background:#faf7fd}
-  #info .act{background:#2d1640;color:#f3ecfa;border-radius:8px;padding:9px 11px;margin:12px 0 2px}
+  #info table.recompo td{color:var(--txt)}
+  #info table.recompo td.sc{text-align:left;color:var(--mut)}
+  #info table.recompo tbody tr:nth-child(odd){background:rgba(90,60,130,.14)}
+  #info .act{background:#2d1640;color:#f3ecfa;border:1px solid #4a2d63;border-radius:8px;padding:9px 11px;margin:12px 0 2px}
   #info .act .ah{font-weight:800;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:#d9c7ec;margin-bottom:6px}
   #info .act ul{margin:0;padding-left:16px} #info .act li{margin:5px 0;line-height:1.45}
   #info .act b{color:#fff}
@@ -62,10 +93,22 @@
   #info .act .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
   #info .act .inv{margin-top:8px;font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.5}
   #subtoggle{top:54px;right:10px;display:none;gap:6px}
-  #legend{bottom:14px;right:10px}
+  #legend{bottom:14px;left:10px;max-width:300px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
        background:linear-gradient(to right,#2166ac,#67a9cf,#f7f7f7,#ef8a62,#b2182b)}
-  .hint{color:#777;font-size:11px}
+  .hint{color:var(--mut2);font-size:11px}
+  /* Widgets natifs Leaflet alignés sur le thème sombre */
+  .leaflet-tooltip{background:var(--pbg);color:var(--txt);border:1px solid var(--bord);
+       box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .leaflet-tooltip-left:before{border-left-color:var(--bord)}
+  .leaflet-tooltip-right:before{border-right-color:var(--bord)}
+  .leaflet-tooltip-top:before{border-top-color:var(--bord)}
+  .leaflet-tooltip-bottom:before{border-bottom-color:var(--bord)}
+  .leaflet-bar{border:1px solid var(--bord);box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .leaflet-bar a,.leaflet-bar a:hover{background:var(--pbg2);color:var(--txt);border-bottom:1px solid var(--bord)}
+  .leaflet-bar a:hover{background:#322b46}
+  .leaflet-control-attribution{background:var(--pbg)!important;color:var(--mut2)}
+  .leaflet-control-attribution a{color:var(--mut)}
 </style>
 </head>
 <body>
@@ -100,6 +143,12 @@ const PAST=[["lfi_E24","Vote LFI","%"],["part_E24","Participation","%"],["rn_E24
             ["gauche_E24","Gauche","%"],["dyn_report","Report LFI","%"],
             ["dyn_dpart","Δ Participation"," pts"],["dyn_perte","Perte gauche","%"],
             ["abst","Abstention (stock)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
+// profil INSEE de la commune (fiche circonscription de la prez, slides 25-28)
+const AGE_LAB=["0-14","15-29","30-44","45-59","60-74","75+"];
+// indices tr_ : PAS=0,MAR=1,VELO=2,2ROUESMOT=3,VOIT=4,TCOM=5 ; ordre d'affichage = slide 28
+const TR_ROWS=[[4,"Voiture"],[5,"Transports en commun"],[1,"Marche à pied"],[2,"Vélo"],[3,"Deux-roues motorisé"],[0,"Pas de déplacement"]];
+const TR_COL=["#8a8a8a","#cf2e5b","#3b6ea5","#2e8b57","#b08a2e","#7d7591"];
+const MIG_ROWS=["Même logement","Autre logement, même commune","Autre commune du département","Hors département en France","À l'étranger"];
 // scrutins comparés par le sélecteur de réservoir (report / différentiel / taux de perte)
 let selA="P22", selB="E24";
 const scLab=c=>(SCR.find(s=>s[0]===c)||[,c])[1];
@@ -112,7 +161,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
 const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", indicUnit="%",
-    curVals={}, busy=false, sousMode="bv";
+    curVals={}, busy=false, sousMode="bv", lastInfo=null;
 const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 
@@ -154,7 +203,7 @@ const valOf=p=>rawVal(curVals[p.__code],indicKey);
 
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
-function infoPanel(nom,o){ const info=$("info");
+function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
   if(!o){info.style.display="none";return;}
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
   const barRow=(lab,v,col,max=50)=> v==null?"":
@@ -199,45 +248,53 @@ function infoPanel(nom,o){ const info=$("info");
       `<b>Gauche</b> = LFI + PS + EELV + PCF + divers gauche. <b>Macron</b> = Renaissance / MoDem / Horizons. `+
       `<b>Droite</b> = LR + divers droite. <b>RN</b> = RN + Reconquête + extrême droite.`); }
 
-  // tableau de recomposition (slide 23) : 1 ligne / scrutin × 6 blocs + Abs., % inscrits
+  // recomposition (slide 23) : essentiel = barre du dernier scrutin ; détail (clic) = tableau complet
   if(window.__scr&&o.rec){
     const heads=["FI","PS","EM","LR","RN","Div","Abs"],
-      cols=["#cf2e5b","#c2348b","#e6902e","#3b6ea5","#1f3a63","#8a8a8a","#666"];
-    let rows="";
-    window.__scr.forEach((s,i)=>{ const r=o.rec[i]; if(!r)return;
-      rows+=`<tr><td class="sc" title="${s.l}">${s.c}</td>`+
-        r.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
-    if(rows)h+=exp(sec("Recomposition · % des inscrits")+
-      `<div class="rwrap"><table class="recompo"><thead><tr><th></th>`+
-      heads.map((x,j)=>`<th style="color:${cols[j]}">${x}</th>`).join("")+
-      `</tr></thead><tbody>${rows}</tbody></table></div>`,
-      `Tableau de <b>recomposition</b> (slide 23) : poids de chaque bloc en % des inscrits, scrutin par `+
-      `scrutin (2012→2026). <b>FI</b> = LFI-PCF-EXG · <b>PS</b> = PS-EELV · <b>EM</b> = MoDem-Renaissance · `+
-      `<b>LR</b> = LR-DVD · <b>RN</b> = RN-EXD · <b>Div</b> = autres · <b>Abs</b> = abstention. `+
-      `« · » = scrutin non disponible ici.`); }
+      full=["LFI-PCF","PS-EELV","Macron","LR-DVD","RN-ED","Autres"],
+      cols=["#cf2e5b","#c2348b","#e6902e","#3b6ea5","#1f3a63","#8a8a8a"], gris="rgba(140,140,150,.45)";
+    let li=-1; window.__scr.forEach((s,i)=>{ if(o.rec[i])li=i; }); // dernier scrutin disponible
+    if(li>=0){ const r=o.rec[li];
+      const seg=r.slice(0,6).map((v,j)=> v?`<i style="width:${v}%;background:${cols[j]}" title="${full[j]} ${v}%"></i>`:"").join("")+
+        (r[6]?`<i style="width:${r[6]}%;background:${gris}" title="Abstention ${r[6]}%"></i>`:"");
+      const lg=full.map((n,j)=> r[j]?`<span><i style="background:${cols[j]}"></i>${n} ${r[j]}%</span>`:"").filter(Boolean).join("")+
+        (r[6]?`<span><i style="background:${gris}"></i>Abst. ${r[6]}%</span>`:"");
+      let rows="";
+      window.__scr.forEach((s,i)=>{ const rr=o.rec[i]; if(!rr)return;
+        rows+=`<tr><td class="sc" title="${s.l}">${s.c}</td>`+
+          rr.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
+      h+=exp(sec("Recomposition · "+window.__scr[li].c)+
+        `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`,
+        `Poids de chaque <b>bloc en % des inscrits</b> (slide 23). Historique scrutin par scrutin (2012→2026) : `+
+        `<b>FI</b>=LFI-PCF-EXG · <b>PS</b>=PS-EELV · <b>EM</b>=MoDem-Renaissance · <b>LR</b>=LR-DVD · `+
+        `<b>RN</b>=RN-EXD · <b>Div</b>=autres · <b>Abs</b>=abstention. « · » = indisponible.`+
+        `<div class="rwrap"><table class="recompo"><thead><tr><th></th>`+
+        heads.map((x,j)=>`<th style="color:${cols[j]||'#999'}">${x}</th>`).join("")+
+        `</tr></thead><tbody>${rows}</tbody></table></div>`); } }
 
-  // réservoirs de voix : valeurs bakées (prep_bake.py), lues telles quelles
+  // réservoirs de voix entre les DEUX scrutins choisis (sélecteur A→B), recalculés à la volée
+  const pm=pairMetrics(o), arrow=`${selA}→${selB}`;
   let resHTML="";
-  if(o.rep_lfi!=null){ const perte=Math.round((100-o.rep_lfi)*10)/10;
-    resHTML+=`<div class="row"><span>Report LFI 2022→2024</span><b>${o.rep_lfi} %</b></div>`+
-      `<div class="det2">LFI a conservé <b>${o.rep_lfi}%</b> de ses voix entre la présidentielle 2022 et les `+
-      `européennes 2024${perte>0?` (soit <b>${perte}%</b> de voix insoumises perdues à reconquérir)`:""}. `+
-      `Taux de report en <b>voix réelles</b> (voix LFI E2024 ÷ voix Mélenchon P2022), non en % d'inscrits.</div>`; }
-  if(o.rep_lfi_em!=null){
-    resHTML+=`<div class="row"><span>Report LFI 2024→2026</span><b>${o.rep_lfi_em} %</b></div>`+
-      `<div class="det2">Voix LFI conservées entre les européennes 2024 et les municipales 2026 `+
-      `(voix M2026 ÷ voix E2024). Disponible là où LFI était présente aux deux scrutins.</div>`; }
-  if(o.dpart!=null){ const baisse=Math.round((100-o.dpart)*10)/10;
-    resHTML+=`<div class="row"><span>Différentiel participation 2022→2024</span><b>${o.dpart} %</b></div>`+
-      `<div class="det2">La participation aux européennes 2024 représente <b>${o.dpart}%</b> de celle de la `+
-      `présidentielle 2022${baisse>0?` (recul de <b>${baisse}%</b>)`:""}. Mesure l'ampleur de la démobilisation.</div>`; }
+  if(pm.report!=null){ const perte=Math.round((100-pm.report)*10)/10;
+    resHTML+=`<div class="row"><span>Report LFI ${arrow}</span><b>${pm.report} %</b></div>`+
+      `<div class="det2">LFI a conservé <b>${pm.report}%</b> de ses voix entre ${scLab(selA)} et ${scLab(selB)}`+
+      `${perte>0?` (soit <b>${perte}%</b> de voix insoumises perdues à reconquérir)`:""}. `+
+      `Taux de report en <b>voix réelles</b> (voix LFI ${selB} ÷ voix LFI ${selA}), non en % d'inscrits.</div>`; }
+  if(pm.dpart!=null){
+    resHTML+=`<div class="row"><span>Différentiel participation ${arrow}</span><b>${pm.dpart>0?"+":""}${pm.dpart} pts</b></div>`+
+      `<div class="det2">Participation ${pm.dpart>=0?"plus forte":"plus faible"} de <b>${Math.abs(pm.dpart)} pts</b> `+
+      `en ${scLab(selB)} qu'en ${scLab(selA)} (en points d'inscrits). Mesure la (dé)mobilisation entre les deux scrutins.</div>`; }
+  if(pm.perte!=null){
+    resHTML+=`<div class="row"><span>Taux de perte gauche ${arrow}</span><b>${pm.perte>0?pm.perte+" %":"—"}</b></div>`+
+      `<div class="det2">La gauche (bloc social-écologique) a perdu <b>${pm.perte}%</b> de ses voix entre `+
+      `${scLab(selA)} et ${scLab(selB)} (voix réelles). Une valeur négative = progression.</div>`; }
   if(o.abst!=null){
-    resHTML+=`<div class="row"><span>Abstention mobilisable (stock)</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`+
+    resHTML+=`<div class="row"><span>Abstention mobilisable (stock, E24)</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`+
       `<div class="det2">Nombre d'inscrits n'ayant pas voté aux européennes 2024 `+
       `(inscrits × taux d'abstention). Réservoir brut de voix à ramener aux urnes.</div>`; }
-  if(resHTML)h+=exp(sec("Réservoirs de voix")+resHTML,
-    `Le « réservoir » mesure les voix à aller chercher : les électeurs <b>insoumis</b> non reconfirmés d'un `+
-    `scrutin à l'autre (taux de report en voix réelles) et les <b>abstentionnistes</b> (stock d'inscrits non votants).`);
+  if(resHTML)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resHTML,
+    `Réservoirs entre les <b>deux scrutins choisis</b> dans le sélecteur en haut de carte : taux de report `+
+    `LFI et taux de perte de la gauche en <b>voix réelles</b>, et différentiel de participation en points d'inscrits.`);
 
   const s=[];
   if(o.rev!=null)s.push(["Revenu médian",o.rev.toLocaleString('fr')+" €"]);
@@ -246,8 +303,52 @@ function infoPanel(nom,o){ const info=$("info");
     s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
     `<b>Revenu médian</b> disponible par unité de consommation et <b>taux de pauvreté</b> (part sous le seuil de `+
     `pauvreté). Source : INSEE FILOSOFI 2021, à la commune (ou à l'IRIS en vue quartiers).`);
+  h+=adminPanel(o);
   h+=actionPanel(o);
   info.innerHTML=h; info.style.display="block"; }
+
+// Profil INSEE de la commune (fiche circonscription de la prez, slides 25-28) :
+// pyramide des âges, statut d'occupation, déplacements domicile-travail,
+// renouvellement de population et maire en exercice — chacun comparé à la France.
+function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adminFr||{};
+  const exp=(body,det)=>`<div class="exp"><div class="exph">${body}<span class="ico">détails ▾</span></div><div class="det">${det}</div></div>`;
+  const sec=t=>`<div class="sec">${t}</div>`;
+  // barre comparative : remplissage commune + repère France (trait blanc « u »)
+  const cmp=(lab,v,f,col,max)=> v==null?"":
+    `<div class="lab"><span>${lab}</span><b>${v} %${f!=null?` <span class="frtag">· Fr ${f}</span>`:""}</b></div>`+
+    `<div class="bar">${f!=null?`<u style="left:${Math.min(100,f/max*100)}%"></u>`:""}`+
+    `<i style="width:${Math.max(2,Math.min(100,v/max*100))}%;background:${col}"></i></div>`;
+  let h="";
+  if(a.maire) h+=exp(sec("Maire en exercice")+
+    `<div class="row"><span>${a.maire}</span><b class="frtag">${a.csp||""}</b></div>`,
+    `<b>Maire actuel</b> (Répertoire national des élus, data.gouv). Point de départ de l'<b>histoire `+
+    `électorale</b> locale (slide 22) : complétez avec les maires successifs et la tradition politique connue des militant·es.`);
+  if(a.ageh&&a.ageh.some(v=>v!=null)){
+    const all=[...a.ageh,...a.agef,...(fr.ageh||[]),...(fr.agef||[])].filter(v=>v!=null), mx=Math.max(...all,1);
+    let rows="";
+    for(let i=5;i>=0;i--){ const fh=(fr.ageh||[])[i], ff=(fr.agef||[])[i];
+      rows+=`<div class="pyrow"><div class="ph">${fh!=null?`<u style="right:${fh/mx*100}%"></u>`:""}`+
+        `<i style="width:${(a.ageh[i]||0)/mx*100}%;background:#3b6ea5"></i></div>`+
+        `<div class="pmid">${AGE_LAB[i]}</div>`+
+        `<div class="pf">${ff!=null?`<u style="left:${ff/mx*100}%"></u>`:""}`+
+        `<i style="width:${(a.agef[i]||0)/mx*100}%;background:#cf2e5b"></i></div></div>`; }
+    h+=exp(sec("Pyramide des âges")+`<div class="pyr"><div class="pyrhead"><span>◀ Hommes</span><span>Femmes ▶</span></div>${rows}</div>`,
+      `Population par <b>sexe et tranche d'âge</b> (% de la population), recensement INSEE 2021. Barres = la commune, `+
+      `<b>trait blanc</b> = la France. Mesure la jeunesse / le vieillissement par rapport à la moyenne nationale (slide 26).`); }
+  if(a.prop!=null||a.loc!=null) h+=exp(sec("Logement · statut d'occupation")+
+    cmp("Propriétaires",a.prop,fr.prop,"#3b6ea5",100)+cmp("Locataires",a.loc,fr.loc,"#cf2e5b",100)+
+    cmp("dont HLM",a.hlm,fr.hlm,"#b08a2e",100),
+    `Part des <b>résidences principales</b> selon que le ménage est propriétaire ou locataire (dont HLM), INSEE 2021. `+
+    `<b>· Fr</b> = moyenne France. Une commune fortement <b>locataire</b> et pauvre est un terrain prioritaire (slide 27).`);
+  if(a.tr&&a.tr.some(v=>v!=null)) h+=exp(sec("Déplacements domicile-travail")+
+    TR_ROWS.map(([i,lab],j)=>cmp(lab,a.tr[i],(fr.tr||[])[i],TR_COL[j],80)).join(""),
+    `Mode de transport principal des actifs pour aller travailler (% des actifs occupés), INSEE 2021. <b>· Fr</b> = moyenne `+
+    `France. Un usage fort des <b>transports en commun / marche / vélo</b> signale un territoire urbain dense (slide 28).`);
+  if(a.mig&&a.mig.some(v=>v!=null)) h+=exp(sec("Renouvellement de population")+
+    MIG_ROWS.map((lab,i)=>cmp(lab,a.mig[i],(fr.mig||[])[i],i===0?"#3b6ea5":"#cf2e5b",100)).join(""),
+    `<b>Lieu de résidence un an auparavant</b> (recensement INSEE) : part des habitants déjà présents vs. arrivés récemment. `+
+    `Une faible part « même logement » = <b>fort renouvellement</b> (slide 25), électorat moins ancré, à reconquérir à chaque scrutin.`);
+  return h; }
 
 // Pont « de la carte à l'action » (slide 51) : traduit le profil de la zone en
 // recommandations de terrain, rappelle la composition des blocs et invite à
@@ -339,15 +440,28 @@ map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
   if(d<3 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
   else if(d>=1 && z<=ZOUT[d]){ jumpTo(d-1); } });
 
-// pastilles d'indicateurs (pas de menu déroulant)
+// pastilles d'indicateurs (pas de menu déroulant) ; les pastilles « dyn_* » affichent
+// la paire de scrutins choisie (ex. « Report LFI P22→E24 »).
+const labelFor=k=>{ const p=PAST.find(x=>x[0]===k); if(!p)return k;
+  return k.startsWith("dyn_")?`${p[1]} ${selA}→${selB}`:p[1]; };
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
-  indicKey=p[0]; indicLabel=p[1]; indicUnit=p[2]||""; $("legtitle").textContent=p[1];
+  indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k)); }
 function buildPastilles(){ const box=$("pastilles");
-  PAST.forEach(([k,lab])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
-    c.textContent=lab; c.dataset.k=k;
+  PAST.forEach(([k])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
+    c.textContent=labelFor(k); c.dataset.k=k;
     c.onclick=()=>{ setIndic(k); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
-    box.appendChild(c); }); $("legtitle").textContent=indicLabel; }
+    box.appendChild(c); }); $("legtitle").textContent=labelFor(indicKey); }
+// sélecteur de deux scrutins : peuple A/B et recalcule réservoirs (carte + fiche) à la volée
+function buildSelecteur(){
+  for(const id of ["selA","selB"]){ const sel=$(id), cur=id==="selA"?selA:selB;
+    sel.innerHTML=SCR.map(([c,l])=>`<option value="${c}"${c===cur?" selected":""}>${l}</option>`).join("");
+    sel.onchange=()=>{ selA=$("selA").value; selB=$("selB").value; refreshPair(); }; } }
+function refreshPair(){
+  $("pastilles").querySelectorAll(".chip").forEach(c=>{ if(c.dataset.k.startsWith("dyn_"))c.textContent=labelFor(c.dataset.k); });
+  if(indicKey.startsWith("dyn_")){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
+    const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
+  if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
@@ -369,7 +483,9 @@ $("search").addEventListener("change",async()=>{
   const cv=await getJSON(`values/commune/${c.dep}.json`); infoPanel(c.nom,(cv||{})[code]);
   const b=layer&&layer.getBounds&&layer.getBounds(); if(b&&b.isValid())flyTo(b,15); });
 
-async function init(){ buildPastilles(); window.__scr=await getJSON("values/_scrutins.json"); await initSearch(); vueFrance(); }
+async function init(){ buildSelecteur(); buildPastilles();
+  window.__scr=await getJSON("values/_scrutins.json"); window.__adminFr=await getJSON("values/_admin_fr.json");
+  await initSearch(); vueFrance(); }
 init();
 </script>
 </body>

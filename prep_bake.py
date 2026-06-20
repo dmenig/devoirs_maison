@@ -15,6 +15,7 @@ import pandas as pd
 
 import indicators as ind
 import nuances
+import prep_admin
 
 
 def _clean(o):
@@ -148,9 +149,18 @@ def ordre_scrutins(df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
     return ordre, meta
 
 
-def _recompo_par_code(df: pd.DataFrame, ordre: list[str]) -> dict[str, dict[str, list]]:
+def scrutins_fiables(df: pd.DataFrame) -> list[str]:
+    """Scrutins dont blocs + abstention bouclent ~100 % ; écarte les fichiers legacy
+    multi-tours (2012-présidentielle, municipales) qui double-comptent les voix."""
+    sommes = df.groupby("scrutin")[BLOCS_RECOMPO].first().sum(axis=1)
+    return sommes[(sommes >= 50) & (sommes <= 105)].index.tolist()
+
+
+def _recompo_par_code(
+    df: pd.DataFrame, ordre: list[str], fiables: set[str]
+) -> dict[str, dict[str, list]]:
     """Par code : {position scrutin -> [6 blocs + abstention]} (dict creux, % inscrits)."""
-    pos = {cle: i for i, cle in enumerate(ordre)}
+    pos = {cle: i for i, cle in enumerate(ordre) if cle in fiables}
     sub = df[df["scrutin"].isin(pos)][["code", "scrutin", *BLOCS_RECOMPO]]
     out: dict[str, dict[str, list]] = {}
     for code, g in sub.groupby("code", sort=False):
@@ -164,7 +174,9 @@ def _recompo_par_code(df: pd.DataFrame, ordre: list[str]) -> dict[str, dict[str,
     return out
 
 
-def _valeurs_niveau(df: pd.DataFrame, ordre: list[str]) -> dict[str, dict[str, float]]:
+def _valeurs_niveau(
+    df: pd.DataFrame, ordre: list[str], fiables: set[str]
+) -> dict[str, dict[str, float]]:
     out: dict[str, dict[str, float]] = {}
     for sc, scl in SCRUTINS.items():
         sub = df[df["scrutin"] == scl]
@@ -183,7 +195,7 @@ def _valeurs_niveau(df: pd.DataFrame, ordre: list[str]) -> dict[str, dict[str, f
     for key, (metr, sa, sb) in RESERVOIRS.items():
         for code, v in ind.reservoirs_par_code(df, sa, sb, metr).items():
             out.setdefault(str(code), {})[key] = v
-    for code, rec in _recompo_par_code(df, ordre).items():
+    for code, rec in _recompo_par_code(df, ordre, fiables).items():
         out.setdefault(code, {})["rec"] = rec
     return out
 
@@ -192,22 +204,42 @@ def _ecrire(nom: str, data: dict) -> None:
     (OUT / f"{nom}.json").write_text(_dumps(data))
 
 
+def _baker_admin(com: dict[str, dict], da: Path) -> None:
+    """Fusionne admin_commune dans les valeurs communales + écrit la référence France."""
+    f = da / "admin_commune.parquet"
+    if not f.exists():
+        return
+    df = pd.read_parquet(f).set_index("code_commune")
+    if "FRANCE" in df.index:
+        _ecrire("_admin_fr", prep_admin.champs_client(df.loc["FRANCE"]))
+    for code, row in df.drop(index="FRANCE", errors="ignore").iterrows():
+        com.setdefault(str(code), {})["adm"] = prep_admin.champs_client(row)
+    print(f"  ✓ admin communes fusionnées ({len(df) - 1})")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     DA = Path(__file__).parent / "data_app"
 
-    ordre, scrutins_meta = ordre_scrutins(
-        pd.read_parquet(DA / "resultats_france.parquet")
-    )
+    fr = pd.read_parquet(DA / "resultats_france.parquet")
+    ordre, scrutins_meta = ordre_scrutins(fr)
+    fiables = set(scrutins_fiables(fr))
+    ecartes = [c for c in ordre if c not in fiables]
+    if ecartes:
+        print(
+            f"  ⚠ recompo : scrutins écartés (double-comptage multi-tours) : {ecartes}"
+        )
     _ecrire("_scrutins", scrutins_meta)
 
     for niveau in ("region", "departement", "circonscription"):
         df = pd.read_parquet(DA / f"resultats_{niveau}.parquet")
-        _ecrire(niveau, _valeurs_niveau(df, ordre))
+        _ecrire(niveau, _valeurs_niveau(df, ordre, fiables))
         print(f"  ✓ values {niveau}")
 
     # communes : valeurs électorales + revenu/pauvreté, découpées par département
-    com = _valeurs_niveau(pd.read_parquet(DA / "resultats_commune.parquet"), ordre)
+    com = _valeurs_niveau(
+        pd.read_parquet(DA / "resultats_commune.parquet"), ordre, fiables
+    )
     sc = pd.read_parquet(DA / "socio_commune.parquet")
     for code, rev, pauv in zip(
         sc["code_commune"], sc["revenu_median"], sc["taux_pauvrete"]
@@ -217,6 +249,7 @@ def main() -> None:
             o["rev"] = int(rev)
         if pd.notna(pauv):
             o["pauv"] = round(float(pauv), 1)
+    _baker_admin(com, DA)
     (OUT / "commune").mkdir(exist_ok=True)
     par_dep: dict[str, dict] = {}
     for code, vals in com.items():
@@ -247,7 +280,9 @@ def main() -> None:
     )
     (OUT / "bv").mkdir(exist_ok=True)
     for dep, sous in bv.groupby("dep"):
-        (OUT / "bv" / f"{dep}.json").write_text(_dumps(_valeurs_niveau(sous, ordre)))
+        (OUT / "bv" / f"{dep}.json").write_text(
+            _dumps(_valeurs_niveau(sous, ordre, fiables))
+        )
     print("  ✓ values bv (par département)")
 
     _ecrire("_catalogue", {"indicateurs": catalogue()})
