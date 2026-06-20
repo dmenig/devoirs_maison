@@ -38,8 +38,9 @@ function refreshPair(){
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
 $("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slider"); if(!sl)return;
-  if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=0; return; }
+  if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=sl._back||0; return; }
   const h=e.target.closest(".exph"); if(!h)return;
+  sl._back=$("info").scrollTop;
   sl.querySelector(".detbody").innerHTML=panelDetails[+h.dataset.di];
   sl.classList.add("on"); $("info").scrollTop=0; });
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
