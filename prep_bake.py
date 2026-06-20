@@ -89,10 +89,28 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     DA = Path(__file__).parent / "data_app"
 
-    for niveau in ("region", "departement", "commune", "circonscription"):
+    for niveau in ("region", "departement", "circonscription"):
         df = pd.read_parquet(DA / f"resultats_{niveau}.parquet")
         _ecrire(niveau, _valeurs_niveau(df))
         print(f"  ✓ values {niveau}")
+
+    # communes : valeurs électorales + revenu/pauvreté, découpées par département
+    com = _valeurs_niveau(pd.read_parquet(DA / "resultats_commune.parquet"))
+    sc = pd.read_parquet(DA / "socio_commune.parquet")
+    for code, rev, pauv in zip(sc["code_commune"], sc["revenu_median"], sc["taux_pauvrete"]):
+        o = com.setdefault(str(code), {})
+        if pd.notna(rev):
+            o["rev"] = int(rev)
+        if pd.notna(pauv):
+            o["pauv"] = round(float(pauv), 1)
+    (OUT / "commune").mkdir(exist_ok=True)
+    par_dep: dict[str, dict] = {}
+    for code, vals in com.items():
+        dep = code[:3] if code.startswith("97") else code[:2]
+        par_dep.setdefault(dep, {})[code] = vals
+    for dep, d in par_dep.items():
+        (OUT / "commune" / f"{dep}.json").write_text(_dumps(d))
+    print(f"  ✓ values commune (par département, {len(par_dep)})")
 
     iris = pd.read_parquet(DA / "socio_iris.parquet")
     _ecrire("iris", {str(c): {"rev": (round(r) if pd.notna(r) else None),

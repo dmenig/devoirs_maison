@@ -19,13 +19,27 @@
   #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
   .chip{cursor:pointer;border:1px solid #ccc;border-radius:14px;padding:3px 10px;background:#fff;font-size:12px}
   .chip.on{background:#5b2a86;color:#fff;border-color:#5b2a86}
-  #info{top:100px;right:10px;max-width:300px;display:none}
-  #info .t{font-weight:700;font-size:15px;color:#5b2a86;margin-bottom:4px}
-  #info table{border-collapse:collapse;width:100%}
-  #info th,#info td{padding:2px 5px;text-align:right;font-variant-numeric:tabular-nums}
-  #info th:first-child,#info td:first-child{text-align:left;color:#444}
-  #info thead th{border-bottom:1px solid #ddd;font-size:11px;color:#888}
-  #info .res{margin-top:6px;font-size:12px;color:#333}
+  #info{top:100px;right:10px;width:268px;max-height:82vh;overflow:auto;display:none;padding:12px 14px}
+  #info .t{font-weight:800;font-size:16px;color:#5b2a86;margin-bottom:2px}
+  #info .lead{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.04em}
+  #info .head{font-size:30px;font-weight:800;color:#cf2e5b;line-height:1;margin:2px 0 8px}
+  #info .head small{font-size:13px;color:#999;font-weight:600}
+  #info .sec{font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:.05em;
+             margin:11px 0 5px;border-top:1px solid #eee;padding-top:7px}
+  #info .row{display:flex;justify-content:space-between;gap:8px;margin:4px 0;font-size:13px}
+  #info .row span{color:#555} #info .row b{color:#222;font-variant-numeric:tabular-nums}
+  #info .bar{margin:3px 0 7px;background:#f0f0f3;border-radius:5px;height:8px;overflow:hidden}
+  #info .bar i{display:block;height:100%;border-radius:5px}
+  #info .lab{display:flex;justify-content:space-between;font-size:12.5px;color:#444;margin-top:6px}
+  #info .lab b{font-variant-numeric:tabular-nums;color:#222}
+  #info .trend{display:flex;gap:5px;align-items:flex-end;height:54px;margin-top:4px}
+  #info .tcol{flex:1;text-align:center;font-size:10px;color:#888}
+  #info .tbarwrap{height:38px;display:flex;align-items:flex-end;justify-content:center}
+  #info .tbar{width:60%;background:#cf2e5b;border-radius:3px 3px 0 0;min-height:2px}
+  #info .tv{font-weight:700;color:#cf2e5b;font-size:11px}
+  #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
+  #info .bal .bg{background:#cf2e5b;display:flex;align-items:center;justify-content:center;min-width:30px}
+  #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
   #legend{bottom:14px;right:10px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
        background:linear-gradient(to right,#2166ac,#67a9cf,#f7f7f7,#ef8a62,#b2182b)}
@@ -81,20 +95,50 @@ function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v));
     const x=(t+1)/2*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
 const valOf=p=>{const o=curVals[p.__code];return o?o[indicKey]:null;};
 
+// Fiche claire : tous les chiffres clés du rapport pour la zone cliquée.
 function infoPanel(nom,o){ const info=$("info");
   if(!o){info.style.display="none";return;}
-  let h=`<div class="t">${nom}</div><table><thead><tr><th></th>`+
-    MET.map(m=>`<th>${m[1]}</th>`).join("")+`</tr></thead><tbody>`;
-  SCR.forEach(([sc,lab])=>{ if(MET.some(m=>o[`${m[0]}_${sc}`]!=null)){
-    h+=`<tr><td>${lab}</td>`+MET.map(m=>{const v=o[`${m[0]}_${sc}`];
-      return `<td>${v==null?"·":v+" %"}</td>`;}).join("")+`</tr>`; }});
-  h+="</tbody></table>"; const r=[];
-  if(o.rep_lfi!=null)r.push(`Report LFI P22→E24 : <b>${o.rep_lfi} %</b>`);
-  if(o.dpart!=null)r.push(`Δ participation P22→E24 : <b>${o.dpart} %</b>`);
-  if(o.abst!=null)r.push(`Abstentionnistes E24 : <b>${o.abst.toLocaleString('fr')}</b>`);
-  if(o.rev!=null)r.push(`Revenu médian : <b>${o.rev.toLocaleString('fr')} €</b>`);
-  if(o.pauv!=null)r.push(`Taux de pauvreté : <b>${o.pauv} %</b>`);
-  if(r.length)h+=`<div class="res">${r.join("<br>")}</div>`;
+  const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
+  const barRow=(lab,v,col,max=50,unit=" %")=> v==null?"":
+    `<div class="lab"><span>${lab}</span><b>${v}${unit}</b></div>`+
+    `<div class="bar"><i style="width:${w(v,max)}%;background:${col}"></i></div>`;
+  const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
+  let h=`<div class="t">${nom}</div><div class="lead">Vote LFI · Europ. 2024</div>`;
+  h+=`<div class="head">${lfi==null?"—":lfi+" %"}<small> des inscrits</small></div>`;
+
+  if(SCR.some(([sc])=>o[`lfi_${sc}`]!=null)){
+    h+=`<div class="sec">Évolution du vote LFI</div><div class="trend">`+
+      SCR.map(([sc,lab])=>{const v=o[`lfi_${sc}`];
+        return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%"></div></div>`+
+               `<div class="tv">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`;
+  }
+  if(o.part_E24!=null){ const abst=Math.round((100-o.part_E24)*10)/10;
+    h+=`<div class="sec">Participation · Europ. 2024</div>`+
+      barRow("Participation",o.part_E24,"#2e8b57",100)+
+      `<div class="row"><span>Abstention</span><b>${abst} %</b></div>`; }
+
+  // recomposition / rapport de force (Europ. 2024)
+  if([o.gauche_E24,o.em_E24,o.lr_E24,o.rn_E24].some(v=>v!=null)){
+    h+=`<div class="sec">Rapport de force · Europ. 2024</div>`+
+      barRow("Gauche (LFI-PS-EELV-PCF)",o.gauche_E24,"#cf2e5b")+
+      barRow("Macron (Renaissance)",o.em_E24,"#e6902e")+
+      barRow("Droite (LR)",o.lr_E24,"#3b6ea5")+
+      barRow("RN / extrême droite",o.rn_E24,"#1f3a63"); }
+
+  // réservoirs de voix
+  const res=[];
+  if(o.rep_lfi!=null)res.push(["Réserve de report LFI (P22→E24)",o.rep_lfi+" %",
+    "voix LFI retrouvées à l'européenne par rapport à la présidentielle"]);
+  if(o.part_E24!=null)res.push(["Abstention mobilisable (E24)",(Math.round((100-o.part_E24)*10)/10)+" %",
+    "part des inscrits qui n'ont pas voté = potentiel à mobiliser"]);
+  if(res.length)h+=`<div class="sec">Réservoirs de voix</div>`+
+    res.map(x=>`<div class="row"><span title="${x[2]}">${x[0]}</span><b>${x[1]}</b></div>`).join("");
+
+  const s=[];
+  if(o.rev!=null)s.push(["Revenu médian",o.rev.toLocaleString('fr')+" €"]);
+  if(o.pauv!=null)s.push(["Taux de pauvreté",o.pauv+" %"]);
+  if(s.length)h+=`<div class="sec">Contexte social</div>`+
+    s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join("");
   info.innerHTML=h; info.style.display="block"; }
 
 function dessiner(geo,valeurs,codeProp,nameProp,enter){

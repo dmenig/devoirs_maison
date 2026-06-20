@@ -11,6 +11,12 @@ Toute nuance inconnue tombe dans "DIV" (et le bloc "Autres")."""
 
 from __future__ import annotations
 
+import unicodedata
+
+
+def _sans_accent(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(c)).upper()
+
 # --- nuance MI -> famille politique -----------------------------------------
 NUANCE_FAMILLE: dict[str, str] = {
     # extrême gauche
@@ -99,7 +105,7 @@ def nuance_vers_famille(nuance: str | None, nom: str | None = None) -> str:
             if fam:
                 return fam
     if nom:
-        fam = PRESIDENTIELLE_FAMILLE.get(str(nom).strip().upper())
+        fam = PRESIDENTIELLE_FAMILLE.get(_sans_accent(nom).strip())
         if fam:
             return fam
     return "DIV"
