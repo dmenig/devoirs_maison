@@ -1,15 +1,9 @@
 __pycache__/
 *.pyc
 .venv/
-node_modules/
 data_app/data_app.tar.gz
 # Intermédiaires volumineux (régénérables)
 data_app/geo/_*.geojson
 data_app/geo/_circo_src/
 # Cache des fichiers sources INSEE bruts (recensement, RNE) — gros, re-téléchargeables
 data_app/_insee_cache/
-
-# test tooling (local only)
-package.json
-package-lock.json
-served_map_test.html

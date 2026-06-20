@@ -107,9 +107,12 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   plusieurs circonscriptions apparaît dans celle qui contient son centre.
 - Les données de circonscription ne couvrent que les scrutins disponibles à cette maille
   (présidentielle 2022, législatives 2024) ; les indicateurs européennes/municipales y sont vides.
-- Le **tableau de recomposition** écarte les scrutins legacy multi-tours qui double-comptent
-  les voix (présidentielle 2012, municipales 2014/2020) : ils ne sont jamais affichés, pour
-  garantir des totaux blocs + abstention ≤ 100 %.
+- Le **tableau de recomposition** écarte les **municipales** (2014, 2020) : le scrutin
+  plurinominal (panachage, listes) y gonfle les voix bien au-delà des inscrits, rendant les
+  blocs en % d'inscrits non comparables. Un garde-fou (`scrutins_fiables`) ne retient que les
+  scrutins dont blocs + abstention bouclent ≤ 105 %. Les fichiers regroupant deux tours
+  (présidentielle 2012, municipales 2014) sont désormais **scindés par tour en amont** : ils
+  ne double-comptent plus, et la présidentielle 2012 est de nouveau affichée.
 - **Paris, Lyon et Marseille** (codés par secteur/arrondissement dans les bases infracommunales
   INSEE) n'ont pas de fiche « profil INSEE » à la commune.
 - Le **renouvellement de population** est calculé au grain canton-ou-ville (maille la plus fine
