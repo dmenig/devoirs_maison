@@ -92,6 +92,10 @@ def _par_bureau(scrutin: Scrutin) -> pd.DataFrame:
     meta = df.groupby("code_bv", as_index=False)[base_cols[1:]].first()
     base = base.merge(meta, on="code_bv")
 
+    # NOTE dette : pour un fichier contenant plusieurs tours, les voix sont sommées sans
+    # filtrer numero_tour → double-comptage (présidentielle 2012, municipales 2014/2020).
+    # Mitigé en aval par prep_bake.scrutins_fiables (ces scrutins sont écartés du tableau de
+    # recomposition) ; correctif propre = filtrer le tour ici, au rebuild du pipeline.
     voix = df.pivot_table(
         index="code_bv", columns="famille", values="voix", aggfunc="sum", fill_value=0
     ).reset_index()

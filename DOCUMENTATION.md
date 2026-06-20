@@ -107,3 +107,10 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   plusieurs circonscriptions apparaît dans celle qui contient son centre.
 - Les données de circonscription ne couvrent que les scrutins disponibles à cette maille
   (présidentielle 2022, législatives 2024) ; les indicateurs européennes/municipales y sont vides.
+- Le **tableau de recomposition** écarte les scrutins legacy multi-tours qui double-comptent
+  les voix (présidentielle 2012, municipales 2014/2020) : ils ne sont jamais affichés, pour
+  garantir des totaux blocs + abstention ≤ 100 %.
+- **Paris, Lyon et Marseille** (codés par secteur/arrondissement dans les bases infracommunales
+  INSEE) n'ont pas de fiche « profil INSEE » à la commune.
+- Le **renouvellement de population** est calculé au grain canton-ou-ville (maille la plus fine
+  publiée pour la variable IRAN) puis rabattu sur la commune via son canton COG.
