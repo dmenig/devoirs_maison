@@ -125,6 +125,9 @@ function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let 
 let zoomSettle=null;
 function onZoomSettled(){ if(busy)return; const z=map.getZoom(), d=stack.length;
   if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
-  else if(d>=1){ const ez=stack[d-1].enterZoom, thr=Math.max(ZOUT[d], ez!=null?ez-ZBACK:ZOUT[d]);
+  else if(d>=1){ const top=stack[d-1];
+    if(top.enterZoom==null) top.enterZoom=z;
+    if(z>top.enterZoom){ top.enterZoom=z; return; } // on plonge : le repère suit le zoom le plus profond atteint
+    const thr=Math.max(ZOUT[d], top.enterZoom-ZBACK);
     if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable(); jumpTo(d-1); } } }
 map.on("zoomend",()=>{ clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });

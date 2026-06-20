@@ -26,7 +26,8 @@ const scLab=c=>(SCR.find(s=>s[0]===c)||[,c])[1];
 // niveaux : 0 France→Région · 1 Région→Dép · 2 Dép→Circo · 3 Circo→Commune · 4 Commune→BV/IRIS
 const ZIN=[6.6,8.2,9.6,11.0], ZOUT=[0,6.1,7.9,9.2,10.6];
 // remontée relative : on repart d'un niveau dès qu'on dézoome de ZBACK sous le zoom
-// auquel on est entré dans la zone (ZOUT reste un plancher absolu).
+// le plus profond atteint dans la zone (le repère suit les zooms manuels, pas seulement
+// l'entrée), ZOUT restant un plancher absolu.
 const ZBACK=0.35;
 const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
