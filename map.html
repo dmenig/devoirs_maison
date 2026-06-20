@@ -101,7 +101,7 @@
   #subtoggle{top:54px;right:10px;display:none;gap:6px}
   #legend{bottom:14px;left:10px;max-width:300px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
-       background:linear-gradient(to right,#2166ac,#67a9cf,#f7f7f7,#ef8a62,#b2182b)}
+       background:linear-gradient(to right,#3b8fd4,#2d5b82,#46415a,#9e3b34,#d23f2d)}
   .hint{color:var(--mut2);font-size:11px}
   /* Widgets natifs Leaflet alignés sur le thème sombre */
   .leaflet-tooltip{background:var(--pbg);color:var(--txt);border:1px solid var(--bord);
@@ -186,7 +186,7 @@ const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
 // Le centre (blanc) = la médiane des zones ; bleu = plus faible, rouge = plus élevé.
 function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>a-b);
   if(!xs.length)return()=>"#3a3a3a";
-  const n=xs.length, s=["#2166ac","#67a9cf","#f7f7f7","#ef8a62","#b2182b"];
+  const n=xs.length, s=["#3b8fd4","#2d5b82","#46415a","#9e3b34","#d23f2d"];
   const rang=v=>{ let lo=0,hi=n; while(lo<hi){const md=(lo+hi)>>1; xs[md]<v?lo=md+1:hi=md;}
     let hi2=lo; while(hi2<n&&xs[hi2]===v)hi2++; return ((lo+hi2)/2)/n; };
   return v=>{ if(v==null||isNaN(v))return"#3a3a3a";
