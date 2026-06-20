@@ -8,10 +8,10 @@ bureau de vote). Voir map.html et DOCUMENTATION.md.
 
 from __future__ import annotations
 
-import pathlib
-
 import streamlit as st
 import streamlit.components.v1 as components
+
+from build_map import assemble_map
 
 st.set_page_config(
     page_title="Atlas électoral militant",
@@ -32,10 +32,4 @@ st.markdown(
 )
 
 BASE = "https://raw.githubusercontent.com/dmenig/devoirs_maison/master/data_app"
-html = (
-    pathlib.Path(__file__)
-    .with_name("map.html")
-    .read_text(encoding="utf-8")
-    .replace("__BASE__", BASE)
-)
-components.html(html, height=1000, scrolling=False)
+components.html(assemble_map(BASE), height=1000, scrolling=False)

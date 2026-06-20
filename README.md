@@ -22,8 +22,11 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 
 | Fichier | Rôle |
 | --- | --- |
-| `map.html` | **le produit servi** : la carte Leaflet 100 % client (navigation toutes échelles, fiches dépliables, sélecteur de scrutins, pastilles d'indicateurs) |
-| `streamlit_app.py` | wrapper plein écran : injecte `map.html` en remplaçant `__BASE__` |
+| `map.html` | **squelette** de la carte servie : balisage des panneaux + marqueurs `/*__CSS__*/` et `/*__JS__*/` |
+| `assets/map.css` | thème et mise en page de la carte |
+| `assets/js/0{1..4}_*.js` | logique de la carte, éclatée par responsabilité (core · panels · navigation · controls) ; concaténée dans l'ordre des noms |
+| `build_map.py` | `assemble_map(base)` : recolle squelette + CSS + JS en une string et injecte `__BASE__` |
+| `streamlit_app.py` | wrapper plein écran : sert `assemble_map(BASE)` |
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
 | `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
 | `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
