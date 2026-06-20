@@ -131,8 +131,9 @@
 <div id="top" class="panel">
   <button id="back" disabled title="Remonter">⬅</button>
   <span id="fil"></span>
-  <input id="search" list="communes" placeholder="🔎 Rechercher une commune…"/>
-  <datalist id="communes"></datalist>
+  <input id="search" list="zones" autocomplete="off"
+         placeholder="🔎 Rechercher une zone (région, dép., circ., commune)…"/>
+  <datalist id="zones"></datalist>
   <span id="loading" class="hint"></span>
 </div>
 <div id="pastilles" class="panel"><span id="pairgroup"
@@ -173,6 +174,9 @@ const scLab=c=>(SCR.find(s=>s[0]===c)||[,c])[1];
 // seuils de zoom pour descendre/remonter automatiquement, par profondeur affichée
 // niveaux : 0 France→Région · 1 Région→Dép · 2 Dép→Circo · 3 Circo→Commune · 4 Commune→BV/IRIS
 const ZIN=[6.6,8.2,9.6,11.0], ZOUT=[0,6.1,7.9,9.2,10.6];
+// remontée relative : on repart d'un niveau dès qu'on dézoome de ZBACK sous le zoom
+// auquel on est entré dans la zone (ZOUT reste un plancher absolu).
+const ZBACK=0.7;
 const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
@@ -443,7 +447,8 @@ function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`
   $("back").disabled=stack.length===0; }
 
 function flyTo(b,maxZoom){ if(!b)return; busy=true; map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11});
-  map.once("moveend",()=>setTimeout(()=>busy=false,200)); }
+  map.once("moveend",()=>{ if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
+    setTimeout(()=>busy=false,200); }); }
 
 async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
@@ -508,7 +513,8 @@ function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let 
     const a=(b.getEast()-b.getWest())*(b.getNorth()-b.getSouth()); if(a<ba){ba=a;best=ly;}}}}); return best; }
 map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
   if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
-  else if(d>=1 && z<=ZOUT[d]){ jumpTo(d-1); } });
+  else if(d>=1){ const ez=stack[d-1].enterZoom, thr=Math.max(ZOUT[d], ez!=null?ez-ZBACK:ZOUT[d]);
+    if(z<=thr) jumpTo(d-1); } });
 
 // pastilles d'indicateurs (pas de menu déroulant) ; les pastilles « dyn_* » affichent
 // la paire de scrutins choisie (ex. « Report LFI P22→E24 »).
@@ -550,17 +556,54 @@ $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.da
   if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi_E24");
   const t=stack[stack.length-1]; if(t&&t.niveau==="commune")vueCommune(t.code); });
 
-async function initSearch(){ const idx=await getJSON("values/communes_index.json"); if(!idx)return;
-  $("search").__idx=idx; const dl=$("communes");
-  idx.slice(0,8000).forEach(c=>{const o=document.createElement("option");o.value=`${c.nom} · ${c.code}`;dl.appendChild(o);}); }
-$("search").addEventListener("change",async()=>{
-  const m=$("search").value.match(/(\d[\dAB]\d{3})\s*$/i); if(!m)return;
-  const code=m[1].toUpperCase(),idx=$("search").__idx||[],c=idx.find(x=>x.code===code); if(!c)return;
-  stack=[{niveau:"region",code:c.region,nom:c.region,bounds:null},
-         {niveau:"departement",code:c.dep,nom:c.dep,bounds:null}];
-  await vueCommune(code); stack.push({niveau:"commune",code,nom:c.nom}); setFil();
-  const cv=await getJSON(`values/commune/${c.dep}.json`); infoPanel(c.nom,(cv||{})[code]);
-  const b=layer&&layer.getBounds&&layer.getBounds(); if(b&&b.isValid())flyTo(b,15); });
+// Recherche multi-granularités : régions · départements · circonscriptions · communes.
+// L'index complet (≈38 000 zones) reste en mémoire ; on filtre à la frappe et on ne
+// pousse que les ~50 meilleurs résultats dans le datalist (insensible aux accents/casse).
+const LVLAB={region:"région",departement:"dép.",circonscription:"circ.",commune:"commune"};
+const LVRANK={region:0,departement:1,circonscription:2,commune:3};
+const norm=s=>s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+const regNom=c=>(window.__hier&&window.__hier.regions[c])||c;
+const depNom=c=>(window.__hier&&window.__hier.depNom[c])||c;
+
+async function initSearch(){
+  const [idx,hier]=await Promise.all([getJSON("values/search_index.json"),getJSON("values/_hierarchie.json")]);
+  if(hier)window.__hier={regions:hier.regions||{},
+    depNom:Object.fromEntries((hier.departements||[]).map(d=>[d.code,d.nom]))};
+  if(!idx)return;
+  idx.forEach(e=>{e.__nom=norm(e.nom);e.__n=e.__nom+" "+e.code.toLowerCase();});
+  const sb=$("search"),dl=$("zones"); sb.__byval={};
+  const fill=q=>{ dl.innerHTML=""; sb.__byval={}; const nq=norm(q.trim()); if(!nq)return;
+    const hits=[];
+    for(const e of idx){ const i=e.__n.indexOf(nq); if(i<0)continue;
+      hits.push([e,e.__nom.startsWith(nq)?0:1,LVRANK[e.niveau],i,e.nom.length]);
+      if(hits.length>600)break; }
+    hits.sort((a,b)=>a[1]-b[1]||a[2]-b[2]||a[3]-b[3]||a[4]-b[4]);
+    for(const [e] of hits.slice(0,50)){ const val=`${e.nom} · ${LVLAB[e.niveau]} ${e.code}`;
+      sb.__byval[val]=e; const o=document.createElement("option"); o.value=val; dl.appendChild(o); } };
+  sb.addEventListener("input",()=>fill(sb.value)); }
+// Atteindre n'importe quelle zone : on reconstruit le fil d'Ariane (avec les vrais noms
+// des parents) puis on dessine et on cadre la zone — quel que soit son niveau.
+async function gotoZone(e){ infoPanel(null);
+  if(e.niveau==="region"){ stack=[{niveau:"region",code:e.code,nom:e.nom,bounds:null}];
+    await vueRegion(e.code); }
+  else if(e.niveau==="departement"){
+    stack=[{niveau:"region",code:e.region,nom:regNom(e.region),bounds:null},
+           {niveau:"departement",code:e.code,nom:e.nom,bounds:null}];
+    await vueDepartement(e.code); }
+  else if(e.niveau==="circonscription"){
+    stack=[{niveau:"region",code:e.region,nom:regNom(e.region),bounds:null},
+           {niveau:"departement",code:e.dep,nom:depNom(e.dep),bounds:null},
+           {niveau:"circonscription",code:e.code,nom:e.nom,bounds:null}];
+    await vueCirconscription(e.code); }
+  else{ stack=[{niveau:"region",code:e.region,nom:regNom(e.region),bounds:null},
+               {niveau:"departement",code:e.dep,nom:depNom(e.dep),bounds:null}];
+    await vueCommune(e.code); stack.push({niveau:"commune",code:e.code,nom:e.nom,bounds:null});
+    const cv=await getJSON(`values/commune/${e.dep}.json`); infoPanel(e.nom,(cv||{})[e.code]); }
+  setFil();
+  const b=layer&&layer.getBounds&&layer.getBounds();
+  if(b&&b.isValid())flyTo(b,e.niveau==="commune"?15:11); }
+$("search").addEventListener("change",()=>{ const sb=$("search"),e=sb.__byval&&sb.__byval[sb.value];
+  if(e)gotoZone(e); });
 
 async function init(){ buildSelecteur(); buildPastilles();
   window.__scr=await getJSON("values/_scrutins.json"); window.__adminFr=await getJSON("values/_admin_fr.json");
