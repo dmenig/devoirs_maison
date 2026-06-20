@@ -9,13 +9,17 @@
   html,body{margin:0;height:100%;font-family:system-ui,sans-serif}
   #map{position:absolute;inset:0}
   .panel{position:absolute;z-index:1000;background:#fff;border-radius:10px;
-         box-shadow:0 1px 8px rgba(0,0,0,.25);padding:8px 11px;font-size:13px}
+         box-shadow:0 1px 8px rgba(0,0,0,.25);padding:7px 10px;font-size:13px}
   #top{top:10px;left:52px;right:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   #fil{font-weight:700;color:#5b2a86}
+  .crumb{cursor:pointer} .crumb:hover{text-decoration:underline}
   #back{cursor:pointer;border:none;background:#5b2a86;color:#fff;border-radius:7px;padding:5px 10px}
   #back:disabled{opacity:.3;cursor:default}
-  #search{min-width:230px;padding:5px 7px;border:1px solid #ccc;border-radius:7px;font-size:13px}
-  #info{top:64px;right:10px;max-width:300px;display:none}
+  #search{min-width:220px;padding:5px 7px;border:1px solid #ccc;border-radius:7px;font-size:13px}
+  #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
+  .chip{cursor:pointer;border:1px solid #ccc;border-radius:14px;padding:3px 10px;background:#fff;font-size:12px}
+  .chip.on{background:#5b2a86;color:#fff;border-color:#5b2a86}
+  #info{top:100px;right:10px;max-width:300px;display:none}
   #info .t{font-weight:700;font-size:15px;color:#5b2a86;margin-bottom:4px}
   #info table{border-collapse:collapse;width:100%}
   #info th,#info td{padding:2px 5px;text-align:right;font-variant-numeric:tabular-nums}
@@ -23,8 +27,7 @@
   #info thead th{border-bottom:1px solid #ddd;font-size:11px;color:#888}
   #info .res{margin-top:6px;font-size:12px;color:#333}
   #legend{bottom:14px;right:10px}
-  #legend select{font-size:13px;padding:3px 5px;border:1px solid #ccc;border-radius:6px;max-width:230px}
-  .bar{display:inline-block;width:140px;height:10px;border-radius:3px;vertical-align:middle;
+  .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
        background:linear-gradient(to right,#2166ac,#67a9cf,#f7f7f7,#ef8a62,#b2182b)}
   .hint{color:#777;font-size:11px}
 </style>
@@ -33,17 +36,18 @@
 <div id="map"></div>
 <div id="top" class="panel">
   <button id="back" disabled title="Remonter">⬅</button>
-  <span id="fil">🇫🇷 France</span>
+  <span id="fil"></span>
   <input id="search" list="communes" placeholder="🔎 Rechercher une commune…"/>
   <datalist id="communes"></datalist>
   <span id="loading" class="hint"></span>
 </div>
+<div id="pastilles" class="panel"></div>
 <div id="info" class="panel"></div>
 <div id="legend" class="panel">
-  <div id="legtitle" style="font-weight:600;color:#5b2a86">Vote LFI</div>
+  <div id="legtitle" style="font-weight:600;color:#5b2a86"></div>
   <div style="margin-top:4px"><span style="color:#2166ac">– faible</span>
     <span class="bar"></span><span style="color:#b2182b">élevé +</span></div>
-  <div class="hint">couleur = écart à la moyenne · cliquez une zone pour tous ses chiffres</div>
+  <div class="hint">couleur = écart à la moyenne · zoomez ou cliquez pour descendre</div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -51,17 +55,22 @@ const BASE="__BASE__";
 const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
+const PAST=[["lfi_E24","Vote LFI"],["part_E24","Participation"],["rn_E24","Vote RN"],
+            ["gauche_E24","Gauche"],["rep_lfi","Réservoir LFI"],["abst","Abstention"]];
+// seuils de zoom pour descendre/remonter automatiquement, par profondeur affichée
+const ZIN=[6.6,8.2,10.6], ZOUT=[0,6.1,7.9,10.1];
+const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
+window.__map=map;
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
-const cache={}; let layer=null, stack=[], catalogue=[], indicKey=null, curVals={};
-const $=id=>document.getElementById(id);
+const cache={}; let layer=null, stack=[], indicKey="lfi_E24", indicLabel="Vote LFI", curVals={}, busy=false;
 
-async function getJSON(p){ if(cache[p])return cache[p];
-  $("loading").textContent="chargement…";
-  const r=await fetch(BASE+"/"+p); const j=r.ok?await r.json():null; cache[p]=j;
-  $("loading").textContent=""; return j; }
+async function getJSON(p){ if(p in cache)return cache[p];
+  $("loading").textContent="…"; let j=null;
+  try{const r=await fetch(BASE+"/"+p); j=r.ok?await r.json():null;}catch(e){j=null;}
+  cache[p]=j; $("loading").textContent=""; return j; }
 const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
 
 function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v));
@@ -70,7 +79,7 @@ function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v));
   const s=["#2166ac","#67a9cf","#f7f7f7","#ef8a62","#b2182b"];
   return v=>{ if(v==null||isNaN(v))return"#dddddd"; let t=Math.max(-1,Math.min(1,(v-m)/sp));
     const x=(t+1)/2*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
-const valOf=(p)=>{const o=curVals[p.__code];return o?o[indicKey]:null;};
+const valOf=p=>{const o=curVals[p.__code];return o?o[indicKey]:null;};
 
 function infoPanel(nom,o){ const info=$("info");
   if(!o){info.style.display="none";return;}
@@ -79,8 +88,8 @@ function infoPanel(nom,o){ const info=$("info");
   SCR.forEach(([sc,lab])=>{ if(MET.some(m=>o[`${m[0]}_${sc}`]!=null)){
     h+=`<tr><td>${lab}</td>`+MET.map(m=>{const v=o[`${m[0]}_${sc}`];
       return `<td>${v==null?"·":v+" %"}</td>`;}).join("")+`</tr>`; }});
-  h+="</tbody></table>";
-  const r=[]; if(o.rep_lfi!=null)r.push(`Report LFI P22→E24 : <b>${o.rep_lfi} %</b>`);
+  h+="</tbody></table>"; const r=[];
+  if(o.rep_lfi!=null)r.push(`Report LFI P22→E24 : <b>${o.rep_lfi} %</b>`);
   if(o.dpart!=null)r.push(`Δ participation P22→E24 : <b>${o.dpart} %</b>`);
   if(o.abst!=null)r.push(`Abstentionnistes E24 : <b>${o.abst.toLocaleString('fr')}</b>`);
   if(o.rev!=null)r.push(`Revenu médian : <b>${o.rev.toLocaleString('fr')} €</b>`);
@@ -88,22 +97,31 @@ function infoPanel(nom,o){ const info=$("info");
   if(r.length)h+=`<div class="res">${r.join("<br>")}</div>`;
   info.innerHTML=h; info.style.display="block"; }
 
-function dessiner(geo,valeurs,codeProp,nameProp,onClick){
+function dessiner(geo,valeurs,codeProp,nameProp,enter){
   if(layer)layer.remove(); curVals=valeurs;
   geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
     f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
   const fc=colorer(geo.features.map(f=>valOf(f.properties)));
   layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#555",weight:.6,fillOpacity:.82}),
-    onEachFeature:(f,ly)=>{ ly.bindTooltip(f.properties.__nom,{sticky:true});
-      ly.on("mouseover",()=>ly.setStyle({weight:2.5,color:"#000"}));
+    onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
+      ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${v==null?"—":v}`,{sticky:true});
+      ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#000"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
-      ly.on("click",()=>{ infoPanel(f.properties.__nom,valeurs[f.properties.__code]);
-        if(onClick)onClick(f,ly); }); }}).addTo(map); }
+      if(enter){ ly.__enter=()=>enter(f,ly);
+        ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code]);enter(f,ly);}); }
+      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code])); }}).addTo(map); }
 
-function setFil(){ $("fil").textContent=["🇫🇷 France",...stack.map(s=>s.nom)].join("  ›  ");
+function jumpTo(d){ stack=stack.slice(0,d); infoPanel(null); setFil();
+  if(d===0)return vueFrance(); const t=stack[d-1]; flyTo(t.bounds); render(t.niveau,t.code); }
+function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`;
+  stack.forEach((s,i)=>h+=` › <span class="crumb" data-d="${i+1}">${s.nom}</span>`);
+  $("fil").innerHTML=h; $("fil").querySelectorAll(".crumb").forEach(e=>e.onclick=()=>jumpTo(+e.dataset.d));
   $("back").disabled=stack.length===0; }
 
-async function vueFrance(){ stack=[]; setFil(); map.flyToBounds(FRANCE,{duration:.7});
+function flyTo(b,maxZoom){ if(!b)return; busy=true; map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11});
+  map.once("moveend",()=>setTimeout(()=>busy=false,200)); }
+
+async function vueFrance(){ stack=[]; setFil(); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
     (f,ly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds())); }
 async function vueRegion(code){
@@ -113,23 +131,38 @@ async function vueRegion(code){
   dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
     val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds())); }
 async function vueDepartement(code){
-  const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON("values/commune.json")]);
+  const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
   if(!geo){$("loading").textContent="contours indisponibles";return;}
-  dessiner(geo,val,"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+  dessiner(geo,val||{},"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
 async function vueCommune(code){ const dep=depOf(code);
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
   if(!geo){$("loading").textContent="contours BV indisponibles";return;}
   const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_commune)===code)};
-  if(!fc.features.length){$("loading").textContent="pas de bureaux pour cette commune";return;}
-  dessiner(fc,val,"bureau","bureau",(f)=>infoPanel("Bureau "+f.properties.bureau,val[f.properties.__code])); }
+  if(!fc.features.length){$("loading").textContent="pas de bureaux";return;}
+  dessiner(fc,val||{},"bureau","bureau",null); }
 
-async function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
-  if(bounds)map.flyToBounds(bounds,{duration:.8,maxZoom:niveau==="commune"?15:11});
-  setTimeout(()=>render(niveau,code),320); }
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
-$("back").onclick=()=>{ stack.pop(); const t=stack[stack.length-1]; setFil(); infoPanel(null);
-  if(t){map.flyToBounds(t.bounds,{duration:.7});render(t.niveau,t.code);}else vueFrance(); };
+function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
+  flyTo(bounds,niveau==="commune"?15:11); setTimeout(()=>render(niveau,code),320); }
+$("back").onclick=()=>jumpTo(stack.length-1);
+
+// zoom-molette = descendre/remonter automatiquement
+function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let best=null,ba=1e18;
+  layer.eachLayer(ly=>{ if(ly.getBounds){const b=ly.getBounds(); if(b.contains(c)){
+    const a=(b.getEast()-b.getWest())*(b.getNorth()-b.getSouth()); if(a<ba){ba=a;best=ly;}}}}); return best; }
+map.on("zoomend",()=>{ if(busy)return; const z=map.getZoom(), d=stack.length;
+  if(d<3 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
+  else if(d>=1 && z<=ZOUT[d]){ jumpTo(d-1); } });
+
+// pastilles d'indicateurs (pas de menu déroulant)
+function buildPastilles(){ const box=$("pastilles");
+  PAST.forEach(([k,lab])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
+    c.textContent=lab; c.dataset.k=k; c.dataset.l=lab;
+    c.onclick=()=>{ indicKey=k; indicLabel=lab; $("legtitle").textContent=lab;
+      box.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
+      const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
+    box.appendChild(c); }); $("legtitle").textContent=indicLabel; }
 
 async function initSearch(){ const idx=await getJSON("values/communes_index.json"); if(!idx)return;
   $("search").__idx=idx; const dl=$("communes");
@@ -140,11 +173,10 @@ $("search").addEventListener("change",async()=>{
   stack=[{niveau:"region",code:c.region,nom:c.region,bounds:null},
          {niveau:"departement",code:c.dep,nom:c.dep,bounds:null}];
   await vueCommune(code); stack.push({niveau:"commune",code,nom:c.nom}); setFil();
-  infoPanel(c.nom,(cache["values/commune.json"]||{})[code]);
-  const b=layer&&layer.getBounds&&layer.getBounds(); if(b&&b.isValid())map.flyToBounds(b,{duration:.8,maxZoom:15}); });
+  const cv=await getJSON(`values/commune/${c.dep}.json`); infoPanel(c.nom,(cv||{})[code]);
+  const b=layer&&layer.getBounds&&layer.getBounds(); if(b&&b.isValid())flyTo(b,15); });
 
-async function init(){ const cat=await getJSON("values/_catalogue.json"); catalogue=cat?cat.indicateurs:[];
-  indicKey="lfi_E24"; await initSearch(); vueFrance(); }
+async function init(){ buildPastilles(); await initSearch(); vueFrance(); }
 init();
 </script>
 </body>

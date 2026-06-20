@@ -6,3 +6,8 @@ data_app/data_app.tar.gz
 # Intermédiaires volumineux (régénérables)
 data_app/geo/_*.geojson
 data_app/geo/_circo_src/
+
+# test tooling (local only)
+package.json
+package-lock.json
+served_map_test.html
