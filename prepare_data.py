@@ -15,7 +15,7 @@ import pandas as pd
 import prep_admin
 import prep_geo
 from prep_elections import construire_resultats
-from prep_socio import construire_socio
+from prep_socio import construire_references, construire_socio
 
 HEX = Path("/home/veesion/hexagonal/data")
 CLEAN = HEX / "02_clean"
@@ -99,6 +99,10 @@ def main() -> None:
         )
         iris.to_parquet(OUT / "socio_iris.parquet", index=False)
         commune_socio.to_parquet(OUT / "socio_commune.parquet", index=False)
+        rp = CLEAN / "recensement" / "iris.csv"
+        if rp.exists():
+            refs = construire_references(commune_socio, rp, communes)
+            (OUT / "socio_reference.json").write_text(json.dumps(refs))
         print(f"   IRIS: {len(iris)} | communes: {len(commune_socio)}")
 
     print("→ Données administratives INSEE (âges, logement, transport, maires)")

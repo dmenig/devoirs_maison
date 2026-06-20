@@ -45,6 +45,11 @@
   #info .row{display:flex;justify-content:space-between;gap:10px;margin:4px 0;font-size:13px;align-items:baseline}
   #info .row span{color:var(--mut);min-width:0}
   #info .row b{color:var(--txt);font-variant-numeric:tabular-nums;white-space:nowrap;flex:none;text-align:right}
+  #info .srow{display:flex;justify-content:space-between;gap:10px;margin:5px 0;font-size:13px;align-items:baseline}
+  #info .srow .sl{color:var(--mut);min-width:0}
+  #info .srow .sv{flex:none;text-align:right;white-space:nowrap}
+  #info .srow .sv b{color:var(--txt);font-variant-numeric:tabular-nums}
+  #info .srow .sv .ref{display:block;font-size:11px;color:var(--mut);opacity:.8;font-variant-numeric:tabular-nums}
   #info .bar{margin:3px 0 7px;background:#2c2640;border-radius:5px;height:8px;overflow:hidden}
   #info .bar i{display:block;height:100%;border-radius:5px}
   #info .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut);margin-top:6px}

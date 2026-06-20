@@ -113,47 +113,46 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
       `C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
   if(resRows)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
-  // Contexte social (FILOSOFI 2021) : niveau de vie + dispersion (quartiles/déciles,
-  // interdécile, Gini). À l'IRIS le jeu est complet ; à la commune, médiane/pauvreté + Q1/Q3.
-  const eur=v=>v.toLocaleString('fr')+" €";
-  const s=[];
-  if(o.rev!=null)s.push(["Revenu médian (après impôts et aides)",eur(o.rev)]);
-  if(o.pauv!=null)s.push(["Taux de pauvreté",o.pauv+" %"]);
-  if(o.q1!=null)s.push(["Les 25 % les plus modestes gagnent moins de",eur(o.q1)]);
-  if(o.q3!=null)s.push(["Les 25 % les plus aisés gagnent plus de",eur(o.q3)]);
-  if(o.ridec!=null)s.push(["Écart riches / pauvres",o.ridec+" ×"]);
-  if(o.gini!=null)s.push(["Indice d'inégalité (Gini)",o.gini]);
-  if(s.length)h+=exp(sec("Contexte social · 2021")+distBand(o)+
-    s.map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join(""),
-    `<b>Revenu médian (après impôts et aides)</b> par personne, corrigé de la taille du foyer, et <b>taux de pauvreté</b> `+
-    `(part des habitants vivant sous 60 % du revenu médian national). La barre montre la répartition des revenus : `+
-    `la barre épaisse = la moitié des foyers autour de la médiane, les traits fins vont du plus modeste au plus aisé `+
-    `(8 foyers sur 10), le trait blanc = la médiane. L'<b>écart riches / pauvres</b> (combien de fois les 10 % les plus `+
-    `riches gagnent plus que les 10 % les plus pauvres) et l'<b>indice de Gini</b> (0 = égalité parfaite, 1 = inégalité `+
-    `maximale) mesurent les inégalités dans la zone. Source : INSEE FILOSOFI 2021 (données fiscales) — par <b>quartier</b> `+
-    `le détail est complet ; à l'échelle de la <b>commune</b>, médiane et seuils (moyenne des quartiers).`);
+  // Contexte social + déterminants du vote (FILOSOFI + recensement INSEE 2021).
+  // Chaque valeur est confrontée à la référence nationale et régionale (sinon un % brut
+  // ne dit rien). Refs : parts exactes par région, revenu/pauvreté pondérés par la pop.
+  const refFr=window.__socioFr||{}, refRg=(window.__socioReg||{})[o.reg]||{};
+  const fmtv=(v,u)=> u==="€"?Math.round(v).toLocaleString('fr')+" €":v+(u||"");
+  const srow=(lab,k,u)=>{ const v=o[k]; if(v==null)return "";
+    const fr=refFr[k], rg=refRg[k], r=[];
+    if(fr!=null)r.push("France "+fmtv(fr,u)); if(rg!=null)r.push("région "+fmtv(rg,u));
+    return `<div class="srow"><span class="sl">${lab}</span><span class="sv"><b>${fmtv(v,u)}</b>`+
+      (r.length?`<span class="ref">${r.join(" · ")}</span>`:"")+`</span></div>`; };
+  const rows=arr=>arr.map(x=>srow(x[0],x[1],x[2])).join("");
 
-  // Déterminants du vote (recensement INSEE 2021) : âge, CSP, diplômes, logement.
-  const pctRows=arr=>arr.filter(x=>o[x[1]]!=null)
-    .map(x=>`<div class="row"><span>${x[0]}</span><b>${o[x[1]]} %</b></div>`).join("");
-  const age=pctRows([["0-14 ans","a014"],["15-29 ans","a1529"],["30-44 ans","a3044"],
-    ["45-59 ans","a4559"],["60-74 ans","a6074"],["75 ans et +","a75"]]);
+  const soc=rows([["Revenu médian (après impôts et aides)","rev","€"],
+    ["Taux de pauvreté","pauv","%"],["Les 25 % les plus modestes en dessous de","q1","€"],
+    ["Les 25 % les plus aisés au-dessus de","q3","€"],["Écart riches / pauvres","ridec"," ×"],
+    ["Indice d'inégalité (Gini)","gini",""]]);
+  if(soc)h+=exp(sec("Contexte social · 2021")+distBand(o)+soc,
+    `<b>Revenu médian</b> (après impôts et aides) par personne, corrigé de la taille du foyer, et `+
+    `<b>taux de pauvreté</b> (part vivant sous 60 % du revenu médian national). Chaque valeur est `+
+    `comparée à la <b>moyenne France</b> et à la <b>moyenne de la région</b>. La barre montre la `+
+    `répartition des revenus (barre épaisse = moitié des foyers autour de la médiane). Source : INSEE `+
+    `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`);
+  const age=rows([["0-14 ans","a014","%"],["15-29 ans","a1529","%"],["30-44 ans","a3044","%"],
+    ["45-59 ans","a4559","%"],["60-74 ans","a6074","%"],["75 ans et +","a75","%"]]);
   if(age)h+=exp(sec("Âge de la population · 2021")+age,
-    `Répartition par tranche d'âge (INSEE, recensement 2021). L'âge est l'un des principaux `+
-    `déterminants du vote et de la participation.`);
-  const csp=pctRows([["Cadres / prof. sup.","cad"],["Professions intermédiaires","pint"],
-    ["Employés","emp"],["Ouvriers","ouv"],["Retraités","ret"],["Taux de chômage (15-64 ans)","chom"]]);
+    `Répartition par tranche d'âge (INSEE 2021), comparée à la France et à la région. L'âge est `+
+    `l'un des principaux déterminants du vote et de la participation.`);
+  const csp=rows([["Cadres / prof. sup.","cad","%"],["Professions intermédiaires","pint","%"],
+    ["Employés","emp","%"],["Ouvriers","ouv","%"],["Retraités","ret","%"],["Taux de chômage (15-64 ans)","chom","%"]]);
   if(csp)h+=exp(sec("Catégories sociales · 2021")+csp,
-    `Composition socioprofessionnelle des 15 ans et plus (en % de cette population) et taux de `+
-    `chômage des actifs (INSEE 2021). Le métier (PCS) structure fortement le vote.`);
-  const dip=pctRows([["Sans diplôme ou brevet seul","dipl0"],["Diplômé·e du supérieur","diplsup"]]);
+    `Composition socioprofessionnelle des 15 ans et plus (en % de cette population) et taux de chômage `+
+    `des actifs (INSEE 2021), comparés à la France et à la région. Le métier (PCS) structure fortement le vote.`);
+  const dip=rows([["Sans diplôme ou brevet seul","dipl0","%"],["Diplômé·e du supérieur","diplsup","%"]]);
   if(dip)h+=exp(sec("Diplômes · 2021")+dip,
-    `Part des 15 ans et plus non scolarisés sans diplôme (ou brevet seul) et part diplômés du `+
-    `supérieur (INSEE 2021).`);
-  const log=pctRows([["Propriétaires","logprop"],["Locataires","logloc"],["Logement social (HLM)","loghlm"]]);
+    `Part des 15 ans et plus non scolarisés sans diplôme (ou brevet seul) et diplômés du supérieur `+
+    `(INSEE 2021), comparée à la France et à la région.`);
+  const log=rows([["Propriétaires","logprop","%"],["Locataires","logloc","%"],["Logement social (HLM)","loghlm","%"]]);
   if(log)h+=exp(sec("Logement · 2021")+log,
-    `Statut d'occupation des résidences principales (INSEE 2021). Le mode d'habitat est un `+
-    `déterminant du vote.`);
+    `Statut d'occupation des résidences principales (INSEE 2021), comparé à la France et à la région. `+
+    `Le mode d'habitat est un déterminant du vote.`);
   h+=adminPanel(o);
   h+=actionPanel(o);
   info.innerHTML=`<div class="slider"><div class="pane">${h}</div>`+

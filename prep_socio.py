@@ -101,6 +101,46 @@ def _charger_rp(rp_csv: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     return iris_parts.reset_index(), _rp_parts(com).reset_index()
 
 
+def construire_references(
+    commune_socio: pd.DataFrame, rp_iris_csv: Path, communes: pd.DataFrame
+) -> dict[str, dict]:
+    """Valeurs de référence (nationale + par région) pour situer une zone : un % de
+    cadres ou un revenu n'a de sens que comparé à la moyenne. Parts RP exactes (somme des
+    comptages) ; revenu/pauvreté en moyenne pondérée par la population communale."""
+    counts = (
+        pd.read_csv(rp_iris_csv, dtype={"code_commune": str})
+        .groupby("code_commune", as_index=True)
+        .sum(numeric_only=True)
+    )
+    reg = (
+        communes.drop_duplicates("code_commune")
+        .set_index("code_commune")["code_region"]
+        .astype(str)
+    )
+    counts["region"] = reg.reindex(counts.index).values
+    rs = commune_socio.set_index("code_commune")
+    pop = counts["pop"]
+
+    def bloc(idx: pd.Index) -> dict:
+        somme = counts.loc[idx].drop(columns="region").sum().to_frame().T
+        out = {
+            k: (None if pd.isna(v) else v) for k, v in _rp_parts(somme).iloc[0].items()
+        }
+        sub = rs.index.intersection(idx)
+        v, w = rs.loc[sub], pop.reindex(sub)
+        for col in ("revenu_median", "taux_pauvrete"):
+            m = v[col].notna() & w.notna() & (w > 0)
+            tot = w[m].sum()
+            out[col] = round((v.loc[m, col] * w[m]).sum() / tot, 1) if tot else None
+        return out
+
+    refs = {"FR": bloc(counts.index)}
+    for r, grp in counts.groupby("region"):
+        if r and r != "nan":
+            refs[r] = bloc(grp.index)
+    return refs
+
+
 def _commune_depuis_filosofi(chemin: Path, iris_agg: pd.DataFrame) -> pd.DataFrame:
     src = pd.read_csv(chemin, dtype={"code_commune": str})
     garde = [c for c in COLS_COMMUNE if c in src.columns]

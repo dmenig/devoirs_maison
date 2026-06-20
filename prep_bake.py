@@ -270,6 +270,23 @@ def main() -> None:
     for r in sc.itertuples(index=False):
         com.setdefault(str(r.code_commune), {}).update(_socio_champs(r._asdict()))
     _baker_admin(com, DA)
+    regmap = (
+        pd.read_parquet(DA / "ref_communes.parquet")
+        .set_index("code_commune")["code_region"]
+        .astype(str)
+        .to_dict()
+    )
+    for code, vals in com.items():
+        if regmap.get(code):
+            vals["reg"] = regmap[code]
+    ref_f = DA / "socio_reference.json"
+    if ref_f.exists():
+        refs = json.loads(ref_f.read_text())
+        _ecrire("_socio_fr", _socio_champs(refs.get("FR", {})))
+        _ecrire(
+            "_socio_reg", {k: _socio_champs(v) for k, v in refs.items() if k != "FR"}
+        )
+        print("  ✓ références socio (nationale + régions)")
     (OUT / "commune").mkdir(exist_ok=True)
     par_dep: dict[str, dict] = {}
     for code, vals in com.items():
@@ -280,15 +297,21 @@ def main() -> None:
     print(f"  ✓ values commune (par département, {len(par_dep)})")
 
     iris = pd.read_parquet(DA / "socio_iris.parquet")
-    iris_vals = {
-        str(r.code_iris): _socio_champs(r._asdict())
-        for r in iris.itertuples(index=False)
-    }
-    # Communes sans découpage IRIS (FILOSOFI infra-communal non diffusé) : leur unique
-    # contour {commune}0000 n'a pas de ligne socio_iris. On y rabat le revenu/pauvreté
-    # communal (FILOSOFI commune) pour que la vue Quartiers ne soit pas vide (ex. Mortery).
+    iris_vals = {}
+    for r in iris.itertuples(index=False):
+        v = _socio_champs(r._asdict())
+        if regmap.get(str(r.code_iris)[:5]):
+            v["reg"] = regmap[str(r.code_iris)[:5]]
+        iris_vals[str(r.code_iris)] = v
+    # Communes sans FILOSOFI infra-communal : leur unique contour {commune}0000 a bien une
+    # ligne socio_iris (recensement) mais sans revenu/pauvreté. On rabat les champs FILOSOFI
+    # communaux manquants (sans écraser les champs IRIS) pour ne pas afficher « — » (ex. Mortery).
     for r in sc.itertuples(index=False):
-        iris_vals.setdefault(f"{r.code_commune}0000", _socio_champs(r._asdict()))
+        cur = iris_vals.setdefault(f"{r.code_commune}0000", {})
+        if "reg" not in cur and regmap.get(str(r.code_commune)):
+            cur["reg"] = regmap[str(r.code_commune)]
+        for cle, val in _socio_champs(r._asdict()).items():
+            cur.setdefault(cle, val)
     _ecrire("iris", iris_vals)
     print("  ✓ values iris")
 
