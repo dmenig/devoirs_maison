@@ -55,9 +55,17 @@
   #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
   #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
-  #info .exp .det,#info .det2{display:block;font-size:11.5px;color:#cabfdc;line-height:1.5;
-       background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:7px 9px;border-radius:0 6px 6px 0;margin:6px 0 2px}
-  #info .det b,#info .det2 b{color:var(--txt)}
+  #info .exp .exph{cursor:pointer;position:relative;padding-right:15px}
+  #info .exp .exph::after{content:"›";position:absolute;right:1px;top:1px;color:var(--lav);font-weight:700;
+       transition:transform .25s ease}
+  #info .exp.open .exph::after{transform:rotate(90deg)}
+  #info .exp .det{display:block;overflow:hidden;max-height:0;opacity:0;transform:translateY(-4px);
+       transition:max-height .3s ease,opacity .25s ease,transform .25s ease,padding .3s ease,margin .3s ease;
+       font-size:11.5px;color:#cabfdc;line-height:1.5;
+       background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:0 9px;border-radius:0 6px 6px 0;margin:0}
+  #info .exp.open .det{max-height:900px;opacity:1;transform:none;padding:7px 9px;margin:6px 0 2px}
+  #info .det b{color:var(--txt)}
+  #info .det p{margin:0 0 6px}#info .det p:last-child{margin:0}
   #info .bar{position:relative}
   #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85;z-index:2}
   #info .frtag{color:var(--mut2);font-weight:400}
@@ -270,27 +278,25 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
 
   // réservoirs de voix entre les DEUX scrutins choisis (sélecteur A→B), recalculés à la volée
   const pm=pairMetrics(o), arrow=`${selA}→${selB}`;
-  let resHTML="";
+  let resRows="", resDet=`<p>Réservoirs entre les <b>deux scrutins choisis</b> dans le sélecteur en haut de carte.</p>`;
   if(pm.report!=null){ const perte=Math.round((100-pm.report)*10)/10;
-    resHTML+=`<div class="row"><span>Report LFI ${arrow}</span><b>${pm.report} %</b></div>`+
-      `<div class="det2">LFI a conservé <b>${pm.report}%</b> de ses voix entre ${scLab(selA)} et ${scLab(selB)}`+
+    resRows+=`<div class="row"><span>Report LFI ${arrow}</span><b>${pm.report} %</b></div>`;
+    resDet+=`<p><b>Report LFI</b> : LFI a conservé <b>${pm.report}%</b> de ses voix entre ${scLab(selA)} et ${scLab(selB)}`+
       `${perte>0?` (soit <b>${perte}%</b> de voix insoumises perdues à reconquérir)`:""}. `+
-      `Taux de report en <b>voix réelles</b> (voix LFI ${selB} ÷ voix LFI ${selA}), non en % d'inscrits.</div>`; }
+      `Taux de report en <b>voix réelles</b> (voix LFI ${selB} ÷ voix LFI ${selA}), non en % d'inscrits.</p>`; }
   if(pm.dpart!=null){
-    resHTML+=`<div class="row"><span>Différentiel participation ${arrow}</span><b>${pm.dpart>0?"+":""}${pm.dpart} pts</b></div>`+
-      `<div class="det2">Participation ${pm.dpart>=0?"plus forte":"plus faible"} de <b>${Math.abs(pm.dpart)} pts</b> `+
-      `en ${scLab(selB)} qu'en ${scLab(selA)} (en points d'inscrits). Mesure la (dé)mobilisation entre les deux scrutins.</div>`; }
+    resRows+=`<div class="row"><span>Différentiel participation ${arrow}</span><b>${pm.dpart>0?"+":""}${pm.dpart} pts</b></div>`;
+    resDet+=`<p><b>Différentiel participation</b> : participation ${pm.dpart>=0?"plus forte":"plus faible"} de <b>${Math.abs(pm.dpart)} pts</b> `+
+      `en ${scLab(selB)} qu'en ${scLab(selA)} (en points d'inscrits). Mesure la (dé)mobilisation entre les deux scrutins.</p>`; }
   if(pm.perte!=null){
-    resHTML+=`<div class="row"><span>Taux de perte gauche ${arrow}</span><b>${pm.perte>0?pm.perte+" %":"—"}</b></div>`+
-      `<div class="det2">La gauche (bloc social-écologique) a perdu <b>${pm.perte}%</b> de ses voix entre `+
-      `${scLab(selA)} et ${scLab(selB)} (voix réelles). Une valeur négative = progression.</div>`; }
+    resRows+=`<div class="row"><span>Taux de perte gauche ${arrow}</span><b>${pm.perte>0?pm.perte+" %":"—"}</b></div>`;
+    resDet+=`<p><b>Taux de perte gauche</b> : la gauche (bloc social-écologique) a perdu <b>${pm.perte}%</b> de ses voix entre `+
+      `${scLab(selA)} et ${scLab(selB)} (voix réelles). Une valeur négative = progression.</p>`; }
   if(o.abst!=null){
-    resHTML+=`<div class="row"><span>Abstention mobilisable (stock, E24)</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`+
-      `<div class="det2">Nombre d'inscrits n'ayant pas voté aux européennes 2024 `+
-      `(inscrits × taux d'abstention). Réservoir brut de voix à ramener aux urnes.</div>`; }
-  if(resHTML)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resHTML,
-    `Réservoirs entre les <b>deux scrutins choisis</b> dans le sélecteur en haut de carte : taux de report `+
-    `LFI et taux de perte de la gauche en <b>voix réelles</b>, et différentiel de participation en points d'inscrits.`);
+    resRows+=`<div class="row"><span>Abstention mobilisable (stock, E24)</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`;
+    resDet+=`<p><b>Abstention mobilisable</b> : nombre d'inscrits n'ayant pas voté aux européennes 2024 `+
+      `(inscrits × taux d'abstention). Réservoir brut de voix à ramener aux urnes.</p>`; }
+  if(resRows)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
   const s=[];
   if(o.rev!=null)s.push(["Revenu médian",o.rev.toLocaleString('fr')+" €"]);
@@ -458,6 +464,8 @@ function refreshPair(){
   if(indicKey.startsWith("dyn_")){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
+// clic sur une section de la fiche : déroule (translate) son détail
+$("info").addEventListener("click",e=>{ const h=e.target.closest(".exph"); if(h)h.parentElement.classList.toggle("open"); });
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
