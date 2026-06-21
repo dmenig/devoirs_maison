@@ -17,7 +17,7 @@ function fadeOutLayer(){ const el=overlayEl(), old=layer; layer=null;
 function flushDraw(){ clearTimeout(pendingTimer);
   if(pendingDraw){ const d=pendingDraw; pendingDraw=null; d(); } }
 
-function paintLayer(geo,valeurs,enter){ if(layer)layer.remove();
+function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   const fc=colorer(geo.features.map(f=>valOf(f.properties)));
   layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#1a1a1a",weight:.5,fillOpacity:.85}),
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
@@ -25,14 +25,16 @@ function paintLayer(geo,valeurs,enter){ if(layer)layer.remove();
       ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#fff"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
       if(enter){ ly.__enter=()=>enter(f,ly);
-        ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code]);enter(f,ly);}); }
-      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code])); }}).addTo(map);
+        ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau);enter(f,ly);}); }
+      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau)); }}).addTo(map);
   fadeInLayer(); }
 
-function dessiner(geo,valeurs,codeProp,nameProp,enter){ curVals=valeurs;
+// `niveau` = maille des features dessinées (region/departement/commune/iris/bv) : il qualifie
+// la fiche ouverte au clic, pour réserver le Carnet de campagne au clic sur une COMMUNE.
+function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
   geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
     f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
-  const draw=()=>paintLayer(geo,valeurs,enter);
+  const draw=()=>paintLayer(geo,valeurs,enter,niveau);
   if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,1200); }
   else draw(); }
 
@@ -57,39 +59,22 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
 
 async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
-    (f,ly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+    (f,ly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds()),"region"); }
 async function vueRegion(code){ subToggle(false);
   const [geo,val,hier]=await Promise.all([getJSON("geo/departements.geojson"),
     getJSON("values/departement.json"),getJSON("values/_hierarchie.json")]);
   const deps=new Set(hier.departements.filter(d=>d.region===code).map(d=>d.code));
   dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
-    val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds())); }
+    val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds()),"departement"); }
+// Présidentielle : pas d'échelle circonscription (scrutin national). Le département
+// descend directement aux communes — ce qui dissout aussi le bug des communes à cheval
+// sur deux circos (cf. EVOLUTIONS.md, chantier 1).
 async function vueDepartement(code){ subToggle(false);
-  const [geo,val]=await Promise.all([getJSON(`geo/circ/${code}.geojson`),getJSON("values/circonscription.json")]);
-  if(!geo||!geo.features.length)return vueDeptCommunes(code); // dép. sans circo (outre-mer/étranger)
-  const depNom=(stack[stack.length-1]||{}).nom||code;
-  geo.features.forEach(f=>f.properties.nom=circoNom(f.properties.code_circonscription,depNom));
-  dessiner(geo,val||{},"code_circonscription","nom",
-    (f,ly)=>entrer("circonscription",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-async function vueDeptCommunes(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
   if(!geo){$("loading").textContent="contours indisponibles";return;}
-  dessiner(geo,val||{},"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-// communes d'une circonscription : on rabat les communes du département dont le centre
-// tombe dans le contour de la circo (rattachement approché, front-only).
-async function vueCirconscription(code){ subToggle(false); const dep=code.split("-")[0];
-  const [cgeo,geo,val]=await Promise.all([getJSON(`geo/circ/${dep}.geojson`),
-    getJSON(`geo/communes/${dep}.geojson`),getJSON(`values/commune/${dep}.json`)]);
-  if(!geo){$("loading").textContent="contours communes indisponibles";return;}
-  const cf=cgeo&&cgeo.features.find(f=>String(f.properties.code_circonscription)===code);
-  let feats=geo.features;
-  if(cf){ feats=geo.features.filter(f=>{const c=centroid(f.geometry);return ptInGeom(c[0],c[1],cf.geometry);});
-    if(!feats.length){ const cc=centroid(cf.geometry); // circo urbaine : rabattre la commune englobante
-      feats=geo.features.filter(f=>ptInGeom(cc[0],cc[1],f.geometry)); }
-    if(!feats.length)feats=geo.features; }
-  dessiner({type:"FeatureCollection",features:feats},val||{},"code","nom",
-    (f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds())); }
-const subToggle=show=>{ $("subtoggle").style.display=show?"flex":"none";
+  dessiner(geo,val||{},"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds()),"commune"); }
+const subToggle=show=>{ const adv=document.body.classList.contains("adv");
+  $("subtoggle").style.display=(show&&adv)?"flex":"none";
   if(!show){ sousMode="bv";
     $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m==="bv")); }
   syncSocioChips(); };
@@ -99,15 +84,20 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
     if(!geo){$("loading").textContent="quartiers indisponibles ici";return;}
     const fc={type:"FeatureCollection",features:geo.features.filter(f=>irisInCommune(String(f.properties.code_iris),code))};
     if(!fc.features.length){$("loading").textContent="pas de données par quartier";return;}
-    dessiner(fc,val||{},"code_iris","nom_iris",null); return; }
+    dessiner(fc,val||{},"code_iris","nom_iris",null,"iris"); return; }
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
   if(!geo){$("loading").textContent="contours BV indisponibles";return;}
-  const fc={type:"FeatureCollection",features:geo.features.filter(f=>String(f.properties.code_commune)===code)};
-  if(!fc.features.length){$("loading").textContent="pas de bureaux";return;}
-  dessiner(fc,val||{},"bureau","bureau",null); }
+  const tous=geo.features.filter(f=>String(f.properties.code_commune)===code);
+  if(!tous.length){$("loading").textContent="pas de bureaux";return;}
+  // chantier 4 : on n'affiche que les bureaux au tracé fiable ; les Voronoï absurdes
+  // (polygones disjoints) sont masqués plutôt qu'affichés faux. Données restituables via l'export.
+  const fiables=tous.filter(bvFiable), masques=tous.length-fiables.length;
+  $("loading").textContent=masques?`${masques}/${tous.length} bureau·x au tracé peu fiable masqué·s — voir l'export`:"";
+  if(!fiables.length){$("loading").textContent="contours de bureaux trop peu fiables ici — utilisez l'export des données";return;}
+  dessiner({type:"FeatureCollection",features:fiables},val||{},"bureau","bureau",null,"bv"); }
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
-  else if(n==="circonscription")vueCirconscription(c);else if(n==="commune")vueCommune(c); }
+  else if(n==="commune")vueCommune(c); }
 function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
   fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
 $("back").onclick=()=>jumpTo(stack.length-1);

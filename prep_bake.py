@@ -230,6 +230,47 @@ def _socio_champs(row: dict) -> dict:
     return out
 
 
+SCRUTIN_REGISTRE = (
+    "2024-europeenne"  # registre de référence (taille du corps électoral)
+)
+
+
+def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
+    """Champs du Carnet de campagne (chantier 3) : inscrits (registre), population, et
+    estimations de non-/mal-inscription — les réservoirs prioritaires. Estimations
+    PROVISOIRES (méthodologie à valider PEE, cf. EVOLUTIONS.md) :
+    - non-inscription ≈ population majeure (recensement) − inscrits (borne haute : inclut
+      les résident·es non éligibles) ;
+    - mal-inscription ≈ population majeure × part des résident·es arrivé·es d'une autre
+      commune depuis < 1 an (proxy IRAN : récemment installé·es donc souvent mal-inscrit·es)."""
+    insc = rc[rc["scrutin"] == SCRUTIN_REGISTRE].groupby("code")["inscrits"].first()
+    for code, v in insc.items():
+        if pd.notna(v):
+            com.setdefault(str(code), {})["insc"] = int(v)
+    f = da / "admin_commune.parquet"
+    if not f.exists():
+        return
+    adm = pd.read_parquet(f).set_index("code_commune")
+    for code, row in adm.drop(index="FRANCE", errors="ignore").iterrows():
+        o = com.get(str(code))
+        if o is None or pd.isna(row.get("pop")):
+            continue
+        pop = float(row["pop"])
+        o["pop"] = int(pop)
+        # population majeure ≈ 15 ans et + moins les 15-17 ans (≈ 1/5 de la tranche 15-29)
+        part_15p = sum(
+            (row.get(f"age{s}_{i}") or 0) for s in ("H", "F") for i in range(1, 6)
+        )
+        part_1529 = (row.get("ageH_1") or 0) + (row.get("ageF_1") or 0)
+        pop_majeur = pop * (part_15p - 0.2 * part_1529) / 100
+        ins = o.get("insc")
+        if ins is not None:
+            o["noninsc"] = max(0, round(pop_majeur - ins))
+        if pd.notna(row.get("mig_2")):
+            taux = sum((row.get(f"mig_{i}") or 0) for i in (2, 3, 4)) / 100
+            o["malinsc"] = round(pop_majeur * taux)
+
+
 def _baker_admin(com: dict[str, dict], da: Path) -> None:
     """Fusionne admin_commune dans les valeurs communales + écrit la référence France."""
     f = da / "admin_commune.parquet"
@@ -257,19 +298,19 @@ def main() -> None:
         )
     _ecrire("_scrutins", scrutins_meta)
 
-    for niveau in ("region", "departement", "circonscription"):
+    for niveau in ("region", "departement"):
         df = pd.read_parquet(DA / f"resultats_{niveau}.parquet")
         _ecrire(niveau, _valeurs_niveau(df, ordre, fiables))
         print(f"  ✓ values {niveau}")
 
     # communes : valeurs électorales + revenu/pauvreté, découpées par département
-    com = _valeurs_niveau(
-        pd.read_parquet(DA / "resultats_commune.parquet"), ordre, fiables
-    )
+    rc_commune = pd.read_parquet(DA / "resultats_commune.parquet")
+    com = _valeurs_niveau(rc_commune, ordre, fiables)
     sc = pd.read_parquet(DA / "socio_commune.parquet")
     for r in sc.itertuples(index=False):
         com.setdefault(str(r.code_commune), {}).update(_socio_champs(r._asdict()))
     _baker_admin(com, DA)
+    _baker_carnet(com, rc_commune, DA)
     regmap = (
         pd.read_parquet(DA / "ref_communes.parquet")
         .set_index("code_commune")["code_region"]

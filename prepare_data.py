@@ -123,9 +123,7 @@ def main() -> None:
     print("→ Contours (fonds de carte)")
     prep_geo.contours_de_base(GEO)
     prep_geo.contours_communes(GEO)
-    prep_geo.contours_circonscriptions(
-        RAW / "insee" / "insee_circonscriptions_legislatives.zip", GEO
-    )
+    # Échelle circonscription retirée (présidentielle) : plus de contours circo à produire.
     gpkg = RAW / "ign" / "iris-metropole.gpkg"
     if prep_geo.telecharger_iris_ign(
         IRIS_IGN_URL, RAW / "ign" / "iris-metropole.7z", gpkg

@@ -23,8 +23,8 @@ const MIG_ROWS=["Même logement","Autre logement, même commune","Autre commune 
 let selA="P22", selB="E24";
 const scLab=c=>(SCR.find(s=>s[0]===c)||[,c])[1];
 // seuils de zoom pour descendre/remonter automatiquement, par profondeur affichée
-// niveaux : 0 France→Région · 1 Région→Dép · 2 Dép→Circo · 3 Circo→Commune · 4 Commune→BV/IRIS
-const ZIN=[6.6,8.2,9.6,11.0], ZOUT=[0,6.1,7.9,9.2,10.6];
+// niveaux : 0 France→Région · 1 Région→Dép · 2 Dép→Commune · 3 Commune→BV/IRIS (terminal)
+const ZIN=[6.6,8.2,10.5], ZOUT=[0,6.1,7.9,9.8];
 // remontée relative : on repart d'un niveau dès qu'on dézoome de ZBACK sous le zoom
 // le plus profond atteint dans la zone (le repère suit les zooms manuels, pas seulement
 // l'entrée), ZOUT restant un plancher absolu.
@@ -35,7 +35,9 @@ window.__map=map;
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
-const cache={}; let layer=null, stack=[], indicKey="lfi", indicLabel="Vote LFI", indicUnit="%",
+// indicateur de coloration par défaut : participation (lecture d'ensemble neutre, choix
+// d'office — le détail vient du clic sur la commune → Carnet de campagne).
+const cache={}; let layer=null, stack=[], indicKey="part", indicLabel="Participation", indicUnit="%",
     curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[];
 // entête cliquable d'une section : le détail est poussé dans le volet de droite (slide)
 const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;

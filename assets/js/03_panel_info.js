@@ -36,7 +36,7 @@ function sheetInset(){ const info=$("info");
 
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
-function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
+function infoPanel(nom,o,niveau){ const info=$("info"); lastInfo=o?{nom,o,niveau}:null;
   if(!o){hideInfoSheet(info);return;}
   panelDetails=[];
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
@@ -48,6 +48,11 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
 
   const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
   let h=`<div class="t">${nom}</div>`;
+  // Carnet de campagne (objectifs + décomposition + plan d'action) RÉSERVÉ à la commune :
+  // c'est la maille d'action de référence (cf. EVOLUTIONS.md ch.3). Aux échelles d'ensemble
+  // (région/dép) et de drill-down (BV/IRIS), on ne montre que la fiche descriptive.
+  const estCommune=niveau==="commune";
+  if(estCommune)h+=carnet(o);
   if(lfi!=null){
     h+=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
            `<div class="head">${lfi} %<small> des inscrits</small></div>`,
@@ -175,7 +180,7 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
     `Statut d'occupation des résidences principales (INSEE 2021), comparé à la France et à la région. `+
     `Le mode d'habitat est un déterminant du vote.`);
   h+=adminPanel(o);
-  h+=actionPanel(o);
+  if(estCommune)h+=actionPanel(o);
   info.classList.remove("collapsed");
   info.innerHTML=`<div class="sheet-handle"><span class="sh-name">${nom}</span></div>`+
     `<div class="slider"><div class="pane">${h}</div>`+

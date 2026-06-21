@@ -31,6 +31,11 @@ function buildPastilles(){ const box=$("pastilles"), grp=$("pairgroup");
 function closeDrawer(){ $("pastilles").classList.remove("open"); $("pastoggle").classList.remove("on"); $("pastoggle").setAttribute("aria-expanded","false"); }
 $("pastoggle").onclick=()=>{ const open=$("pastilles").classList.toggle("open");
   $("pastoggle").classList.toggle("on",open); $("pastoggle").setAttribute("aria-expanded",String(open)); };
+// Mode « Avancé » (chantier 2) : révèle indicateurs + sélecteur de scrutins + bascule
+// BV/IRIS. Replié par défaut → la prise en main se limite à cliquer son territoire.
+$("advtoggle").onclick=()=>{ const on=document.body.classList.toggle("adv");
+  $("advtoggle").setAttribute("aria-pressed",String(on)); closeDrawer();
+  const t=stack[stack.length-1]; if(t&&t.niveau==="commune")subToggle(true); };
 // sélecteur de deux scrutins : peuple A/B et recalcule réservoirs (carte + fiche) à la volée
 function buildSelecteur(){
   for(const id of ["selA","selB"]){ const sel=$(id), cur=id==="selA"?selA:selB;
@@ -40,7 +45,7 @@ function refreshPair(){
   $("pastilles").querySelectorAll(".chip").forEach(c=>{ if(usesPair(c.dataset.k))c.textContent=labelFor(c.dataset.k); });
   if(usesPair(indicKey)){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
-  if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
+  if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o,lastInfo.niveau); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
 $("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slider"); if(!sl)return;
   if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=sl._back||0; return; }

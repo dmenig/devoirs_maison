@@ -19,8 +19,12 @@ niveau, jusqu'au bureau de vote et à l'IRIS.
 ## Les échelles (carte cliquable, du national au local)
 
 ```
-France → Région → Département → Circonscription législative → Commune → IRIS / Bureau de vote
+France → Région → Département → Commune → IRIS / Bureau de vote
 ```
+
+> L'échelle **circonscription législative** a été retirée : sans pertinence pour une
+> présidentielle (scrutin national), elle créait en outre le problème des communes à cheval
+> sur deux circos. Le département descend désormais directement aux communes.
 
 On clique sur une entité pour descendre d'un niveau. Un fil d'Ariane permet de remonter.
 
@@ -41,7 +45,6 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **France** | blocs + participation, tous scrutins ; tableau de recomposition | différentiels nationaux présidentielle→européenne→municipale, taux de perte | — |
 | **Région** | idem, agrégé région | différentiels et reports entre scrutins | — |
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
-| **Circonscription** | blocs + participation par circo ; tableau de recomposition | reports LFI entre scrutins, capacité de mobilisation | — |
 | **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
 | **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) |
 | **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
@@ -105,14 +108,13 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   des électeurs, méthode Etalab). Ce sont donc des contours **approchés** (pas les périmètres
   administratifs officiels) ; et tout bureau n'a pas de contour (résultats présents mais non
   cartographiés là où le Voronoï n'a pu être calculé) — la zone reste alors non colorée.
+  Un **filtre de fiabilité géométrique** (chantier 4) masque en outre les contours au tracé
+  absurde — polygones disjoints (fragmentation) ou très peu compacts (Polsby-Popper) — plutôt
+  que d'afficher un découpage faux : le bureau n'est alors pas peint, et ses résultats restent
+  accessibles via l'export. Le bureau de vote est par ailleurs une maille d'**organisation** du
+  travail (la maille de lecture pertinente pour un GA est plutôt la commune / le grand quartier).
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
-- Le rattachement bureau de vote → circonscription utilise la table de correspondance 2024.
-- En vue **circonscription**, les communes affichées sont rattachées à leur circo par leur
-  **centre géométrique** (rattachement approché, côté carte) : une commune scindée entre
-  plusieurs circonscriptions apparaît dans celle qui contient son centre.
-- Les données de circonscription ne couvrent que les scrutins disponibles à cette maille
-  (présidentielle 2022, législatives 2024) ; les indicateurs européennes/municipales y sont vides.
 - Le **tableau de recomposition** écarte les **municipales** (2014, 2020) : le scrutin
   plurinominal (panachage, listes) y gonfle les voix bien au-delà des inscrits, rendant les
   blocs en % d'inscrits non comparables. Un garde-fou (`scrutins_fiables`) ne retient que les

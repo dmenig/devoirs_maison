@@ -35,15 +35,7 @@ idx = [
 )
 
 
-def _circo_nom(code: str, dep_nom: str) -> str:
-    n = int(code.split("-")[1])
-    rang = "1re" if n == 1 else f"{n}ᵉ"
-    return f"{rang} circ. — {dep_nom}"
-
-
-dep_region = dict(zip(rd["code_departement"], rd["code_region"]))
-dep_nom = dict(zip(rd["code_departement"], rd["nom"]))
-rc_circo = pd.read_parquet(DA / "resultats_circonscription.parquet")
+# Échelle circonscription retirée (présidentielle) : index région → département → commune.
 search: list[dict[str, str | None]] = []
 search += [
     {"code": c, "nom": n, "niveau": "region", "dep": None, "region": c}
@@ -58,16 +50,6 @@ search += [
         "region": (r if pd.notna(r) else None),
     }
     for c, n, r in zip(rd["code_departement"], rd["nom"], rd["code_region"])
-]
-search += [
-    {
-        "code": code,
-        "nom": _circo_nom(code, dep_nom.get(code.split("-")[0], code.split("-")[0])),
-        "niveau": "circonscription",
-        "dep": code.split("-")[0],
-        "region": dep_region.get(code.split("-")[0]),
-    }
-    for code in sorted(rc_circo["code"].unique())
 ]
 search += [{**e, "niveau": "commune"} for e in idx]
 (OUT / "search_index.json").write_text(

@@ -99,6 +99,32 @@
   #info table.recompo td{color:var(--txt)}
   #info table.recompo td.sc{text-align:left;color:var(--mut)}
   #info table.recompo tbody tr:nth-child(odd){background:rgba(90,60,130,.14)}
+  /* Carnet de campagne (chantier 3) : en-tête de la fiche commune. */
+  #info .carnet{margin:6px 0 4px}
+  #info .clead{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--cram)}
+  #info .scns{display:flex;gap:6px;margin:8px 0 4px}
+  #info .scn{flex:1;background:rgba(90,60,130,.18);border:1px solid var(--bord);border-radius:8px;padding:6px 7px;min-width:0}
+  #info .scn .scl{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;line-height:1.2;min-height:22px}
+  #info .scn .scv{font-size:18px;font-weight:800;color:var(--lav);line-height:1.1;font-variant-numeric:tabular-nums}
+  #info .scn .scv small{font-size:10px;color:var(--mut);font-weight:600}
+  #info .scn .scr{font-size:9.5px;color:var(--mut2);font-variant-numeric:tabular-nums;margin-top:2px}
+  #info .hypnote{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:2px 0 6px}
+  #info .cfoot{font-size:10px;color:var(--mut2);margin-top:6px;border-top:1px solid var(--bord);padding-top:5px}
+  #info .csec{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:9px 0 4px}
+  #info .compo{display:flex;flex-direction:column;gap:2px}
+  #info .compo .crow{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);align-items:baseline}
+  #info .compo .crow b{color:var(--txt);font-variant-numeric:tabular-nums}
+  #info .compo .crow i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px}
+  /* Leviers du plan d'action : numérotés, datés, avec réservoir en voix. */
+  #info .act ul.levers{list-style:none;padding:0;margin:4px 0 0}
+  #info .lever{margin:7px 0;padding-bottom:7px;border-bottom:1px solid #4a2d63}
+  #info .lever:last-child{border-bottom:none;padding-bottom:0}
+  #info .lvh{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  #info .lvn{background:var(--cram);color:#fff;font-weight:800;font-size:11px;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  #info .lvh b{color:#fff;font-size:12.5px}
+  #info .lvwin{font-size:10px;color:#c9b6e0;border:1px solid #4a2d63;border-radius:10px;padding:1px 7px}
+  #info .lvres{margin-left:auto;font-size:11px;font-weight:700;color:var(--lav);font-variant-numeric:tabular-nums;white-space:nowrap}
+  #info .lvb{font-size:12px;line-height:1.45;margin-top:3px;color:#e7ddf3}
   #info .act{background:#2d1640;color:#f3ecfa;border:1px solid #4a2d63;border-radius:8px;padding:9px 11px;margin:12px 0 2px}
   #info .act .ah{font-weight:800;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:#d9c7ec;margin-bottom:6px}
   #info .act ul{margin:0;padding-left:16px} #info .act li{margin:5px 0;line-height:1.45}
@@ -127,6 +153,17 @@
   /* Bouton « drawer indicateurs » : masqué en desktop, révélé en mobile (voir media query). */
   #pastoggle{display:none;cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 9px;font-size:14px;line-height:1}
   #pastoggle.on{background:#7d49b3;box-shadow:0 0 0 2px var(--lav) inset}
+
+  /* Prise en main simplifiée (chantier 2) : par défaut, le seul geste est de cliquer son
+     territoire sur la carte. Indicateurs, sélecteur de scrutins et bascule BV/IRIS ne sont
+     révélés qu'en mode « Avancé » (bouton ⚙️). Le bake fixe les choix d'office. */
+  #advtoggle,#exportbtn{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
+       border-radius:7px;padding:5px 9px;font-size:12px;line-height:1;white-space:nowrap}
+  #advtoggle:hover,#exportbtn:hover{border-color:var(--lav)}
+  #advtoggle[aria-pressed="true"]{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  body:not(.adv) #pastilles{display:none}
+  body:not(.adv) #subtoggle{display:none!important}
+  body:not(.adv) #pastoggle{display:none!important}
   /* poignée de bottom-sheet : présente dans le DOM mais masquée hors mobile */
   #info .sheet-handle{display:none}
 

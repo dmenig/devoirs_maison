@@ -4,26 +4,15 @@ const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
 // préfixe à 5 sur le code commune renverrait 0 quartier. On élargit le filtre à ces villes.
 const PLM={"75056":/^751\d\d/,"69123":/^6938\d/,"13055":/^132\d\d/};
 const irisInCommune=(ci,code)=>{ const r=PLM[code]; return r?r.test(ci):ci.slice(0,5)===code; };
-// circonscription : nom synthétique (le contour INSEE ne porte que le code DEP-NN)
-const circoNom=(code,dep)=>{ const n=parseInt((String(code).split("-")[1]||"").replace(/^0+/,""))||0;
-  return (n===1?"1re":(n||"?")+"ᵉ")+" circ."+(dep?" — "+dep:""); };
-// Rattachement commune ⇄ circonscription côté carte (pas de table embarquée). On partitionne
-// par le centroïde : une commune est rattachée à la circo contenant son centre. Les circos
-// purement urbaines (découpe d'une grande commune — ex. Lyon scindé en plusieurs circos) ne
-// contiennent le centre d'aucune commune entière : on y rabat alors la commune englobante.
-function ringArea(r){ let A=0; for(let i=0,j=r.length-1;i<r.length;j=i++) A+=r[j][0]*r[i][1]-r[i][0]*r[j][1]; return Math.abs(A/2); }
-function centroid(geom){ const polys=geom.type==="MultiPolygon"?geom.coordinates:[geom.coordinates];
-  const poly=polys.reduce((a,b)=>ringArea(b[0])>ringArea(a[0])?b:a), r=poly[0];
-  let A=0,cx=0,cy=0; for(let i=0,j=r.length-1;i<r.length;j=i++){
-    const f=r[j][0]*r[i][1]-r[i][0]*r[j][1]; A+=f; cx+=(r[j][0]+r[i][0])*f; cy+=(r[j][1]+r[i][1])*f; }
-  A*=.5; return A?[cx/(6*A),cy/(6*A)]:[r[0][0],r[0][1]]; }
-function ptInRing(x,y,r){ let ins=false; for(let i=0,j=r.length-1;i<r.length;j=i++){
-  const xi=r[i][0],yi=r[i][1],xj=r[j][0],yj=r[j][1];
-  if(((yi>y)!==(yj>y)) && x<(xj-xi)*(y-yi)/((yj-yi)||1e-12)+xi) ins=!ins; } return ins; }
-function ptInGeom(x,y,geom){ const ps=geom.type==="MultiPolygon"?geom.coordinates:[geom.coordinates];
-  for(const poly of ps){ if(!ptInRing(x,y,poly[0]))continue;
-    let hole=false; for(let h=1;h<poly.length;h++) if(ptInRing(x,y,poly[h])){hole=true;break;}
-    if(!hole)return true; } return false; }
+
+// Fiabilité géométrique d'un contour de bureau de vote (chantier 4). Les contours sont des
+// Voronoï data.gouv (approchés) ; un découpage absurde se trahit par des polygones DISJOINTS.
+// On préfère le drapeau `fiable` baké (prep_bv) ; à défaut on compte les parts côté client et
+// on masque les BV trop fragmentés (au-delà de BV_MAX_PARTS) plutôt que d'afficher un tracé faux.
+const BV_MAX_PARTS=2;
+const geomParts=g=>g&&g.type==="MultiPolygon"?g.coordinates.length:1;
+const bvFiable=f=>{ const p=f.properties;
+  return p&&p.fiable!=null?!!(+p.fiable):geomParts(f.geometry)<=BV_MAX_PARTS; };
 
 // Coloration par RANG (percentile) parmi les zones affichées : les couleurs
 // s'étalent sur toute la distribution (chaque zone ayant une valeur est colorée).
