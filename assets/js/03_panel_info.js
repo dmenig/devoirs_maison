@@ -17,12 +17,16 @@ function distBand(o){ const lo=o.d1??o.q1, hi=o.d9??o.q3;
 // point central reste visible dans la moitié de carte laissée libre (pan de h/2). À la
 // fermeture, on annule ce décalage. Inactif en desktop (fiche latérale, pas de recouvrement).
 const isMobileSheet=()=>window.matchMedia("(max-width:680px)").matches;
+// hauteur occultée en haut par la barre (#top : fil d'Ariane + recherche), pour la réserver
+// aussi dans les cadrages : la zone visée se centre dans la carte réellement visible.
+const topInset=()=>isMobileSheet()?Math.round($("top").getBoundingClientRect().bottom):0;
 let _sheetPan=0;
 function showInfoSheet(info){
   const wasHidden=info.style.display!=="block";
   info.scrollTop=0; info.style.display="block";
-  if(isMobileSheet()&&wasHidden){ _sheetPan=Math.round(info.getBoundingClientRect().height/2);
-    map.panBy([0,_sheetPan],{animate:true}); } }
+  if(isMobileSheet()&&wasHidden){
+    _sheetPan=Math.round((info.getBoundingClientRect().height-topInset())/2);
+    if(_sheetPan)map.panBy([0,_sheetPan],{animate:true}); } }
 function hideInfoSheet(info){ info.style.display="none";
   if(_sheetPan){ map.panBy([0,-_sheetPan],{animate:false}); _sheetPan=0; } }
 // hauteur occultée par le bottom-sheet (mobile) : sert de marge basse aux cadrages
