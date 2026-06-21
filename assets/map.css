@@ -169,8 +169,9 @@
     #info{left:0;right:0;bottom:0;top:auto;width:auto;max-height:50vh;
           border-radius:16px 16px 0 0;padding:8px 16px 14px;
           padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
-          box-shadow:0 -3px 18px rgba(0,0,0,.55)}
-    #info .sheet-handle{display:block;position:sticky;top:0;z-index:3;cursor:pointer;
+          box-shadow:0 -3px 18px rgba(0,0,0,.55);transition:transform .25s ease}
+    #info .sheet-handle{display:block;position:sticky;top:0;z-index:3;cursor:grab;
+          touch-action:none;user-select:none;-webkit-user-select:none;
           text-align:center;padding:6px 0 8px;background:var(--pbg)}
     #info .sheet-handle::before{content:"";display:block;width:40px;height:4px;
           margin:0 auto;border-radius:3px;background:var(--mut2)}

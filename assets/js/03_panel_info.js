@@ -25,6 +25,10 @@ function showInfoSheet(info){
     map.panBy([0,_sheetPan],{animate:true}); } }
 function hideInfoSheet(info){ info.style.display="none";
   if(_sheetPan){ map.panBy([0,-_sheetPan],{animate:false}); _sheetPan=0; } }
+// hauteur occultée par le bottom-sheet (mobile) : sert de marge basse aux cadrages
+// flyTo pour que la zone visée soit centrée dans la carte VISIBLE, pas sous la fiche.
+function sheetInset(){ const info=$("info");
+  return isMobileSheet()&&info.style.display==="block"?Math.round(info.getBoundingClientRect().height):0; }
 
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.

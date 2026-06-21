@@ -42,14 +42,30 @@ function refreshPair(){
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
-$("info").addEventListener("click",e=>{
-  if(e.target.closest(".sheet-handle")){ $("info").classList.toggle("collapsed"); return; }
-  const sl=$("info").querySelector(".slider"); if(!sl)return;
+$("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slider"); if(!sl)return;
   if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=sl._back||0; return; }
   const h=e.target.closest(".exph"); if(!h)return;
   sl._back=$("info").scrollTop;
   sl.querySelector(".detbody").innerHTML=panelDetails[+h.dataset.di];
   sl.classList.add("on"); $("info").scrollTop=0; });
+// poignée du bottom-sheet (mobile) : tap = bascule plié/déplié ; glissé vers le bas =
+// plier, vers le haut = déplier. La poignée est recréée à chaque rendu → délégation sur
+// #info (persistant), suivi du geste sur document le temps du drag.
+(function(){ const info=$("info"); let y0=null,dy=0,moved=false;
+  const onMove=e=>{ if(y0==null)return; dy=e.clientY-y0; if(Math.abs(dy)>4)moved=true;
+    if(info.classList.contains("collapsed"))return;
+    info.style.transition="none"; info.style.transform=`translateY(${Math.max(0,dy)}px)`; };
+  const onUp=()=>{ if(y0==null)return;
+    document.removeEventListener("pointermove",onMove); document.removeEventListener("pointerup",onUp);
+    info.style.transition=""; info.style.transform="";
+    const collapsed=info.classList.contains("collapsed");
+    if(!moved)info.classList.toggle("collapsed");
+    else if(!collapsed&&dy>50)info.classList.add("collapsed");
+    else if(collapsed&&dy<-50)info.classList.remove("collapsed");
+    y0=null; dy=0; moved=false; };
+  info.addEventListener("pointerdown",e=>{ if(!e.target.closest(".sheet-handle"))return;
+    y0=e.clientY; dy=0; moved=false;
+    document.addEventListener("pointermove",onMove); document.addEventListener("pointerup",onUp); }); })();
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
