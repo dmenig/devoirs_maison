@@ -1,7 +1,6 @@
 """Transforme les résultats électoraux bruts de hexagonal (un fichier parquet long
 par scrutin, une ligne par candidat × bureau de vote) en tables compactes prêtes à
-l'emploi, à toutes les échelles : bureau de vote, commune, circonscription,
-département, région, France.
+l'emploi, à toutes les échelles : bureau de vote, commune, département, région, France.
 
 Indicateurs produits par (échelle × scrutin), comme demandé par la présentation :
 - participation / abstention (% des inscrits)
@@ -30,11 +29,6 @@ from nuances import (
 )
 
 FAMILLES = sorted(set(FAMILLE_BLOC6) | {"UDI"})
-
-
-def _norm_bv(s: pd.Series) -> pd.Series:
-    """Clé de jointure bureau de vote insensible au zéro-padding ('0001' ⇄ '1')."""
-    return s.astype(str).str.replace(r"^0+", "", regex=True).replace("", "0")
 
 
 PLM_COMMUNES = ("75056", "69123", "13055")
@@ -149,8 +143,6 @@ def _bureau_depuis_df(
     df["famille"] = [nuance_vers_famille(n, m) for n, m in zip(nuance, nom)]
 
     base_cols = ["code_bv", "code_commune", "bureau_de_vote"]
-    if "circonscription" in df.columns:
-        base_cols.append("circonscription")
     base = df.groupby("code_bv", as_index=False)[
         ["inscrits", "votants", "exprimes"]
     ].max()
@@ -235,7 +227,6 @@ def _agreger(
 def construire_resultats(
     dossier_clean: Path,
     communes: pd.DataFrame,
-    corr_circo: pd.DataFrame | None,
     geo_dir: Path | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Construit un dict {niveau: DataFrame} agrégeant tous les scrutins."""
@@ -247,15 +238,7 @@ def construire_resultats(
         .to_dict()
     )
     accum: dict[str, list[pd.DataFrame]] = {
-        n: []
-        for n in (
-            "bureau",
-            "commune",
-            "circonscription",
-            "departement",
-            "region",
-            "france",
-        )
+        n: [] for n in ("bureau", "commune", "departement", "region", "france")
     }
     for scrutin in lister_scrutins(dossier_clean):
         try:
@@ -267,17 +250,6 @@ def construire_resultats(
             bv["code_departement"] = bv["code_commune"].map(com2dep)
             bv["code_region"] = bv["code_departement"].map(dep2reg)
             bv["france"] = "FR"
-            if "circonscription" not in bv.columns and corr_circo is not None:
-                bv["_bvj"] = _norm_bv(bv["bureau_de_vote"])
-                corr = (
-                    corr_circo.assign(_bvj=_norm_bv(corr_circo["bureau_de_vote"]))
-                    .drop(columns="bureau_de_vote")
-                    .drop_duplicates(["code_commune", "_bvj"])
-                )
-                bv = bv.merge(corr, on=["code_commune", "_bvj"], how="left").drop(
-                    columns="_bvj"
-                )
-
             accum["bureau"].append(_agreger(bv, "code_bv", "bureau", sc))
             accum["commune"].append(_agreger(bv, "code_commune", "commune", sc))
             accum["departement"].append(
@@ -285,15 +257,6 @@ def construire_resultats(
             )
             accum["region"].append(_agreger(bv, "code_region", "region", sc))
             accum["france"].append(_agreger(bv, "france", "france", sc))
-            if "circonscription" in bv.columns and bv["circonscription"].notna().any():
-                accum["circonscription"].append(
-                    _agreger(
-                        bv[bv["circonscription"].notna()],
-                        "circonscription",
-                        "circonscription",
-                        sc,
-                    )
-                )
             print(f"  ✓ {sc.cle}: {len(bv)} bureaux")
     return {
         n: pd.concat(parts, ignore_index=True) for n, parts in accum.items() if parts

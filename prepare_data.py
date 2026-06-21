@@ -44,47 +44,15 @@ def charger_cog() -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
     return communes, {"departement": deps, "region": regs}
 
 
-def charger_correspondances() -> pd.DataFrame | None:
-    f = (
-        CLEAN
-        / "elections"
-        / "2024-legislatives-correspondances-bureau_de_vote-circonscription.csv"
-    )
-    if not f.exists():
-        return None
-    df = _lire_csv(f)
-    ren = {}
-    for c in df.columns:
-        cl = c.lower()
-        if "circ" in cl:
-            ren[c] = "circonscription"
-        elif cl in ("code_commune", "commune"):
-            ren[c] = "code_commune"
-        elif "bureau" in cl or cl in ("code_bv", "bv"):
-            ren[c] = "bureau_de_vote"
-    df = df.rename(columns=ren)
-    cols = [
-        c
-        for c in ("code_commune", "bureau_de_vote", "circonscription")
-        if c in df.columns
-    ]
-    return (
-        df[cols].drop_duplicates()
-        if {"code_commune", "circonscription"} <= set(cols)
-        else None
-    )
-
-
 def main() -> None:
     OUT.mkdir(exist_ok=True)
     GEO.mkdir(parents=True, exist_ok=True)
 
     print("→ COG")
     communes, admin = charger_cog()
-    corr = charger_correspondances()
 
     print("→ Résultats électoraux (toutes échelles)")
-    resultats = construire_resultats(CLEAN / "elections", communes, corr, GEO / "bv")
+    resultats = construire_resultats(CLEAN / "elections", communes, GEO / "bv")
     for niveau, df in resultats.items():
         df.to_parquet(OUT / f"resultats_{niveau}.parquet", index=False)
         print(f"   {niveau}: {len(df)} lignes")
