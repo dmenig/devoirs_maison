@@ -13,10 +13,23 @@ function distBand(o){ const lo=o.d1??o.q1, hi=o.d9??o.q3;
     `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut)">`+
     `<span>${eur(lo)}</span><span>médiane ${o.rev!=null?eur(o.rev):"—"}</span><span>${eur(hi)}</span></div>`; }
 
+// Bottom-sheet mobile : à l'ouverture, on recentre la carte vers le haut pour que le
+// point central reste visible dans la moitié de carte laissée libre (pan de h/2). À la
+// fermeture, on annule ce décalage. Inactif en desktop (fiche latérale, pas de recouvrement).
+const isMobileSheet=()=>window.matchMedia("(max-width:680px)").matches;
+let _sheetPan=0;
+function showInfoSheet(info){
+  const wasHidden=info.style.display!=="block";
+  info.scrollTop=0; info.style.display="block";
+  if(isMobileSheet()&&wasHidden){ _sheetPan=Math.round(info.getBoundingClientRect().height/2);
+    map.panBy([0,_sheetPan],{animate:true}); } }
+function hideInfoSheet(info){ info.style.display="none";
+  if(_sheetPan){ map.panBy([0,-_sheetPan],{animate:false}); _sheetPan=0; } }
+
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
-  if(!o){info.style.display="none";return;}
+  if(!o){hideInfoSheet(info);return;}
   panelDetails=[];
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
   const barRow=(lab,v,col,max=50)=> v==null?"":
@@ -155,6 +168,8 @@ function infoPanel(nom,o){ const info=$("info"); lastInfo=o?{nom,o}:null;
     `Le mode d'habitat est un déterminant du vote.`);
   h+=adminPanel(o);
   h+=actionPanel(o);
-  info.innerHTML=`<div class="slider"><div class="pane">${h}</div>`+
+  info.classList.remove("collapsed");
+  info.innerHTML=`<div class="sheet-handle"><span class="sh-name">${nom}</span></div>`+
+    `<div class="slider"><div class="pane">${h}</div>`+
     `<div class="pane detpane"><div class="back">‹ Retour</div><div class="detbody"></div></div></div>`;
-  info.scrollTop=0; info.style.display="block"; }
+  showInfoSheet(info); }

@@ -42,7 +42,9 @@ function refreshPair(){
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
-$("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slider"); if(!sl)return;
+$("info").addEventListener("click",e=>{
+  if(e.target.closest(".sheet-handle")){ $("info").classList.toggle("collapsed"); return; }
+  const sl=$("info").querySelector(".slider"); if(!sl)return;
   if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=sl._back||0; return; }
   const h=e.target.closest(".exph"); if(!h)return;
   sl._back=$("info").scrollTop;
