@@ -123,3 +123,51 @@
   .leaflet-bar a:hover{background:#322b46}
   .leaflet-control-attribution{background:var(--pbg)!important;color:var(--mut2)}
   .leaflet-control-attribution a{color:var(--mut)}
+
+  /* Bouton « drawer indicateurs » : masqué en desktop, révélé en mobile (voir media query). */
+  #pastoggle{display:none;cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 9px;font-size:14px;line-height:1}
+  #pastoggle.on{background:#7d49b3;box-shadow:0 0 0 2px var(--lav) inset}
+
+  /* ====== MOBILE / petits écrans ====== Aucune règle ci-dessous n'affecte le desktop :
+     tout est confiné au media query. Mise en page : barre haute pleine largeur, recherche
+     sur sa propre ligne, indicateurs repliés dans un tiroir, fiche en bottom-sheet. */
+  @media (max-width:680px){
+    /* le tactile gère le pinch-zoom : on libère le coin haut-gauche pris par les +/- */
+    .leaflet-control-zoom{display:none}
+    .panel{font-size:13px}
+
+    #top{left:8px;right:8px;top:8px;gap:6px;padding:7px 9px}
+    #back,#pastoggle{padding:6px 11px;font-size:15px}
+    #pastoggle{display:inline-block}
+    /* fil d'Ariane sur une ligne tronquée → hauteur de #top stable (2 lignes) */
+    #fil{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #search{order:5;flex:1 0 100%;min-width:0;font-size:16px;padding:8px 10px}
+    #loading{order:4}
+
+    /* tiroir indicateurs : caché par défaut, déployé sous la barre quand .open.
+       S'ouvre par-dessus la carte (action volontaire) ; #top reste tappable au-dessus. */
+    #pastilles{display:none;top:90px;left:8px;right:8px;
+               max-height:calc(100% - 104px);overflow-y:auto;
+               -webkit-overflow-scrolling:touch;padding:9px 10px}
+    #pastilles.open{display:flex}
+    #pastilles .chip{padding:7px 12px;font-size:13px}
+    #pairgroup{flex-wrap:wrap}
+    #pairsel select{font-size:16px;padding:5px 6px}
+
+    /* BV/IRIS : sous la barre, à droite (n'apparaît qu'au niveau commune) */
+    #subtoggle{top:90px;right:8px}
+    #subtoggle .chip{padding:6px 11px;font-size:13px}
+
+    /* légende compacte en bas-gauche ; couverte par la fiche quand celle-ci s'ouvre */
+    #legend{bottom:8px;left:8px;right:8px;max-width:none}
+    #legend .hint{display:none}
+
+    /* fiche zone en bottom-sheet : pleine largeur, ancrée en bas, scroll interne */
+    #info{left:0;right:0;bottom:0;top:auto;width:auto;max-height:62vh;
+          border-radius:16px 16px 0 0;padding:14px 16px;
+          padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
+          box-shadow:0 -3px 18px rgba(0,0,0,.55)}
+    /* poignée visuelle de bottom-sheet */
+    #info::before{content:"";position:sticky;top:0;display:block;width:38px;height:4px;
+          margin:-4px auto 8px;border-radius:3px;background:var(--bord)}
+  }

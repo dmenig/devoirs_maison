@@ -23,9 +23,14 @@ function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
 function buildPastilles(){ const box=$("pastilles"), grp=$("pairgroup");
   PAST.forEach(([k])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
     c.textContent=labelFor(k); c.dataset.k=k;
-    c.onclick=()=>{ setIndic(k); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
+    c.onclick=()=>{ setIndic(k); closeDrawer(); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
     (k.startsWith("dyn_")?grp:box).appendChild(c); });
   $("legtitle").textContent=labelFor(indicKey); updatePairActive(); syncSocioChips(); }
+// tiroir indicateurs (mobile) : le bouton 📊 déploie #pastilles ; sélectionner une
+// pastille le referme pour redécouvrir la carte. Sans effet en desktop (#pastoggle masqué).
+function closeDrawer(){ $("pastilles").classList.remove("open"); $("pastoggle").classList.remove("on"); $("pastoggle").setAttribute("aria-expanded","false"); }
+$("pastoggle").onclick=()=>{ const open=$("pastilles").classList.toggle("open");
+  $("pastoggle").classList.toggle("on",open); $("pastoggle").setAttribute("aria-expanded",String(open)); };
 // sélecteur de deux scrutins : peuple A/B et recalcule réservoirs (carte + fiche) à la volée
 function buildSelecteur(){
   for(const id of ["selA","selB"]){ const sel=$(id), cur=id==="selA"?selA:selB;
