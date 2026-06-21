@@ -132,6 +132,20 @@
   #info .act .leg{margin-top:8px;font-size:11px;line-height:1.7;border-top:1px solid #4a2d63;padding-top:7px}
   #info .act .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
   #info .act .inv{margin-top:8px;font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.5}
+  /* Vue d'ensemble locale (échelle GA) embarquée en bas de la fiche commune. */
+  #info .apercu{margin:4px 0 2px}
+  #info .aminis{display:flex;gap:6px;flex-wrap:wrap}
+  #info .amini{flex:1;min-width:84px;margin:0;background:var(--pbg2);border:1px solid var(--bord);border-radius:8px;padding:5px 6px}
+  #info .amini figcaption{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;text-align:center}
+  #info .amini svg{display:block;width:100%;height:auto}
+  #info .amini path{transition:stroke-width .1s} #info .amini path:hover{stroke:#fff;stroke-width:1.2}
+  #info .amini.wide{flex:1 1 100%;min-width:0}
+  #info .amini .arow{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);margin:2px 0}
+  #info .amini .arow .al{width:54px;flex:none;color:var(--mut2);font-variant-numeric:tabular-nums}
+  #info .amini .arow .ab{flex:1;height:8px;background:rgba(140,140,150,.18);border-radius:4px;overflow:hidden}
+  #info .amini .arow .ab i{display:block;height:100%;background:var(--lav)}
+  #info .amini .arow b{color:var(--txt);font-variant-numeric:tabular-nums;width:40px;text-align:right;flex:none}
+  #info .ahint{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:5px 0 2px}
   #subtoggle{top:54px;right:10px;display:none;gap:6px}
   #legend{bottom:14px;left:10px;max-width:300px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;

@@ -36,7 +36,7 @@ function sheetInset(){ const info=$("info");
 
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
-function infoPanel(nom,o,niveau){ const info=$("info"); lastInfo=o?{nom,o,niveau}:null;
+function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,niveau,code}:null;
   if(!o){hideInfoSheet(info);return;}
   panelDetails=[];
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
@@ -181,8 +181,13 @@ function infoPanel(nom,o,niveau){ const info=$("info"); lastInfo=o?{nom,o,niveau
     `Le mode d'habitat est un déterminant du vote.`);
   h+=adminPanel(o);
   if(estCommune)h+=actionPanel(o);
+  // « les cartes en bas du truc d'Elia » (chantier 4) : vue d'ensemble locale à l'échelle GA,
+  // remplie en asynchrone une fois la fiche posée (cf. 032_apercu.js).
+  if(estCommune)h+=`<div class="csec">Vue d'ensemble locale · échelle Groupe d'action</div>`+
+    `<div id="apercu" class="apercu"><div class="ahint">chargement…</div></div>`;
   info.classList.remove("collapsed");
   info.innerHTML=`<div class="sheet-handle"><span class="sh-name">${nom}</span></div>`+
     `<div class="slider"><div class="pane">${h}</div>`+
     `<div class="pane detpane"><div class="back">‹ Retour</div><div class="detbody"></div></div></div>`;
-  showInfoSheet(info); }
+  showInfoSheet(info);
+  if(estCommune&&code)fillApercu(code); }

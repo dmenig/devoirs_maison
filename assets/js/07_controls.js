@@ -45,7 +45,7 @@ function refreshPair(){
   $("pastilles").querySelectorAll(".chip").forEach(c=>{ if(usesPair(c.dataset.k))c.textContent=labelFor(c.dataset.k); });
   if(usesPair(indicKey)){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
-  if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o,lastInfo.niveau); }
+  if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o,lastInfo.niveau,lastInfo.code); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
 $("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slider"); if(!sl)return;
   if(e.target.closest(".back")){ sl.classList.remove("on"); $("info").scrollTop=sl._back||0; return; }

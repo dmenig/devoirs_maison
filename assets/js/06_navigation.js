@@ -25,8 +25,8 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
       ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#fff"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
       if(enter){ ly.__enter=()=>enter(f,ly);
-        ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau);enter(f,ly);}); }
-      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau)); }}).addTo(map);
+        ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau,f.properties.__code);enter(f,ly);}); }
+      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau,f.properties.__code)); }}).addTo(map);
   fadeInLayer(); }
 
 // `niveau` = maille des features dessinées (region/departement/commune/iris/bv) : il qualifie
