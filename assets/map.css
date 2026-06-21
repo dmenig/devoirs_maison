@@ -137,7 +137,7 @@
   #info .aminis{display:flex;gap:6px;flex-wrap:wrap}
   #info .amini{flex:1;min-width:84px;margin:0;background:var(--pbg2);border:1px solid var(--bord);border-radius:8px;padding:5px 6px}
   #info .amini figcaption{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;text-align:center}
-  #info .amini svg{display:block;width:100%;height:auto}
+  #info .amini svg{display:block;width:100%;height:auto;aspect-ratio:150/128}
   #info .amini path{transition:stroke-width .1s} #info .amini path:hover{stroke:#fff;stroke-width:1.2}
   #info .amini.wide{flex:1 1 100%;min-width:0}
   #info .amini .arow{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);margin:2px 0}

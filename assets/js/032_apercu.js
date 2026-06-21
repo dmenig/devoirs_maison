@@ -42,7 +42,7 @@ function apercuCartes(geo,vals,code){
       return `<path d="${p.d}" fill="${v==null?'#3a3a3a':fc(v)}" stroke="${cu?'#fff':'#15131c'}" `+
         `stroke-width="${cu?1.6:.4}"><title>${p.nom} — ${v==null?'—':v+'%'}</title></path>`; }).join("");
     return `<figure class="amini"><figcaption>${lab}</figcaption>`+
-      `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${svg}</svg></figure>`;
+      `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">${svg}</svg></figure>`;
   }).filter(Boolean).join("");
   if(!cards)return "";
   return `<div class="aminis">${cards}</div>`+
