@@ -49,21 +49,34 @@ function apercuCartes(geo,vals,code){
     `<div class="ahint">Commune (contour blanc) comparée à ses voisines · Europ. 2024 · couleur = rang local (bleu faible → rouge élevé).</div>`;
 }
 
-// Paris/Lyon/Marseille : faute de contours d'arrondissement, on classe les arrondissements
-// (échelle d'un GA) en barres — à partir des valeurs d'arrondissement déjà bakées.
-function arrLabel(code){ const n=code.startsWith("6938")?+code.slice(-1):+code.slice(-2);
-  return n+(n===1?"ᵉʳ":"ᵉ")+" arr."; }
-function apercuArrond(code,vals){ const rx=PLM[code];
-  const sibs=Object.keys(vals).filter(c=>rx.test(c)&&c!==code).sort(); if(!sibs.length)return "";
+// Paris/Lyon/Marseille : pas de contours d'arrondissement, et le vote n'est baké qu'à la
+// commune entière. On agrège donc les BUREAUX par arrondissement (2 premiers chiffres du code
+// local : 75056_AABB → arr. AA) pour retrouver les MÊMES indicateurs qu'ailleurs (LFI /
+// participation / RN, Europ. 2024). Chaque indicateur étant un % d'inscrits, l'agrégat exact
+// est la moyenne pondérée par les inscrits (inscrits du bureau = abstention ÷ (1 − participation)).
+const arrLabel=a=>{ const n=+a; return n+(n===1?"ᵉʳ":"ᵉ")+" arr."; };
+const _inscrits=o=>(o.abst==null||o.part_E24==null||o.part_E24>=100)?null:o.abst/(1-o.part_E24/100);
+function apercuArrond(plmCode,bv){
+  const groups={};
+  for(const full in bv){ const i=full.indexOf("_"); if(i<0)continue;
+    if(full.slice(0,i)!==plmCode)continue;
+    const a=full.slice(i+1,i+3); if(!/^\d\d$/.test(a)||+a<1)continue;   // écarte les bureaux spéciaux (JUS1, arr. 00)
+    (groups[a]=groups[a]||[]).push(bv[full]); }
+  const arrs=Object.keys(groups).sort(); if(!arrs.length)return "";
+  const aggr=(list,key)=>{ let sw=0,sv=0; list.forEach(o=>{ const w=_inscrits(o),v=o[key];
+    if(w!=null&&v!=null){ sw+=w; sv+=w*v; } }); return sw?sv/sw:null; };
   const cols=APERCU_IND.map(([k,lab])=>{ const key=`${k}_${APERCU_SCR}`;
-    const max=Math.max(1,...sibs.map(c=>vals[c]&&vals[c][key]!=null?vals[c][key]:0));
-    const rows=sibs.map(c=>{ const v=vals[c]?vals[c][key]:null;
-      return `<div class="arow"><span class="al">${arrLabel(c)}</span>`+
+    const series=arrs.map(a=>aggr(groups[a],key));
+    if(!series.some(v=>v!=null))return "";
+    const max=Math.max(1,...series.map(v=>v==null?0:v));
+    const rows=arrs.map((a,i)=>{ const v=series[i];
+      return `<div class="arow"><span class="al">${arrLabel(a)}</span>`+
         `<span class="ab"><i style="width:${v==null?0:Math.max(2,100*v/max).toFixed(0)}%"></i></span>`+
-        `<b>${v==null?'—':v+'%'}</b></div>`; }).join("");
-    return `<figure class="amini wide"><figcaption>${lab}</figcaption>${rows}</figure>`; }).join("");
+        `<b>${v==null?'—':v.toFixed(1)+'%'}</b></div>`; }).join("");
+    return `<figure class="amini wide"><figcaption>${lab}</figcaption>${rows}</figure>`; }).filter(Boolean).join("");
+  if(!cols)return "";
   return `<div class="aminis">${cols}</div>`+
-    `<div class="ahint">Comparaison par arrondissement — la maille d'un Groupe d'action · Europ. 2024.</div>`;
+    `<div class="ahint">Par arrondissement (bureaux agrégés, pondérés par les inscrits) — la maille d'un Groupe d'action · Europ. 2024.</div>`;
 }
 
 // rendu asynchrone : la fiche est posée en HTML synchrone (placeholder #apercu), puis remplie
@@ -71,11 +84,16 @@ function apercuArrond(code,vals){ const rx=PLM[code];
 // dans la fiche d'une AUTRE commune ouverte entre-temps.
 async function fillApercu(code){ const seq=++apercuSeq, dep=depOf(code);
   if(!$("info").querySelector("#apercu"))return;
-  const [geo,vals]=await Promise.all([getJSON(`geo/communes/${dep}.geojson`),getJSON(`values/commune/${dep}.json`)]);
-  if(seq!==apercuSeq)return;
+  let html="";
+  if(PLM[code]){                                   // Paris/Lyon/Marseille → agrégation par arrondissement
+    const bv=await getJSON(`values/bv/${dep}.json`); if(seq!==apercuSeq)return;
+    html=bv?apercuArrond(code,bv):"";
+  }else{
+    const [geo,vals]=await Promise.all([getJSON(`geo/communes/${dep}.geojson`),getJSON(`values/commune/${dep}.json`)]);
+    if(seq!==apercuSeq)return;
+    const cur=geo&&geo.features.find(f=>String(f.properties.code)===code);
+    if(cur&&geo.features.length>2)html=apercuCartes(geo,vals||{},code);
+  }
   const host=$("info").querySelector("#apercu"); if(!host)return;
-  const cur=geo&&geo.features.find(f=>String(f.properties.code)===code);
-  const html=(cur&&geo.features.length>2)?apercuCartes(geo,vals||{},code)
-    :(PLM[code]?apercuArrond(code,vals||{}):"");
   host.innerHTML=html||`<div class="ahint">Vue d'ensemble locale indisponible ici.</div>`;
 }
