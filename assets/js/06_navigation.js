@@ -24,9 +24,11 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
       ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
       ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#fff"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
-      if(enter){ ly.__enter=()=>enter(f,ly);
-        ly.on("click",()=>{infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau,f.properties.__code);enter(f,ly);}); }
-      else ly.on("click",()=>infoPanel(f.properties.__nom,valeurs[f.properties.__code],niveau,f.properties.__code)); }}).addTo(map);
+      const o=valeurs[f.properties.__code];
+      const show=()=>infoPanel(f.properties.__nom,o,niveau,f.properties.__code);
+      if(enter){ ly.__enter=()=>{show();enter(f,ly,o);};
+        ly.on("click",()=>{show();enter(f,ly,o);}); }
+      else ly.on("click",show); }}).addTo(map);
   fadeInLayer(); }
 
 // `niveau` = maille des features dessinées (region/departement/commune/iris/bv) : il qualifie
@@ -38,8 +40,12 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
   if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,1200); }
   else draw(); }
 
-function jumpTo(d){ stack=stack.slice(0,d); infoPanel(null); setFil(); fadeOutLayer();
-  if(d===0)return vueFrance(); const t=stack[d-1];
+// En remontant, le panneau de droite ne se vide plus : il se relie à la zone désormais
+// en focus (sommet de pile) — sinon, après un zoom sur un BV, l'info de la commune était
+// définitivement perdue. Seul le retour à la France (pas de zone unique) referme la fiche.
+function jumpTo(d){ stack=stack.slice(0,d); fadeOutLayer();
+  if(d===0){ infoPanel(null); setFil(); return vueFrance(); }
+  const t=stack[d-1]; infoPanel(t.nom,t.o,t.niveau,t.code); setFil();
   // remonter : on plafonne le zoom d'arrivée juste sous le seuil de redescente ZIN[d]
   // (tout en restant au-dessus de ZOUT[d]), sinon l'ajustement aux contours du parent
   // retombe pile sur le seuil et on replonge aussitôt dans la zone qu'on vient de quitter.
@@ -59,20 +65,20 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
 
 async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
-    (f,ly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds()),"region"); }
+    (f,ly,o)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"region"); }
 async function vueRegion(code){ subToggle(false);
   const [geo,val,hier]=await Promise.all([getJSON("geo/departements.geojson"),
     getJSON("values/departement.json"),getJSON("values/_hierarchie.json")]);
   const deps=new Set(hier.departements.filter(d=>d.region===code).map(d=>d.code));
   dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
-    val,"code","nom",(f,ly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds()),"departement"); }
+    val,"code","nom",(f,ly,o)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"departement"); }
 // Présidentielle : pas d'échelle circonscription (scrutin national). Le département
 // descend directement aux communes — ce qui dissout aussi le bug des communes à cheval
 // sur deux circos (cf. EVOLUTIONS.md, chantier 1).
 async function vueDepartement(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
   if(!geo){$("loading").textContent="contours indisponibles";return;}
-  dessiner(geo,val||{},"code","nom",(f,ly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds()),"commune"); }
+  dessiner(geo,val||{},"code","nom",(f,ly,o)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"commune"); }
 const subToggle=show=>{ const adv=document.body.classList.contains("adv");
   $("subtoggle").style.display=(show&&adv)?"flex":"none";
   if(!show){ sousMode="bv";
@@ -98,7 +104,7 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
-function entrer(niveau,code,nom,bounds){ stack.push({niveau,code,nom,bounds}); setFil();
+function entrer(niveau,code,nom,bounds,o){ stack.push({niveau,code,nom,bounds,o}); setFil();
   fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
 $("back").onclick=()=>jumpTo(stack.length-1);
 // hooks de test/débogage (comme window.__map) : piloter la navigation, lister les zones dessinées
@@ -121,7 +127,11 @@ function onZoomSettled(){ if(busy)return; const z=map.getZoom(), d=stack.length;
     if(top.enterZoom==null) top.enterZoom=z;
     if(z>top.enterZoom){ top.enterZoom=z; return; } // on plonge : le repère suit le zoom le plus profond atteint
     const thr=Math.max(ZOUT[d], top.enterZoom-ZBACK);
-    if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable(); jumpTo(d-1); } } }
+    if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable();
+      // si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er dézoom
+      // restaure d'abord la fiche de la zone (la commune) ; on ne remonte qu'au dézoom suivant.
+      if(lastInfo&&lastInfo.code!==top.code){ infoPanel(top.nom,top.o,top.niveau,top.code); return; }
+      jumpTo(d-1); } } }
 // un zoomend pendant un vol programmatique (clic/saut) ne doit jamais armer la descente
 // auto : sinon le zoom d'arrivée, au-dessus de ZIN, fait replonger d'un niveau tout seul
 // (clic Région → descente parasite dans le département centré).
