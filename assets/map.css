@@ -16,7 +16,7 @@
   #back{cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 10px}
   #back:hover:not(:disabled){background:#7d49b3}
   #back:disabled{opacity:.3;cursor:default}
-  #search{min-width:220px;padding:5px 7px;border:1px solid var(--bord);border-radius:7px;font-size:13px;
+  #search{flex:1;min-width:340px;padding:5px 7px;border:1px solid var(--bord);border-radius:7px;font-size:13px;
           background:var(--pbg2);color:var(--txt)}
   #search::placeholder{color:var(--mut2)}
   #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
