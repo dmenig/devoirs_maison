@@ -20,10 +20,14 @@ function exportPDF(){ if(!lastInfo){ $("loading").textContent="cliquez une zone 
     const panes=sl.querySelectorAll(".pane"); if(panes[1])panes[1].remove();
     if(panes[0]){ panes[0].style.width="100%"; panes[0].style.flex="1 1 100%"; } }
   wrap.appendChild(clone); document.body.appendChild(wrap);
+  // largeur réelle du contenu (le multi-colonnes / les cellules nowrap débordent les 820px) :
+  // on capture toute cette largeur, sinon html2canvas tronque la droite. html2pdf la met
+  // ensuite à l'échelle de la page.
+  const capW=Math.max(clone.scrollWidth,clone.offsetWidth,820);
   $("loading").textContent="génération du PDF…";
   const opt={ margin:8, filename:`atlas_${lvl}_${code}.pdf`,
     image:{type:"jpeg",quality:.96},
-    html2canvas:{scale:2,backgroundColor:"#1a1624",useCORS:true,logging:false},
+    html2canvas:{scale:2,backgroundColor:"#1a1624",useCORS:true,logging:false,width:capW,windowWidth:capW},
     jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
     pagebreak:{mode:["css","legacy"],avoid:[".exp",".act",".lever",".scn",".amini",".carnet"]} };
   html2pdf().set(opt).from(clone).save()
