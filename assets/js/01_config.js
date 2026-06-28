@@ -38,7 +38,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
 // indicateur de coloration par défaut : participation (lecture d'ensemble neutre, choix
 // d'office — le détail vient du clic sur la commune → Carnet de campagne).
 const cache={}; let layer=null, stack=[], indicKey="part", indicLabel="Participation", indicUnit="%",
-    curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[];
+    curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[], enterColor=null;
 // entête cliquable d'une section : le détail est poussé dans le volet de droite (slide)
 const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;
   const i=panelDetails.length; panelDetails.push(det);

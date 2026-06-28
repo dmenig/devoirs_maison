@@ -18,16 +18,22 @@ function flushDraw(){ clearTimeout(pendingTimer);
   if(pendingDraw){ const d=pendingDraw; pendingDraw=null; d(); } }
 
 function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
-  const fc=colorer(geo.features.map(f=>valOf(f.properties)));
-  layer=L.geoJSON(geo,{style:f=>({fillColor:fc(valOf(f.properties)),color:"#1a1a1a",weight:.5,fillOpacity:.85}),
+  const raws=geo.features.map(f=>valOf(f.properties));
+  const fc=colorer(raws);
+  // une seule zone porteuse de valeur : la coloration relative la placerait au centre
+  // (neutre). On hérite alors de la couleur que cette zone avait au niveau précédent
+  // (sommet de pile) — renormaliser un singleton n'a pas de sens (demande terrain).
+  const top=stack[stack.length-1];
+  const inherit=(raws.filter(v=>v!=null&&!isNaN(v)).length===1&&top&&top.color)?top.color:null;
+  const colOf=v=>(inherit&&v!=null&&!isNaN(v))?inherit:fc(v);
+  layer=L.geoJSON(geo,{style:f=>({fillColor:colOf(valOf(f.properties)),color:"#1a1a1a",weight:.5,fillOpacity:.85}),
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
       ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
       ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#fff"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
       const o=valeurs[f.properties.__code];
       const show=()=>infoPanel(f.properties.__nom,o,niveau,f.properties.__code);
-      if(enter){ ly.__enter=()=>{show();enter(f,ly,o);};
-        ly.on("click",()=>{show();enter(f,ly,o);}); }
+      if(enter){ const go=()=>{enterColor=colOf(v);show();enter(f,ly,o);}; ly.__enter=go; ly.on("click",go); }
       else ly.on("click",show); }}).addTo(map);
   fadeInLayer(); }
 
@@ -107,7 +113,7 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
-function entrer(niveau,code,nom,bounds,o){ stack.push({niveau,code,nom,bounds,o}); setFil();
+function entrer(niveau,code,nom,bounds,o){ stack.push({niveau,code,nom,bounds,o,color:enterColor}); setFil();
   fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
 $("back").onclick=()=>jumpTo(stack.length-1);
 // hooks de test/débogage (comme window.__map) : piloter la navigation, lister les zones dessinées
