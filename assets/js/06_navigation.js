@@ -57,7 +57,7 @@ function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`
 
 function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
   map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11,
-    paddingTopLeft:[0,topInset()],paddingBottomRight:[0,sheetInset()]});
+    paddingTopLeft:[0,topInset()],paddingBottomRight:[infoInset(),sheetInset()]});
   map.once("moveend",()=>{ animating=false; if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
     // le zoomend final du vol ne doit PAS déclencher onZoomSettled (sinon descente auto en
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.

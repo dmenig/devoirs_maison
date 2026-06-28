@@ -35,7 +35,7 @@
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
   .chip:hover{border-color:var(--lav)}
   .chip.on{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
-  #info{top:100px;right:10px;width:268px;max-height:82vh;overflow:hidden auto;display:none;padding:12px 14px}
+  #info{top:100px;right:10px;width:400px;max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:16px 18px}
   #info .t{font-weight:800;font-size:16px;color:var(--lav);margin-bottom:2px}
   #info .lead{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
   #info .head{font-size:30px;font-weight:800;color:var(--cram);line-height:1;margin:2px 0 8px}

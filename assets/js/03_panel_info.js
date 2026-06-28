@@ -33,6 +33,10 @@ function hideInfoSheet(info){ info.style.display="none";
 // flyTo pour que la zone visée soit centrée dans la carte VISIBLE, pas sous la fiche.
 function sheetInset(){ const info=$("info");
   return isMobileSheet()&&info.style.display==="block"?Math.round(info.getBoundingClientRect().height):0; }
+// largeur occultée à droite par la fiche latérale (desktop) : sert de marge droite aux
+// cadrages flyTo pour que la zone visée se centre dans la carte libre, à gauche de la fiche.
+function infoInset(){ const info=$("info"); if(isMobileSheet()||info.style.display!=="block")return 0;
+  return Math.round(info.getBoundingClientRect().width)+20; }
 
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
