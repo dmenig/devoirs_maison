@@ -38,7 +38,7 @@ function carnetScenarios(b){ const H=CARNET_HYP;
     card("2ᵉ tour vs RN (Bardella)",b.exprimes*H.maj2T)+
     card("2ᵉ tour vs macroniste",b.exprimes*H.maj2T)+`</div>`+
     `<div class="hypnote">Objectifs indicatifs · base ${_nb(b.exprimes)} votants estimés sur `+
-    `${_nb(b.elig)} électeur·ices potentiel·les. Méthodologie provisoire — à valider PEE.</div>`;
+    `${_nb(b.elig)} électeur·ices potentiel·les.</div>`;
 }
 
 // Décomposition de l'électorat potentiel en 4 segments (cf. maquette). garanties/potentielles

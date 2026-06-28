@@ -43,5 +43,5 @@ function actionPanel(o){ if(!o)return "";
   return `<div class="act"><div class="ah">🎯 Plan d'action — par ordre de priorité</div>`+
     `<ul class="levers">${items.join("")}</ul>${marg}`+
     `<div class="inv">Réservoirs en voix réelles ; conversion en voix mobilisées à confronter au terrain `+
-    `(présence militante, marché, vie associative). Méthodologie d'estimation à valider PEE.</div></div>`;
+    `(présence militante, marché, vie associative).</div></div>`;
 }
