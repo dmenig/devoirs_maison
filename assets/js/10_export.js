@@ -21,7 +21,14 @@ function exportPDF(){ if(!lastInfo){ $("loading").textContent="cliquez une zone 
   const need=h=>{ if(y+h>BOT){ doc.addPage(); bg(); y=M; } };
   const rgb=el=>{ const m=getComputedStyle(el).backgroundColor.match(/(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
     return m?[+m[1],+m[2],+m[3]]:C.mut; };
-  const clean=s=>(s||"").replace(/\s+/g," ").trim();
+  // jsPDF (police standard) ne mesure pas les caractères hors Latin-1 (→, guillemets
+  // courbes, tirets longs…) : largeur NaN → plus de retour à la ligne (débordement) et
+  // glyphes espacés. On normalise vers des équivalents ASCII/Latin-1 sûrs.
+  const safe=s=>(s||"").replace(/→/g,"->").replace(/←/g,"<-").replace(/↔/g,"<->")
+    .replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—]/g,"-")
+    .replace(/…/g,"...").replace(/•/g,"-").replace(/[   ]/g," ")
+    .replace(/œ/g,"oe").replace(/Œ/g,"OE").replace(/[^\x00-\xff€]/g,"");
+  const clean=s=>safe((s||"").replace(/\s+/g," ").trim());
   const lh=sz=>sz*0.42+1.6;
   const text=(s,o)=>{ o=o||{}; const sz=o.size||9.5, col=o.color||C.txt, x=o.x!=null?o.x:M, mw=o.mw||(W-M-(o.x!=null?o.x:M));
     s=clean(s); if(!s)return; doc.setFont("helvetica",o.font||"normal"); doc.setFontSize(sz); doc.setTextColor(...col);
