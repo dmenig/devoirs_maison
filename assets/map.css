@@ -35,7 +35,12 @@
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
   .chip:hover{border-color:var(--lav)}
   .chip.on{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
-  #info{top:100px;right:10px;width:min(540px,42vw);max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:18px 22px}
+  #info{top:100px;right:10px;width:min(820px,56vw);max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:18px 22px}
+  /* sections en parallèle : colonnes auto-réparties (≥2 dès que la largeur le permet,
+     1 seule en mobile) pour moins scroller. break-inside évite de couper une carte. */
+  #info .cols{columns:300px;column-gap:22px}
+  #info .cols>.exp{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin:0 0 4px}
+  #info .cols>.exp .sec{margin-top:0}
   #info .t{font-weight:800;font-size:16px;color:var(--lav);margin-bottom:2px}
   #info .lead{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
   #info .head{font-size:30px;font-weight:800;color:var(--cram);line-height:1;margin:2px 0 8px}

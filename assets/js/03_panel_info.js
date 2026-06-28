@@ -71,6 +71,9 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
       `après impôts et aides. Source : INSEE FILOSOFI 2021.`);
   }
 
+  // sections de données réparties en colonnes parallèles (cf. .cols) : titre, carnet et
+  // chiffre de tête restent pleine largeur au-dessus ; plan d'action et aperçu en dessous.
+  h+=`<div class="cols">`;
   if(SCR.some(([sc])=>o[`lfi_${sc}`]!=null)){
     h+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
       SCR.map(([sc,lab])=>{const v=o[`lfi_${sc}`];
@@ -184,6 +187,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     `Statut d'occupation des résidences principales (INSEE 2021), comparé à la France et à la région. `+
     `Le mode d'habitat est un déterminant du vote.`);
   h+=adminPanel(o);
+  h+=`</div>`;
   if(estCommune)h+=actionPanel(o);
   // « les cartes en bas du truc d'Elia » (chantier 4) : vue d'ensemble locale à l'échelle GA,
   // remplie en asynchrone une fois la fiche posée (cf. 032_apercu.js).
