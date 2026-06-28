@@ -5,14 +5,14 @@ const depOf=c=>c.startsWith("97")?c.slice(0,3):c.slice(0,2);
 const PLM={"75056":/^751\d\d/,"69123":/^6938\d/,"13055":/^132\d\d/};
 const irisInCommune=(ci,code)=>{ const r=PLM[code]; return r?r.test(ci):ci.slice(0,5)===code; };
 
-// Fiabilité géométrique d'un contour de bureau de vote (chantier 4). Les contours sont des
-// Voronoï data.gouv (approchés) ; un découpage absurde se trahit par des polygones DISJOINTS.
-// On préfère le drapeau `fiable` baké (prep_bv) ; à défaut on compte les parts côté client et
-// on masque les BV trop fragmentés (au-delà de BV_MAX_PARTS) plutôt que d'afficher un tracé faux.
-const BV_MAX_PARTS=2;
-const geomParts=g=>g&&g.type==="MultiPolygon"?g.coordinates.length:1;
-const bvFiable=f=>{ const p=f.properties;
-  return p&&p.fiable!=null?!!(+p.fiable):geomParts(f.geometry)<=BV_MAX_PARTS; };
+// Fiabilité géométrique d'un contour de bureau de vote (chantier 4) — DÉSACTIVÉ pour l'instant.
+// La métrique comptait les polygones disjoints, mais elle confond le bruit de tessellation
+// Voronoï (micro-slivers) avec une vraie fragmentation et masquait à tort ~25-40 % de bureaux
+// nets. À refondre en comptage tolérant aux slivers avant réactivation (cf. 06_navigation.js).
+// const BV_MAX_PARTS=2;
+// const geomParts=g=>g&&g.type==="MultiPolygon"?g.coordinates.length:1;
+// const bvFiable=f=>{ const p=f.properties;
+//   return p&&p.fiable!=null?!!(+p.fiable):geomParts(f.geometry)<=BV_MAX_PARTS; };
 
 // Coloration par RANG (percentile) parmi les zones affichées : les couleurs
 // s'étalent sur toute la distribution (chaque zone ayant une valeur est colorée).

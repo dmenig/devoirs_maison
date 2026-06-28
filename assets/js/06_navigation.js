@@ -95,12 +95,15 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(!geo){$("loading").textContent="contours BV indisponibles";return;}
   const tous=geo.features.filter(f=>String(f.properties.code_commune)===code);
   if(!tous.length){$("loading").textContent="pas de bureaux";return;}
-  // chantier 4 : on n'affiche que les bureaux au tracé fiable ; les Voronoï absurdes
-  // (polygones disjoints) sont masqués plutôt qu'affichés faux. Données restituables via l'export.
-  const fiables=tous.filter(bvFiable), masques=tous.length-fiables.length;
-  $("loading").textContent=masques?`${masques}/${tous.length} bureau·x au tracé peu fiable masqué·s — voir l'export`:"";
-  if(!fiables.length){$("loading").textContent="contours de bureaux trop peu fiables ici — utilisez l'export des données";return;}
-  dessiner({type:"FeatureCollection",features:fiables},val||{},"bureau","bureau",null,"bv"); }
+  // chantier 4 — filtre de fiabilité géométrique DÉSACTIVÉ pour l'instant : la métrique
+  // (compte de polygones disjoints) confond le bruit de tessellation Voronoï avec une vraie
+  // fragmentation et masquait à tort ~25-40 % de bureaux nets. On affiche tous les bureaux ;
+  // à refondre en comptage tolérant aux slivers avant de réactiver.
+  // const fiables=tous.filter(bvFiable), masques=tous.length-fiables.length;
+  // $("loading").textContent=masques?`${masques}/${tous.length} bureau·x au tracé peu fiable masqué·s — voir l'export`:"";
+  // if(!fiables.length){$("loading").textContent="contours de bureaux trop peu fiables ici — utilisez l'export des données";return;}
+  $("loading").textContent="";
+  dessiner({type:"FeatureCollection",features:tous},val||{},"bureau","bureau",null,"bv"); }
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
