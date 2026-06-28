@@ -1,32 +1,33 @@
 
 // Export (chantier 5) : PDF de la FICHE telle qu'affichée pour la zone sélectionnée.
-// html2canvas ne capture de façon fiable qu'un élément visible et stylé : on rend donc
-// #info EN PLACE, en levant temporairement la contrainte de hauteur et en repliant le
-// slider de détail sur sa vue principale, puis on restaure l'état initial.
+// On clone #info dans un conteneur placé DERRIÈRE la carte (z-index:-1) : html2canvas rend
+// le sous-arbre cloné (pas une capture d'écran), donc la fiche visible ne bouge pas — aucun
+// scintillement. On neutralise sur le clone les propriétés qui rendent html2canvas blanc
+// (backdrop-filter surtout, + box-shadow/transform) et on replie le slider de détail.
 function exportPDF(){ if(!lastInfo){ $("loading").textContent="cliquez une zone à exporter"; return; }
   const info=$("info");
   if(info.style.display!=="block"){ $("loading").textContent="aucune fiche ouverte à exporter"; return; }
   if(typeof html2pdf==="undefined"){ $("loading").textContent="export PDF indisponible"; return; }
   const lvl=lastInfo.niveau||"zone", code=lastInfo.code||"zone";
-  const sl=info.querySelector(".slider"), pane2=sl&&sl.querySelectorAll(".pane")[1];
-  const prev={ maxH:info.style.maxHeight, ovf:info.style.overflow, sw:info.scrollTop,
-    on:sl&&sl.classList.contains("on"), slW:sl&&sl.style.width, p2:pane2&&pane2.style.display };
-  // état « capture » : pleine hauteur, slider sur la vue principale, volet détail masqué
-  if(sl){ sl.classList.remove("on"); sl.style.width="100%"; }
-  if(pane2)pane2.style.display="none";
-  info.style.maxHeight="none"; info.style.overflow="visible"; info.scrollTop=0;
-  const restore=()=>{ info.style.maxHeight=prev.maxH; info.style.overflow=prev.ovf; info.scrollTop=prev.sw;
-    if(sl){ sl.style.width=prev.slW||""; if(prev.on)sl.classList.add("on"); }
-    if(pane2)pane2.style.display=prev.p2||""; };
+  const wrap=document.createElement("div");
+  wrap.style.cssText="position:fixed;top:0;left:0;z-index:-1;width:820px;background:#1a1624";
+  const clone=info.cloneNode(true);
+  clone.style.cssText="position:static;display:block;width:820px;max-height:none;height:auto;"+
+    "overflow:visible;box-shadow:none;backdrop-filter:none;border:none;margin:0";
+  const sh=clone.querySelector(".sheet-handle"); if(sh)sh.remove();
+  const sl=clone.querySelector(".slider");
+  if(sl){ sl.classList.remove("on"); sl.style.transform="none"; sl.style.width="100%";
+    const panes=sl.querySelectorAll(".pane"); if(panes[1])panes[1].remove();
+    if(panes[0]){ panes[0].style.width="100%"; panes[0].style.flex="1 1 100%"; } }
+  wrap.appendChild(clone); document.body.appendChild(wrap);
   $("loading").textContent="génération du PDF…";
   const opt={ margin:8, filename:`atlas_${lvl}_${code}.pdf`,
     image:{type:"jpeg",quality:.96},
-    html2canvas:{scale:2,backgroundColor:"#1a1624",useCORS:true,scrollX:0,scrollY:0,
-      width:info.offsetWidth,windowWidth:info.offsetWidth},
+    html2canvas:{scale:2,backgroundColor:"#1a1624",useCORS:true,logging:false},
     jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
     pagebreak:{mode:["css","legacy"],avoid:[".exp",".act",".lever",".scn",".amini",".carnet"]} };
-  html2pdf().set(opt).from(info).save()
-    .then(()=>{ restore(); $("loading").textContent=""; })
-    .catch(()=>{ restore(); $("loading").textContent="échec de l'export PDF"; });
+  html2pdf().set(opt).from(clone).save()
+    .then(()=>{ wrap.remove(); $("loading").textContent=""; })
+    .catch(()=>{ wrap.remove(); $("loading").textContent="échec de l'export PDF"; });
 }
 $("exportbtn").onclick=exportPDF;
