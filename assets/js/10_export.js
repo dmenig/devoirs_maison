@@ -28,6 +28,7 @@ function exportPDF(){ if(!lastInfo){ $("loading").textContent="cliquez une zone 
       `backdrop-filter:none !important;border:none !important;border-radius:0 !important;padding:16px 18px !important}`+
     `#info .cols{columns:1 !important;column-width:auto !important;column-gap:0 !important}`+
     `#info .detbody{display:block !important}`+
+    `#info .spbody{display:block !important}#info .spcaret{display:none !important}`+
     `#info .exp .exph::after{display:none !important}`+
     `#info .rwrap{overflow:visible !important}`+
     `#info table.recompo{width:100% !important;font-size:7.5px !important;table-layout:fixed !important}`+

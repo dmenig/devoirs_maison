@@ -105,7 +105,12 @@ class Scrutin:
             "referendum": "Référendum",
         }
         base = f"{noms.get(self.type, self.type.title())} {self.annee}"
-        return f"{base} (T{self.tour})" if self.tour else base
+        tours = {1: "1er tour", 2: "2e tour"}
+        return (
+            f"{base} ({tours.get(self.tour, f'tour {self.tour}')})"
+            if self.tour
+            else base
+        )
 
 
 def lister_scrutins(dossier_clean: Path) -> list[Scrutin]:

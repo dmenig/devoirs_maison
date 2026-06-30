@@ -40,7 +40,7 @@ async function gotoZone(e){ infoPanel(null);
   else{ stack=[{niveau:"region",code:e.region,nom:regNom(e.region),bounds:null},
                {niveau:"departement",code:e.dep,nom:depNom(e.dep),bounds:null}];
     await vueCommune(e.code); stack.push({niveau:"commune",code:e.code,nom:e.nom,bounds:null});
-    const cv=await getJSON(`values/commune/${e.dep}.json`); infoPanel(e.nom,(cv||{})[e.code],"commune"); }
+    const cv=await getJSON(`values/commune/${e.dep}.json`); infoPanel(e.nom,(cv||{})[e.code],"commune",e.code); }
   setFil();
   const b=layer&&layer.getBounds&&layer.getBounds();
   if(b&&b.isValid())flyTo(b,e.niveau==="commune"?15:11); }

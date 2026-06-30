@@ -43,6 +43,12 @@ const cache={}; let layer=null, stack=[], indicKey="part", indicLabel="Participa
 const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;
   const i=panelDetails.length; panelDetails.push(det);
   return `<div class="exp"><div class="exph" data-di="${i}">${body}</div></div>`; };
+// Groupe dépliable (spoiler) : en-tête cliquable qui plie/déplie son corps, replié par
+// défaut (open=true pour l'ouvrir). Sert à n'exposer d'office que le Carnet et à ranger
+// l'analyse détaillée derrière un clic. Les sections .exp internes (volet méthodo) restent intactes.
+const spoiler=(titre,corps,open=false)=> !corps?"":
+  `<div class="spoiler${open?" open":""}"><div class="sph">${titre}<span class="spcaret">›</span></div>`+
+  `<div class="spbody">${corps}</div></div>`;
 const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 

@@ -64,12 +64,27 @@
   #info .tbarwrap{height:38px;display:flex;align-items:flex-end;justify-content:center}
   #info .tbar{width:60%;background:var(--cram);border-radius:3px 3px 0 0;min-height:2px}
   #info .tv{font-weight:700;color:var(--cram);font-size:11px}
+  #info .mnote{margin-top:7px;font-size:11px;line-height:1.4;color:var(--mut);border-left:2px solid var(--cram);padding-left:7px}
   #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
   #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .exp .exph{cursor:pointer;position:relative;padding-right:15px}
   #info .exp .exph::after{content:"›";position:absolute;right:1px;top:1px;color:var(--lav);font-weight:700}
-  /* slider horizontal : vue principale ⇄ détail d'une section (translate sur le côté) */
+  /* Groupes dépliables : rangent l'analyse détaillée derrière un clic. Repliés par défaut
+     (seul le Carnet reste ouvert) pour ne pas décourager une lecture non spécialiste. */
+  #info .spoiler{border:1px solid var(--bord);border-radius:9px;margin:9px 0;background:rgba(34,29,48,.45);overflow:hidden}
+  #info .spoiler .sph{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;
+       padding:10px 12px;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+       color:var(--lav);user-select:none}
+  #info .spoiler .sph:hover{background:rgba(90,60,130,.16)}
+  #info .spcaret{color:var(--lav);font-size:16px;font-weight:700;line-height:1;transition:transform .2s;flex:none}
+  #info .spoiler.open .spcaret{transform:rotate(90deg)}
+  #info .spbody{display:none;padding:2px 12px 11px}
+  #info .spoiler.open .spbody{display:block}
+  /* slider horizontal : vue principale ⇄ détail d'une section (translate sur le côté).
+     .vp clippe au bord du contenu : sans lui, le padding droit de #info laisse fuiter
+     une lichette du volet détail (bordure .detbody) en haut à droite à l'ouverture. */
+  #info .vp{overflow:hidden}
   #info .slider{display:flex;width:200%;transition:transform .32s ease;align-items:flex-start}
   #info .slider.on{transform:translateX(-50%)}
   #info .pane{width:50%;flex:0 0 50%;box-sizing:border-box}
@@ -84,6 +99,10 @@
   #info .bar{position:relative}
   #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85;z-index:2}
   #info .frtag{color:var(--mut2);font-weight:400}
+  #info .cmplgd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin:0 0 8px}
+  #info .cmplgd span{display:inline-flex;align-items:center;gap:4px}
+  #info .cmplgd .si{width:16px;height:8px;border-radius:4px;background:#7a6fa8;display:inline-block}
+  #info .cmplgd .su{width:2px;height:11px;background:#fff;opacity:.85;display:inline-block}
   #info .pyr{margin:5px 0 2px}
   #info .pyrhead{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-bottom:3px}
   #info .pyrow{display:flex;align-items:center;gap:4px;margin:2px 0}
@@ -113,8 +132,21 @@
   #info .scn .scv{font-size:18px;font-weight:800;color:var(--lav);line-height:1.1;font-variant-numeric:tabular-nums}
   #info .scn .scv small{font-size:10px;color:var(--mut);font-weight:600}
   #info .scn .scr{font-size:9.5px;color:var(--mut2);font-variant-numeric:tabular-nums;margin-top:2px}
+  #info .cref{font-size:10.5px;color:var(--mut);line-height:1.4;margin:1px 0 4px;font-variant-numeric:tabular-nums}
+  #info .cref b{color:var(--lav);font-weight:800}
   #info .hypnote{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:2px 0 6px}
   #info .cfoot{font-size:10px;color:var(--mut2);margin-top:6px;border-top:1px solid var(--bord);padding-top:5px}
+  /* Bandeau de transparence outre-mer (retour n°18). */
+  #info .warn{font-size:11px;line-height:1.4;color:#f3d9a6;background:rgba(184,124,30,.16);
+    border:1px solid rgba(184,124,30,.5);border-radius:8px;padding:6px 9px;margin:6px 0}
+  /* Définitions (ex. nomenclature CSP) dans le volet de détail (retour n°16). */
+  #info .defs{margin:5px 0;padding-left:16px;font-size:12px;line-height:1.45}
+  #info .defs li{margin:3px 0}
+  /* Lien sortant vers les groupes d'action (retour n°19). */
+  #info .galink{margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--bord)}
+  #info .galink a{color:var(--lav);font-weight:700;font-size:12.5px;text-decoration:none}
+  #info .galink a:hover{text-decoration:underline}
+  #info .gahint{font-size:10px;color:var(--mut2);margin-top:2px}
   #info .csec{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:9px 0 4px}
   #info .compo{display:flex;flex-direction:column;gap:2px}
   #info .compo .crow{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);align-items:baseline}
@@ -137,6 +169,13 @@
   #info .act .leg{margin-top:8px;font-size:11px;line-height:1.7;border-top:1px solid #4a2d63;padding-top:7px}
   #info .act .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
   #info .act .inv{margin-top:8px;font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.5}
+  /* Conclusions opérationnelles (retour n°9) : recos en tête, détail au clic. */
+  #info .recos .rcohint{font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.4;margin-bottom:7px}
+  #info .recos .exp{margin:6px 0;padding-bottom:6px;border-bottom:1px solid #4a2d63}
+  #info .recos .exp:last-child{border-bottom:none;padding-bottom:0}
+  #info .rcot{color:#fff;font-weight:700;font-size:12.5px}
+  #info ul.rcom{margin:3px 0 0;padding-left:16px} #info ul.rcom li{margin:3px 0;line-height:1.4;font-size:12px;color:#e7ddf3}
+  #info .rcoc{margin-top:6px}
   /* Vue d'ensemble locale (échelle GA) embarquée en bas de la fiche commune. */
   #info .apercu{margin:4px 0 2px}
   #info .aminis{display:flex;gap:6px;flex-wrap:wrap}

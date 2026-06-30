@@ -38,6 +38,39 @@ function sheetInset(){ const info=$("info");
 function infoInset(){ const info=$("info"); if(isMobileSheet()||info.style.display!=="block")return 0;
   return Math.round(info.getBoundingClientRect().width)+20; }
 
+// Municipales 2026 : le score LFI brut est trompeur (« 0 » = pas de liste conduite par LFI,
+// pas 0 voix). On résume donc la candidature de gauche réellement présentée — liste LFI,
+// liste d'union, ou aucune — au lieu d'un chiffre binaire (retour PEE / Elia).
+function municNote(o){ const lfi=o.lfi_M26, g=o.gauche_M26;
+  if(lfi!=null&&lfi>0){ const al=(g!=null&&g>lfi)?` ; union de la gauche à <b>${g} %</b>`:"";
+    return `<div class="mnote">Municipales 2026 · liste conduite par LFI à <b>${lfi} %</b> des inscrits${al}.</div>`; }
+  if(g!=null&&g>0)
+    return `<div class="mnote">Municipales 2026 · liste d'union de la gauche (sans tête de liste LFI) à <b>${g} %</b> des inscrits.</div>`;
+  return ""; }
+
+// Bandeau de transparence outre-mer (retour n°18) : à Mayotte, en Guyane, en
+// Nouvelle-Calédonie, en Polynésie… le recensement et FILOSOFI sont souvent absents.
+// Parti-pris : signaler le manque de données plutôt que fabriquer des chiffres
+// standardisés (indéfendable pour un outil cherchant une validation politique).
+// Détection par préfixe de code : DOM/COM = commune/dép. en 97-98 ; régions ultramarines.
+function omBanner(niveau,code){
+  if(!code)return "";
+  const om=niveau==="region"?["01","02","03","04","06"].includes(code):/^9[78]/.test(String(code));
+  if(!om)return "";
+  return `<div class="warn">⚠ <b>Outre-mer</b> — peu de statistiques publiques sont disponibles `+
+    `pour ce territoire (recensement et FILOSOFI souvent absents à Mayotte, en Guyane, en `+
+    `Nouvelle-Calédonie, en Polynésie…). Estimations et recommandations à prendre avec précaution.</div>`;
+}
+
+// Lien sortant vers l'annuaire officiel des groupes d'action (retour n°19). On passe le
+// nom de la commune en recherche ; si le territoire n'a pas de GA, la plateforme propose
+// les plus proches. NB : vérifier le paramètre de recherche exact d'Action Populaire.
+function galink(nom){ const q=encodeURIComponent(nom);
+  return `<div class="galink"><a href="https://actionpopulaire.fr/groupes/?q=${q}" target="_blank" rel="noopener">`+
+    `📍 Groupes d'action les plus proches de ${nom} →</a>`+
+    `<div class="gahint">Annuaire officiel des groupes d'action (Action Populaire).</div></div>`;
+}
+
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,niveau,code}:null;
@@ -51,46 +84,56 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   const sec=t=>`<div class="sec">${t}</div>`;
 
   const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
-  let h=`<div class="t">${nom}</div>`;
+  let h=`<div class="t">${nom}</div>`+omBanner(niveau,code);
   // Carnet de campagne (objectifs + décomposition + plan d'action) RÉSERVÉ à la commune :
   // c'est la maille d'action de référence (cf. EVOLUTIONS.md ch.3). Aux échelles d'ensemble
   // (région/dép) et de drill-down (BV/IRIS), on ne montre que la fiche descriptive.
   const estCommune=niveau==="commune";
   if(estCommune)h+=carnet(o);
+  if(estCommune)h+=recoPanel(o);
+  let headline="";
   if(lfi!=null){
-    h+=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
+    headline=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
            `<div class="head">${lfi} %<small> des inscrits</small></div>`,
       `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+
       `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
       `Source : Ministère de l'Intérieur.`);
   } else if(o.rev!=null){
-    h+=exp(`<div class="lead">Revenu médian · quartier · 2021</div>`+
+    headline=exp(`<div class="lead">Revenu médian · quartier · 2021</div>`+
            `<div class="head">${o.rev.toLocaleString('fr')} €<small> par personne / an</small></div>`,
       `À l'échelle du <b>quartier (IRIS)</b>, les résultats électoraux ne sont pas disponibles : le vote se compte `+
       `par <b>bureau de vote</b>, pas par IRIS. On affiche donc le <b>contexte social</b> — revenu médian par personne `+
       `après impôts et aides. Source : INSEE FILOSOFI 2021.`);
   }
 
-  // sections de données réparties en colonnes parallèles (cf. .cols) : titre, carnet et
-  // chiffre de tête restent pleine largeur au-dessus ; plan d'action et aperçu en dessous.
-  h+=`<div class="cols">`;
-  if(SCR.some(([sc])=>o[`lfi_${sc}`]!=null)){
-    h+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
-      SCR.map(([sc,lab])=>{const v=o[`lfi_${sc}`];
-        return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%"></div></div>`+
-               `<div class="tv">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`,
+  // L'analyse détaillée est rangée dans des spoilers repliés (cf. assemblage en fin de
+  // fonction) : `elec` = analyse électorale, `socio` = profil sociologique. Seul le Carnet
+  // reste ouvert d'office, pour ne pas décourager une lecture non spécialiste.
+  let elec="", socio="";
+  // M26 : un « 0 » = absence de liste conduite par LFI (pas tête de liste), pas un score
+  // nul → affiché « · » comme une valeur non applicable. Légis. 2024 = candidature d'union
+  // Nouveau Front Populaire : barre teintée NFP pour la distinguer des scrutins LFI seuls.
+  const NFP="#cf2e5b", trendVal=sc=>{const v=o[`lfi_${sc}`]; return (sc==="M26"&&!v)?null:v;},
+    trendCol=sc=>sc==="L24"?NFP:"var(--cram)";
+  if(SCR.some(([sc])=>trendVal(sc)!=null)){
+    elec+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
+      SCR.map(([sc,lab])=>{const v=trendVal(sc),col=trendCol(sc);
+        return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%;background:${col}"></div></div>`+
+               `<div class="tv" style="color:${col}">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`+
+      municNote(o),
       `Vote LFI en % des inscrits à chaque scrutin : <b>Présid.</b> avril 2022 (voix Mélenchon, 1<sup>er</sup> tour) · `+
-      `<b>Europ.</b> juin 2024 · <b>Légis.</b> juin 2024 (1<sup>er</sup> tour) · <b>Munic.</b> mars 2026 (1<sup>er</sup> tour, `+
-      `là où disponible). « · » = donnée indisponible.`); }
+      `<b>Europ.</b> juin 2024 · <b>Légis.</b> juin 2024 (1<sup>er</sup> tour, candidature d'union <b>NFP</b>, barre rosée) · `+
+      `<b>Munic.</b> mars 2026 (1<sup>er</sup> tour). Aux municipales, « · » = pas de liste conduite par LFI ; `+
+      `le score d'une éventuelle liste d'union de la gauche figure sous le graphique. « · » ailleurs = donnée indisponible.`); }
 
   if(o.part_E24!=null){ const abst=Math.round((100-o.part_E24)*10)/10;
-    h+=exp(sec("Participation · Europ. 2024")+barRow("Participation",o.part_E24,"#2e8b57",100)+
+    elec+=exp(sec("Participation · Europ. 2024")+barRow("Participation",o.part_E24,"#2e8b57",100)+
       `<div class="row"><span>Abstention</span><b>${abst} %</b></div>`,
       `<b>Participation</b> = votants ÷ inscrits aux européennes de juin 2024. `+
       `<b>Abstention</b> = 100 − participation = part des inscrits qui ne se sont pas déplacés.`); }
 
   if([o.gauche_E24,o.em_E24,o.lr_E24,o.rn_E24].some(v=>v!=null)){
-    h+=exp(sec("Rapport de force · Europ. 2024")+
+    elec+=exp(sec("Rapport de force · Europ. 2024")+
       barRow("Gauche (LFI-PS-EELV-PCF)",o.gauche_E24,"#cf2e5b")+
       barRow("Macron (Renaissance)",o.em_E24,"#e6902e")+
       barRow("Droite (LR)",o.lr_E24,"#3b6ea5")+
@@ -112,9 +155,9 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
         (r[6]?`<span><i style="background:${gris}"></i>Abst. ${r[6]}%</span>`:"");
       let rows="";
       window.__scr.forEach((s,i)=>{ const rr=o.rec[i]; if(!rr)return;
-        rows+=`<tr><td class="sc" title="${s.l}">${s.c}</td>`+
+        rows+=`<tr><td class="sc" title="${s.c}">${s.l}</td>`+
           rr.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
-      h+=exp(sec("Recomposition · "+window.__scr[li].c)+
+      elec+=exp(sec("Recomposition · "+window.__scr[li].c)+
         `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`,
         `Poids de chaque <b>bloc en % des inscrits</b>. Historique scrutin par scrutin (2012→2026) : `+
         `<b>FI</b>=LFI-PCF-EXG · <b>PS</b>=PS-EELV · <b>EM</b>=MoDem-Renaissance · <b>LR</b>=LR-DVD · `+
@@ -144,7 +187,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     resDet+=`<p><b>Abstentionnistes à remobiliser</b> : <b>nombre</b> d'inscrits n'ayant pas voté aux européennes 2024 `+
       `(inscrits × taux d'abstention) — et non le <b>taux</b> d'abstention en % affiché plus haut. `+
       `C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
-  if(resRows)h+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
+  if(resRows)elec+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
   // Contexte social + déterminants du vote (FILOSOFI + recensement INSEE 2021).
   // Chaque valeur est confrontée à la référence nationale et régionale (sinon un % brut
@@ -162,7 +205,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     ["Taux de pauvreté","pauv","%"],["Les 25 % les plus modestes en dessous de","q1","€"],
     ["Les 25 % les plus aisés au-dessus de","q3","€"],["Écart riches / pauvres","ridec"," ×"],
     ["Indice d'inégalité (Gini)","gini",""]]);
-  if(soc)h+=exp(sec("Contexte social · 2021")+distBand(o)+soc,
+  if(soc)socio+=exp(sec("Contexte social · 2021")+distBand(o)+soc,
     `<b>Revenu médian</b> (après impôts et aides) par personne, corrigé de la taille du foyer, et `+
     `<b>taux de pauvreté</b> (part vivant sous 60 % du revenu médian national). Chaque valeur est `+
     `comparée à la <b>moyenne France</b> et à la <b>moyenne de la région</b>. La barre montre la `+
@@ -170,32 +213,62 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`);
   const age=rows([["0-14 ans","a014","%"],["15-29 ans","a1529","%"],["30-44 ans","a3044","%"],
     ["45-59 ans","a4559","%"],["60-74 ans","a6074","%"],["75 ans et +","a75","%"]]);
-  if(age)h+=exp(sec("Âge de la population · 2021")+age,
+  if(age)socio+=exp(sec("Âge de la population · 2021")+age,
     `Répartition par tranche d'âge (INSEE 2021), comparée à la France et à la région. L'âge est `+
     `l'un des principaux déterminants du vote et de la participation.`);
   const csp=rows([["Cadres / prof. sup.","cad","%"],["Professions intermédiaires","pint","%"],
     ["Employés","emp","%"],["Ouvriers","ouv","%"],["Retraités","ret","%"],["Taux de chômage (15-64 ans)","chom","%"]]);
-  if(csp)h+=exp(sec("Catégories sociales · 2021")+csp,
+  if(csp)socio+=exp(sec("Catégories sociales · 2021")+csp,
     `Composition socioprofessionnelle des 15 ans et plus (en % de cette population) et taux de chômage `+
-    `des actifs (INSEE 2021), comparés à la France et à la région. Le métier (PCS) structure fortement le vote.`);
+    `des actifs (INSEE 2021), comparés à la France et à la région. Le métier (PCS) structure fortement le vote. `+
+    `Nomenclature INSEE des professions et catégories socioprofessionnelles (PCS) :`+
+    `<ul class="defs">`+
+    `<li><b>Cadres / prof. sup.</b> — cadres d'entreprise, professions libérales, ingénieur·es, professeur·es, `+
+    `professions de l'information, des arts et du spectacle (PCS 3).</li>`+
+    `<li><b>Professions intermédiaires</b> — technicien·nes, contremaîtres, instituteur·ices, infirmier·es, `+
+    `travailleur·euses sociaux, professions intermédiaires administratives et commerciales (PCS 4).</li>`+
+    `<li><b>Employés</b> — salarié·es d'exécution du tertiaire : employé·es administratifs, de commerce, `+
+    `de services aux particuliers, agents de la fonction publique (PCS 5).</li>`+
+    `<li><b>Ouvriers</b> — ouvrier·es qualifié·es et non qualifié·es de l'industrie et de l'artisanat, `+
+    `de la manutention et des transports (PCS 6).</li>`+
+    `<li><b>Retraités</b> — ancien·nes actif·ves ne travaillant plus (PCS 7).</li>`+
+    `</ul>`+
+    `Non affichés ici : agriculteur·ices (PCS 1) et artisan·es / commerçant·es / chef·fes d'entreprise (PCS 2), `+
+    `marginaux dans la plupart des communes.`);
   const dip=rows([["Sans diplôme ou brevet seul","dipl0","%"],["Diplômé·e du supérieur","diplsup","%"]]);
-  if(dip)h+=exp(sec("Diplômes · 2021")+dip,
+  if(dip)socio+=exp(sec("Diplômes · 2021")+dip,
     `Part des 15 ans et plus non scolarisés sans diplôme (ou brevet seul) et diplômés du supérieur `+
     `(INSEE 2021), comparée à la France et à la région.`);
   const log=rows([["Propriétaires","logprop","%"],["Locataires","logloc","%"],["Logement social (HLM)","loghlm","%"]]);
-  if(log)h+=exp(sec("Logement · 2021")+log,
+  if(log)socio+=exp(sec("Logement · 2021")+log,
     `Statut d'occupation des résidences principales (INSEE 2021), comparé à la France et à la région. `+
     `Le mode d'habitat est un déterminant du vote.`);
-  h+=adminPanel(o);
-  h+=`</div>`;
-  if(estCommune)h+=actionPanel(o);
-  // « les cartes en bas du truc d'Elia » (chantier 4) : vue d'ensemble locale à l'échelle GA,
-  // remplie en asynchrone une fois la fiche posée (cf. 032_apercu.js).
-  if(estCommune)h+=`<div class="csec">Vue d'ensemble locale · échelle Groupe d'action</div>`+
-    `<div id="apercu" class="apercu"><div class="ahint">chargement…</div></div>`;
+  socio+=adminPanel(o);
+
+  // Assemblage : seul le Carnet est ouvert d'office. Toute l'analyse est repliée dans des
+  // spoilers nommés en langage clair (cf. retour Elia : éviter la surcharge décourageante).
+  // Hors commune (région/dép/BV/IRIS), pas de Carnet : on laisse le chiffre de tête visible
+  // pour ancrer la fiche, et on replie le reste.
+  const cols=c=>c?`<div class="cols">${c}</div>`:"";
+  if(estCommune){
+    h+=spoiler("Analyse électorale",headline+cols(elec));
+    h+=spoiler("Profil sociologique",cols(socio));
+    // « les cartes en bas du truc d'Elia » (chantier 4) : vue d'ensemble locale à l'échelle GA,
+    // remplie en asynchrone une fois la fiche posée (cf. 032_apercu.js). Le placeholder #apercu
+    // existe dans le DOM même replié → fillApercu le remplit sans attendre l'ouverture.
+    h+=spoiler("Plan d'action",actionPanel(o));
+    h+=spoiler("Vue d'ensemble locale · échelle Groupe d'action",
+      `<div id="apercu" class="apercu"><div class="ahint">chargement…</div></div>`);
+    // Lien sortant vers l'annuaire officiel des groupes d'action (Action Populaire, retour n°19).
+    h+=galink(nom);
+  } else {
+    h+=headline;
+    h+=spoiler("Analyse électorale",cols(elec));
+    h+=spoiler("Profil sociologique",cols(socio));
+  }
   info.classList.remove("collapsed");
   info.innerHTML=`<div class="sheet-handle"><span class="sh-name">${nom}</span></div>`+
-    `<div class="slider"><div class="pane">${h}</div>`+
-    `<div class="pane detpane"><div class="back">‹ Retour</div><div class="detbody"></div></div></div>`;
+    `<div class="vp"><div class="slider"><div class="pane">${h}</div>`+
+    `<div class="pane detpane"><div class="back">‹ Retour</div><div class="detbody"></div></div></div></div>`;
   showInfoSheet(info);
   if(estCommune&&code)fillApercu(code); }

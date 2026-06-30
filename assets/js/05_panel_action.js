@@ -3,7 +3,7 @@
 // par le PEE : (1) inscription des non-/mal-inscrit·es, (2) REMOBILISATION des électeur·ices
 // LFI 2022 — non automatique, (3) abstentionnistes, (4) primo-votant·es ; les électorats
 // proches (PS 2024) ne sont qu'un levier marginal. Les réservoirs affichés sont des voix
-// réelles ; les fourchettes de conversion restent à valider (PEE).
+// réelles.
 function lever(n, titre, fenetre, res, corps){
   const r=res!=null?`<span class="lvres">${Math.round(res).toLocaleString('fr')} voix</span>`:"";
   return `<li class="lever"><div class="lvh"><span class="lvn">${n}</span>`+

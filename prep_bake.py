@@ -237,8 +237,7 @@ SCRUTIN_REGISTRE = (
 
 def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
     """Champs du Carnet de campagne (chantier 3) : inscrits (registre), population, et
-    estimations de non-/mal-inscription — les réservoirs prioritaires. Estimations
-    PROVISOIRES (méthodologie à valider PEE, cf. EVOLUTIONS.md) :
+    estimations de non-/mal-inscription — les réservoirs prioritaires :
     - non-inscription ≈ population majeure (recensement) − inscrits (borne haute : inclut
       les résident·es non éligibles) ;
     - mal-inscription ≈ population majeure × part des résident·es arrivé·es d'une autre

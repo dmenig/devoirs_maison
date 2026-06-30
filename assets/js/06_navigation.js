@@ -115,7 +115,12 @@ function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vue
   else if(n==="commune")vueCommune(c); }
 function entrer(niveau,code,nom,bounds,o){ stack.push({niveau,code,nom,bounds,o,color:enterColor}); setFil();
   fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
-$("back").onclick=()=>jumpTo(stack.length-1);
+// Si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er « retour »
+// restaure la fiche de la COMMUNE (couche déjà à l'écran) au lieu de remonter au
+// département — on ne remonte d'un cran qu'au clic suivant (même logique qu'au dézoom).
+$("back").onclick=()=>{ const top=stack[stack.length-1];
+  if(top&&lastInfo&&lastInfo.code!==top.code){ infoPanel(top.nom,top.o,top.niveau,top.code); return; }
+  jumpTo(stack.length-1); };
 // hooks de test/débogage (comme window.__map) : piloter la navigation, lister les zones dessinées
 window.__enter=entrer;
 window.__feats=()=>{const a=[];layer&&layer.eachLayer(l=>l.feature&&a.push(l.feature.properties.__nom));return a;};
