@@ -63,10 +63,10 @@ function carnetCompo(o,b){
   // Point 13 : on évite la lecture « rouge-jaune-bleu = FI-LREM-RN ». Les voix garanties et
   // potentielles partagent la couleur de campagne (rouge) — potentielles en rayures (≈ 50 %
   // pleines) pour marquer l'incertitude ; inaccessibles en bleu/gris neutre.
-  const RED="#cf2e5b";
+  const RED="#D1271C";
   const segs=[["Voix garanties",garanties,RED],
-    ["Voix potentielles",potentielles,`repeating-linear-gradient(45deg,${RED} 0 6px,#f7c9d5 6px 12px)`],
-    ["Voix inaccessibles",inaccessibles,"#3b6ea5"]];
+    ["Voix potentielles",potentielles,`repeating-linear-gradient(45deg,${RED} 0 6px,transparent 6px 12px)`],
+    ["Voix inaccessibles",inaccessibles,"#3885f4"]];
   const tot=segs.reduce((a,s)=>a+s[1],0)||1;
   const bar=segs.map(s=>s[1]?`<i style="width:${(100*s[1]/tot).toFixed(1)}%;background:${s[2]}" title="${s[0]} ${_nb(s[1])}"></i>`:"").join("");
   const lg=segs.map(s=>`<div class="crow"><span><i style="background:${s[2]}"></i>${s[0]}</span><b>${_nb(s[1])}</b></div>`).join("");
