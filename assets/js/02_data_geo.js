@@ -36,8 +36,18 @@ function pairMetrics(o){ if(!o)return {};
     perte:  gvA?Math.round(1000*(gvA-gvB)/gvA)/10:null,
     dpart:  (pA!=null&&pB!=null)?Math.round((pB-pA)*10)/10:null };
 }
+// Voix à conquérir (retour Elia, point 5) : nombre de voix manquantes, par zone, pour
+// atteindre l'objectif de qualification au 1er tour de la présidentielle 2027 (exprimés
+// estimés × seuil de qualification) AU-DELÀ du socle de voix garanties (plancher gauche
+// sur les scrutins passés). Mêmes hypothèses que le Carnet de campagne (CARNET_HYP).
+function voixConquerir(o){ if(!o)return null; const b=carnetBase(o); if(!b)return null;
+  const gvs=["P22","E24","L24","M26"].map(k=>o[`gv_${k}`]).filter(v=>v!=null);
+  if(!gvs.length)return null;
+  return Math.max(0,Math.round(b.exprimes*CARNET_HYP.qualif1T-Math.min(...gvs))); }
+
 // Les autres valeurs sont bakées par prep_bake.py et lues telles quelles.
 function rawVal(o,k){ if(!o)return null;
+  if(k==="conquerir") return voixConquerir(o);
   if(k==="dyn_report")return pairMetrics(o).report;
   if(k==="dyn_dpart") return pairMetrics(o).dpart;
   if(k==="dyn_perte") return pairMetrics(o).perte;

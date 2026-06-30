@@ -15,6 +15,7 @@
   <span id="fil"></span>
   <button id="exportbtn" title="Exporter la fiche en PDF (impression → Enregistrer au format PDF)">⬇️ Export PDF</button>
   <button id="advtoggle" aria-pressed="false" title="Affichage avancé : indicateurs et comparaison de scrutins">⚙️ Avancé</button>
+  <button id="multitoggle" aria-pressed="false" title="Sélection multiple de communes : regrouper plusieurs communes en une fiche agrégée (utile à l'échelle interco/circo)">⊕ Multi-communes</button>
   <input id="search" list="zones" autocomplete="off"
          placeholder="🔎 Rechercher une zone (région, département, commune)…"/>
   <datalist id="zones"></datalist>
@@ -28,6 +29,14 @@
 <div id="subtoggle" class="panel">
   <span class="chip on" data-m="bv">🗳️ Bureaux de vote</span>
   <span class="chip" data-m="iris">🏙️ Quartiers IRIS</span>
+</div>
+<div id="selbar" class="panel" style="display:none">
+  <span id="selcount"></span>
+  <select id="selcirco" style="display:none" title="Ajouter d'un coup toutes les communes d'une circonscription"></select>
+  <button id="seladdcirco" style="display:none">+ Circo</button>
+  <button id="selall" title="Sélectionner toutes les communes affichées">Tout sélectionner</button>
+  <button id="selview" disabled>Fiche agrégée ›</button>
+  <button id="selclear" disabled>Vider</button>
 </div>
 <div id="info" class="panel"></div>
 <div id="legend" class="panel">

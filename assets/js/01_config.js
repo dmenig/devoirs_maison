@@ -9,7 +9,8 @@ const STAT=new Set(["lfi","part","rn","gauche"]);
 // rev/pauv : FILOSOFI, dispo seulement à la maille IRIS (absents aux échelons agrégés
 // région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
 const SOCIO=new Set(["rev","pauv"]);
-const PAST=[["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
+const PAST=[["conquerir","Voix à conquérir"," voix"],
+            ["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
             ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
             ["abst","Abstention (nb de voix)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
@@ -35,10 +36,13 @@ window.__map=map;
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
-// indicateur de coloration par défaut : participation (lecture d'ensemble neutre, choix
-// d'office — le détail vient du clic sur la commune → Carnet de campagne).
-const cache={}; let layer=null, stack=[], indicKey="part", indicLabel="Participation", indicUnit="%",
+// indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
+// carte montre d'emblée le besoin de mobilisation par zone plutôt que la participation.
+const cache={}; let layer=null, stack=[], indicKey="conquerir", indicLabel="Voix à conquérir", indicUnit=" voix",
     curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[], enterColor=null;
+// Sélection multiple de communes (retour Elia, point 4) : en mode multi, un clic sur une
+// commune l'ajoute/retire de la sélection (fiche agrégée) au lieu d'y descendre.
+let multiSel=false; const selCodes=new Set();
 // entête cliquable d'une section : le détail est poussé dans le volet de droite (slide)
 const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;
   const i=panelDetails.length; panelDetails.push(det);

@@ -26,14 +26,19 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   const top=stack[stack.length-1];
   const inherit=(raws.filter(v=>v!=null&&!isNaN(v)).length===1&&top&&top.color)?top.color:null;
   const colOf=v=>(inherit&&v!=null&&!isNaN(v))?inherit:fc(v);
-  layer=L.geoJSON(geo,{style:f=>({fillColor:colOf(valOf(f.properties)),color:"#1a1a1a",weight:.5,fillOpacity:.85}),
+  // En mode sélection multiple (communes uniquement), une commune sélectionnée garde un
+  // liseré blanc épais — y compris après un mouseout (resetStyle réapplique ce style).
+  const selStyle=f=>{ const sel=multiSel&&niveau==="commune"&&selCodes.has(f.properties.__code);
+    return {fillColor:colOf(valOf(f.properties)),color:sel?"#fff":"#1a1a1a",weight:sel?2.6:.5,fillOpacity:sel?.95:.85}; };
+  layer=L.geoJSON(geo,{style:selStyle,
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
       ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
-      ly.on("mouseover",()=>ly.setStyle({weight:2.4,color:"#fff"}));
+      ly.on("mouseover",()=>ly.setStyle({weight:2.6,color:"#fff"}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
       const o=valeurs[f.properties.__code];
       const show=()=>infoPanel(f.properties.__nom,o,niveau,f.properties.__code);
-      if(enter){ const go=()=>{enterColor=colOf(v);show();enter(f,ly,o);}; ly.__enter=go; ly.on("click",go); }
+      if(enter){ const go=()=>{enterColor=colOf(v);show();enter(f,ly,o);}; ly.__enter=go;
+        ly.on("click",()=>{ if(multiSel&&niveau==="commune")toggleSel(f.properties.__code,o); else go(); }); }
       else ly.on("click",show); }}).addTo(map);
   fadeInLayer(); }
 
@@ -42,6 +47,7 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
 function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
   geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
     f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
+  selBarSync();  // rafraîchit la barre de sélection multiple (et le sélecteur de circo) selon la maille
   const draw=()=>paintLayer(geo,valeurs,enter,niveau);
   if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,1200); }
   else draw(); }
@@ -49,7 +55,7 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
 // En remontant, le panneau de droite ne se vide plus : il se relie à la zone désormais
 // en focus (sommet de pile) — sinon, après un zoom sur un BV, l'info de la commune était
 // définitivement perdue. Seul le retour à la France (pas de zone unique) referme la fiche.
-function jumpTo(d){ stack=stack.slice(0,d); fadeOutLayer();
+function jumpTo(d){ clearSel(); stack=stack.slice(0,d); fadeOutLayer();
   if(d===0){ infoPanel(null); setFil(); return vueFrance(); }
   const t=stack[d-1]; infoPanel(t.nom,t.o,t.niveau,t.code); setFil();
   // remonter : on plafonne le zoom d'arrivée juste sous le seuil de redescente ZIN[d]
@@ -69,7 +75,7 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.
     clearTimeout(zoomSettle); flushDraw(); setTimeout(()=>busy=false,320); }); }
 
-async function vueFrance(){ stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
+async function vueFrance(){ clearSel(); stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
     (f,ly,o)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"region"); }
 async function vueRegion(code){ subToggle(false);
@@ -113,7 +119,7 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
-function entrer(niveau,code,nom,bounds,o){ stack.push({niveau,code,nom,bounds,o,color:enterColor}); setFil();
+function entrer(niveau,code,nom,bounds,o){ clearSel(); stack.push({niveau,code,nom,bounds,o,color:enterColor}); setFil();
   fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
 // Si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er « retour »
 // restaure la fiche de la COMMUNE (couche déjà à l'écran) au lieu de remonter au

@@ -215,10 +215,21 @@
   /* Prise en main simplifiée (chantier 2) : par défaut, le seul geste est de cliquer son
      territoire sur la carte. Indicateurs, sélecteur de scrutins et bascule BV/IRIS ne sont
      révélés qu'en mode « Avancé » (bouton ⚙️). Le bake fixe les choix d'office. */
-  #advtoggle,#exportbtn{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
+  #advtoggle,#exportbtn,#multitoggle{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
        border-radius:7px;padding:5px 9px;font-size:12px;line-height:1;white-space:nowrap}
-  #advtoggle:hover,#exportbtn:hover{border-color:var(--lav)}
-  #advtoggle[aria-pressed="true"]{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  #advtoggle:hover,#exportbtn:hover,#multitoggle:hover{border-color:var(--lav)}
+  #advtoggle[aria-pressed="true"],#multitoggle[aria-pressed="true"]{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  /* barre de sélection multiple : sous la barre du haut, à gauche (au-dessus des pastilles) */
+  #selbar{top:54px;left:52px;display:flex;gap:8px;align-items:center;padding:6px 10px;z-index:1100}
+  #selbar #selcount{font-size:12px;font-weight:700;color:var(--lav)}
+  #selbar select{background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
+       border-radius:7px;padding:3px 6px;font-size:12px;cursor:pointer}
+  #selbar button{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
+       border-radius:7px;padding:4px 9px;font-size:12px;line-height:1;white-space:nowrap}
+  #selbar button:hover:not(:disabled){border-color:var(--lav)}
+  #selbar #selview{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  #selbar button:disabled{opacity:.4;cursor:default}
+  body.multi #pastilles{top:92px}
   body:not(.adv) #pastilles{display:none}
   body:not(.adv) #subtoggle{display:none!important}
   body:not(.adv) #pastoggle{display:none!important}

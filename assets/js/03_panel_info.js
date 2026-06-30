@@ -88,7 +88,9 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // Carnet de campagne (objectifs + décomposition + plan d'action) RÉSERVÉ à la commune :
   // c'est la maille d'action de référence (cf. EVOLUTIONS.md ch.3). Aux échelles d'ensemble
   // (région/dép) et de drill-down (BV/IRIS), on ne montre que la fiche descriptive.
-  const estCommune=niveau==="commune";
+  // « multi » = fiche agrégée d'une sélection de communes : on y montre le Carnet (objectifs
+  // + décomposition sommés) comme pour une commune, mais pas l'aperçu local (pas de code unique).
+  const estCommune=niveau==="commune"||niveau==="multi";
   if(estCommune)h+=carnet(o);
   if(estCommune)h+=recoPanel(o);
   let headline="";
@@ -113,16 +115,21 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // M26 : un « 0 » = absence de liste conduite par LFI (pas tête de liste), pas un score
   // nul → affiché « · » comme une valeur non applicable. Légis. 2024 = candidature d'union
   // Nouveau Front Populaire : barre teintée NFP pour la distinguer des scrutins LFI seuls.
-  const NFP="#cf2e5b", trendVal=sc=>{const v=o[`lfi_${sc}`]; return (sc==="M26"&&!v)?null:v;},
-    trendCol=sc=>sc==="L24"?NFP:"var(--cram)";
+  // Légis. 2024 = candidature d'union Nouveau Front Populaire : la barre reprend les bandes
+  // de couleur du logo NFP (vert / rouge / jaune / violet / rouge) pour la distinguer d'un
+  // coup d'œil des scrutins où LFI se présentait seule. M26 : « 0 » = pas de tête de liste LFI → « · ».
+  const NFP_RED="#E2001A",
+    NFP_BAND="linear-gradient(to bottom,#00A95C 0 20%,#E2001A 20% 40%,#FFD500 40% 60%,#C8017E 60% 80%,#E2001A 80% 100%)",
+    trendVal=sc=>{const v=o[`lfi_${sc}`]; return (sc==="M26"&&!v)?null:v;},
+    trendBg=sc=>sc==="L24"?NFP_BAND:"var(--cram)", trendTx=sc=>sc==="L24"?NFP_RED:"var(--cram)";
   if(SCR.some(([sc])=>trendVal(sc)!=null)){
     elec+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
-      SCR.map(([sc,lab])=>{const v=trendVal(sc),col=trendCol(sc);
-        return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%;background:${col}"></div></div>`+
-               `<div class="tv" style="color:${col}">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`+
+      SCR.map(([sc,lab])=>{const v=trendVal(sc);
+        return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%;background:${trendBg(sc)}"></div></div>`+
+               `<div class="tv" style="color:${trendTx(sc)}">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`+
       municNote(o),
       `Vote LFI en % des inscrits à chaque scrutin : <b>Présid.</b> avril 2022 (voix Mélenchon, 1<sup>er</sup> tour) · `+
-      `<b>Europ.</b> juin 2024 · <b>Légis.</b> juin 2024 (1<sup>er</sup> tour, candidature d'union <b>NFP</b>, barre rosée) · `+
+      `<b>Europ.</b> juin 2024 · <b>Légis.</b> juin 2024 (1<sup>er</sup> tour, candidature d'union <b>NFP</b>, barre aux couleurs du NFP) · `+
       `<b>Munic.</b> mars 2026 (1<sup>er</sup> tour). Aux municipales, « · » = pas de liste conduite par LFI ; `+
       `le score d'une éventuelle liste d'union de la gauche figure sous le graphique. « · » ailleurs = donnée indisponible.`); }
 
@@ -257,10 +264,13 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     // remplie en asynchrone une fois la fiche posée (cf. 032_apercu.js). Le placeholder #apercu
     // existe dans le DOM même replié → fillApercu le remplit sans attendre l'ouverture.
     h+=spoiler("Plan d'action",actionPanel(o));
-    h+=spoiler("Vue d'ensemble locale · échelle Groupe d'action",
-      `<div id="apercu" class="apercu"><div class="ahint">chargement…</div></div>`);
-    // Lien sortant vers l'annuaire officiel des groupes d'action (Action Populaire, retour n°19).
-    h+=galink(nom);
+    // Aperçu local et lien GA : réservés à une commune unique (pas en fiche agrégée multi).
+    if(niveau==="commune"){
+      h+=spoiler("Vue d'ensemble locale · échelle Groupe d'action",
+        `<div id="apercu" class="apercu"><div class="ahint">chargement…</div></div>`);
+      // Lien sortant vers l'annuaire officiel des groupes d'action (Action Populaire, retour n°19).
+      h+=galink(nom);
+    }
   } else {
     h+=headline;
     h+=spoiler("Analyse électorale",cols(elec));
