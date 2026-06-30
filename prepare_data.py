@@ -52,7 +52,10 @@ def main() -> None:
     communes, admin = charger_cog()
 
     print("→ Résultats électoraux (toutes échelles)")
-    resultats = construire_resultats(CLEAN / "elections", communes, GEO / "bv")
+    listes_lfi = RAW / "lafranceinsoumise" / "2026-municipales-1-listes-lfi.parquet"
+    resultats = construire_resultats(
+        CLEAN / "elections", communes, GEO / "bv", listes_lfi
+    )
     for niveau, df in resultats.items():
         df.to_parquet(OUT / f"resultats_{niveau}.parquet", index=False)
         print(f"   {niveau}: {len(df)} lignes")

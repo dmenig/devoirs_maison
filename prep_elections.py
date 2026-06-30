@@ -33,6 +33,24 @@ FAMILLES = sorted(set(FAMILLE_BLOC6) | {"UDI"})
 
 PLM_COMMUNES = ("75056", "69123", "13055")
 
+# Scrutins de liste 2026 (tour 1) pour lesquels la table des listes soutenues par LFI
+# fait foi : la nuance du ministère sous-estime souvent l'implantation insoumise
+# (une union FI–Écolos–PCF peut être étiquetée « LDVG »).
+SCRUTINS_LISTES_LFI = ("2026-municipales-1", "2026-conseils-PLM-1")
+
+
+def charger_listes_lfi(fichier: Path) -> set[tuple[str, int]]:
+    """Clés (code_circonscription, numéro de panneau) des listes soutenues par LFI.
+
+    code_circonscription matche `code_commune` (communes) ou `code_secteur` (PLM,
+    métropole de Lyon) ; le numéro de panneau identifie la liste au sein du scrutin."""
+    df = pd.read_parquet(fichier, columns=["code_circonscription", "numéro_panneau"])
+    df = df.dropna(subset=["numéro_panneau"])
+    return {
+        (str(c), int(p))
+        for c, p in zip(df["code_circonscription"], df["numéro_panneau"])
+    }
+
 
 def _canon_suffix(s: pd.Series) -> pd.Series:
     """Numéro de bureau canonique = zéro-padding sur 4 chiffres ('1' → '0001'), pour
@@ -126,7 +144,10 @@ def lister_scrutins(dossier_clean: Path) -> list[Scrutin]:
 
 
 def _bureau_depuis_df(
-    df: pd.DataFrame, scrutin: Scrutin, crosswalk: dict[str, str]
+    df: pd.DataFrame,
+    scrutin: Scrutin,
+    crosswalk: dict[str, str],
+    listes_lfi: set[tuple[str, int]],
 ) -> pd.DataFrame:
     """Renvoie une ligne par bureau de vote, avec voix ventilées par famille."""
     df = df.copy()
@@ -146,6 +167,12 @@ def _bureau_depuis_df(
     nuance = df["nuance"] if "nuance" in df.columns else pd.Series([None] * len(df))
     nom = df["nom"] if "nom" in df.columns else pd.Series([None] * len(df))
     df["famille"] = [nuance_vers_famille(n, m) for n, m in zip(nuance, nom)]
+    if listes_lfi and scrutin.cle in SCRUTINS_LISTES_LFI and "numero_panneau" in df:
+        est_lfi = [
+            pd.notna(p) and (str(c), int(p)) in listes_lfi
+            for c, p in zip(base_bv, df["numero_panneau"])
+        ]
+        df.loc[est_lfi, "famille"] = "LFI"
 
     base_cols = ["code_bv", "code_commune", "bureau_de_vote"]
     base = df.groupby("code_bv", as_index=False)[
@@ -165,7 +192,7 @@ def _bureau_depuis_df(
 
 
 def _par_bureau(
-    scrutin: Scrutin, crosswalk: dict[str, str]
+    scrutin: Scrutin, crosswalk: dict[str, str], listes_lfi: set[tuple[str, int]]
 ) -> list[tuple[Scrutin, pd.DataFrame]]:
     """Lit le fichier d'un scrutin et renvoie un (scrutin, table BV) par tour. Les fichiers
     legacy regroupant plusieurs tours (présidentielle 2012, municipales 2014) sont séparés
@@ -175,9 +202,9 @@ def _par_bureau(
         sorties = []
         for t, sub in df.groupby("numero_tour"):
             sc = replace(scrutin, cle=f"{scrutin.cle}-{int(t)}", tour=int(t))
-            sorties.append((sc, _bureau_depuis_df(sub, sc, crosswalk)))
+            sorties.append((sc, _bureau_depuis_df(sub, sc, crosswalk, listes_lfi)))
         return sorties
-    return [(scrutin, _bureau_depuis_df(df, scrutin, crosswalk))]
+    return [(scrutin, _bureau_depuis_df(df, scrutin, crosswalk, listes_lfi))]
 
 
 def _indicateurs(g: pd.DataFrame) -> dict:
@@ -233,9 +260,11 @@ def construire_resultats(
     dossier_clean: Path,
     communes: pd.DataFrame,
     geo_dir: Path | None = None,
+    listes_lfi_fichier: Path | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Construit un dict {niveau: DataFrame} agrégeant tous les scrutins."""
     crosswalk = construire_crosswalk_plm(dossier_clean, geo_dir) if geo_dir else {}
+    listes_lfi = charger_listes_lfi(listes_lfi_fichier) if listes_lfi_fichier else set()
     com2dep = communes.set_index("code_commune")["code_departement"].to_dict()
     dep2reg = (
         communes.drop_duplicates("code_departement")
@@ -247,7 +276,7 @@ def construire_resultats(
     }
     for scrutin in lister_scrutins(dossier_clean):
         try:
-            bureaux = _par_bureau(scrutin, crosswalk)
+            bureaux = _par_bureau(scrutin, crosswalk, listes_lfi)
         except Exception as e:  # un scrutin atypique ne doit pas tout bloquer
             print(f"  ⚠ {scrutin.cle} ignoré : {e}")
             continue
