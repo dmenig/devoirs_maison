@@ -34,7 +34,11 @@ function pairMetrics(o){ if(!o)return {};
   return {
     report: lvA?Math.round(1000*lvB/lvA)/10:null,
     perte:  gvA?Math.round(1000*(gvA-gvB)/gvA)/10:null,
-    dpart:  (pA!=null&&pB!=null)?Math.round((pB-pA)*10)/10:null };
+    dpart:  (pA!=null&&pB!=null)?Math.round((pB-pA)*10)/10:null,
+    // réservoirs exprimés en NOMBRE DE VOIX (retour Elia) : évolution des voix LFI et
+    // voix de gauche perdues (à reconquérir) entre les deux scrutins choisis.
+    dlfiv:  (lvA!=null&&lvB!=null)?lvB-lvA:null,
+    pertev: (gvA!=null&&gvB!=null)?gvA-gvB:null };
 }
 // Voix à conquérir (retour Elia, point 5) : nombre de voix manquantes, par zone, pour
 // atteindre l'objectif de qualification au 1er tour de la présidentielle 2027 (exprimés

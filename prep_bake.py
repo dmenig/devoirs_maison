@@ -256,17 +256,20 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
             continue
         pop = float(row["pop"])
         o["pop"] = int(pop)
-        # population majeure ≈ 15 ans et + moins les 15-17 ans (≈ 1/5 de la tranche 15-29)
-        part_15p = sum(
-            (row.get(f"age{s}_{i}") or 0) for s in ("H", "F") for i in range(1, 6)
+        # NaN est « truthy » en Python : `x or 0` laisserait passer un NaN et ferait
+        # échouer round() plus bas. On coerce donc explicitement les champs absents à 0.
+        num = lambda k: (lambda v: 0.0 if v is None or pd.isna(v) else float(v))(  # noqa: E731
+            row.get(k)
         )
-        part_1529 = (row.get("ageH_1") or 0) + (row.get("ageF_1") or 0)
+        # population majeure ≈ 15 ans et + moins les 15-17 ans (≈ 1/5 de la tranche 15-29)
+        part_15p = sum(num(f"age{s}_{i}") for s in ("H", "F") for i in range(1, 6))
+        part_1529 = num("ageH_1") + num("ageF_1")
         pop_majeur = pop * (part_15p - 0.2 * part_1529) / 100
         ins = o.get("insc")
         if ins is not None:
             o["noninsc"] = max(0, round(pop_majeur - ins))
         if pd.notna(row.get("mig_2")):
-            taux = sum((row.get(f"mig_{i}") or 0) for i in (2, 3, 4)) / 100
+            taux = sum(num(f"mig_{i}") for i in (2, 3, 4)) / 100
             o["malinsc"] = round(pop_majeur * taux)
 
 

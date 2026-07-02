@@ -40,12 +40,18 @@ SCRUTINS_LISTES_LFI = ("2026-municipales-1", "2026-conseils-PLM-1")
 
 
 def charger_listes_lfi(fichier: Path) -> set[tuple[str, int]]:
-    """Clés (code_circonscription, numéro de panneau) des listes soutenues par LFI.
+    """Clés (code_circonscription, numéro de panneau) des listes CONDUITES par LFI.
 
+    On ne garde que les listes dont la tête de liste est étiquetée LFI
+    (`étiquette_tdl == "LFI"`) : les listes d'union que LFI soutient sans les conduire
+    (têtes DVG, PCF, PS, écolos…) relèvent de la gauche, pas du « vote LFI ».
     code_circonscription matche `code_commune` (communes) ou `code_secteur` (PLM,
     métropole de Lyon) ; le numéro de panneau identifie la liste au sein du scrutin."""
-    df = pd.read_parquet(fichier, columns=["code_circonscription", "numéro_panneau"])
+    df = pd.read_parquet(
+        fichier, columns=["code_circonscription", "numéro_panneau", "étiquette_tdl"]
+    )
     df = df.dropna(subset=["numéro_panneau"])
+    df = df[df["étiquette_tdl"] == "LFI"]
     return {
         (str(c), int(p))
         for c, p in zip(df["code_circonscription"], df["numéro_panneau"])

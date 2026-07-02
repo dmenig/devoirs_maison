@@ -31,10 +31,17 @@ NUANCE_FAMILLE: dict[str, str] = {
     # France insoumise
     "FI": "LFI",
     "LFI": "LFI",
-    # coalitions de gauche (NUPES 2022, NFP 2024) — gauche unie
+    # coalitions législatives où LFI est un pôle moteur et n'a pas de bulletin
+    # séparé (NUPES 2022 = NUP, NFP 2024 = UG) : le score de l'union sert de proxy
+    # au vote LFI (affiché comme tel, couleurs NFP).
     "NUP": "UG",
     "UG": "UG",
     "UDG": "UG",
+    # listes « union de la gauche » des scrutins de liste (LUG : européennes,
+    # municipales, régionales). LFI y a une liste PROPRE à côté (nuance LFI, ou liste
+    # conduite par LFI repérée par la table dédiée) : la liste d'union ne doit donc PAS
+    # être comptée comme LFI. Ex. européennes 2024, LUG = liste Glucksmann/Place Publique.
+    "LUG": "UGL",
     # communistes
     "COM": "PCF",
     # socialistes / radicaux de gauche / divers gauche
@@ -114,6 +121,7 @@ FAMILLE_BLOC6: dict[str, str] = {
     "LFI": "LFI-PCF-EXG",
     "PCF": "LFI-PCF-EXG",
     "UG": "LFI-PCF-EXG",  # coalition de gauche, rattachée au pôle insoumis/gauche
+    "UGL": "LFI-PCF-EXG",  # liste d'union de la gauche (recompo inchangée : pôle de gauche)
     "SOC": "PS-EELV",
     "ECO": "PS-EELV",
     "DVG": "PS-EELV",
@@ -134,6 +142,7 @@ FAMILLE_TRIPARTITION: dict[str, str] = {
     "LFI": "social_ecologique",
     "PCF": "social_ecologique",
     "UG": "social_ecologique",
+    "UGL": "social_ecologique",
     "SOC": "social_ecologique",
     "ECO": "social_ecologique",
     "DVG": "social_ecologique",
@@ -157,8 +166,11 @@ TRIPARTITION_ORDRE = [
 ]
 
 # Familles considérées comme "la gauche" (pour les réservoirs LFI/gauche)
-FAMILLES_GAUCHE = {"EXG", "LFI", "PCF", "UG", "SOC", "ECO", "DVG"}
-FAMILLES_LFI = {"LFI", "UG"}  # LFI seule + coalitions à dominante insoumise
+FAMILLES_GAUCHE = {"EXG", "LFI", "PCF", "UG", "UGL", "SOC", "ECO", "DVG"}
+# LFI proprement dite : bulletin LFI, ou union LÉGISLATIVE sans bulletin LFI séparé
+# (NUPES/NFP = UG). Les listes d'union de la gauche (UGL) en sont exclues : aux scrutins
+# de liste, LFI a son propre bulletin (nuance LFI / liste conduite par LFI).
+FAMILLES_LFI = {"LFI", "UG"}
 
 
 def nuance_vers_famille(nuance: str | None, nom: str | None = None) -> str:

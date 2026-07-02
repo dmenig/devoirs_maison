@@ -173,27 +173,23 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
         heads.map((x,j)=>`<th style="color:${cols[j]||'#999'}">${x}</th>`).join("")+
         `</tr></thead><tbody>${rows}</tbody></table></div>`); } }
 
-  // réservoirs de voix entre les DEUX scrutins choisis (sélecteur A→B), recalculés à la volée
-  const pm=pairMetrics(o), arrow=`${selA}→${selB}`;
-  let resRows="", resDet=`<p>Réservoirs entre les <b>deux scrutins choisis</b> dans le sélecteur en haut de carte.</p>`;
-  if(pm.report!=null){ const perte=Math.round((100-pm.report)*10)/10;
-    resRows+=`<div class="row"><span>Voix LFI conservées ${arrow}</span><b>${pm.report} %</b></div>`;
-    resDet+=`<p><b>Voix LFI conservées</b> : LFI a conservé <b>${pm.report}%</b> de ses voix entre ${scLab(selA)} et ${scLab(selB)}`+
-      `${perte>0?` (soit <b>${perte}%</b> de voix insoumises perdues à reconquérir)`:""}. `+
-      `Taux de report en <b>voix réelles</b> (voix LFI ${selB} ÷ voix LFI ${selA}), non en % d'inscrits.</p>`; }
-  if(pm.dpart!=null){
-    resRows+=`<div class="row"><span>Évolution participation ${arrow}</span><b>${pm.dpart>0?"+":""}${pm.dpart} pts</b></div>`;
-    resDet+=`<p><b>Évolution participation</b> : participation ${pm.dpart>=0?"plus forte":"plus faible"} de <b>${Math.abs(pm.dpart)} pts</b> `+
-      `en ${scLab(selB)} qu'en ${scLab(selA)} (en points d'inscrits). Mesure la (dé)mobilisation entre les deux scrutins.</p>`; }
-  if(pm.perte!=null){
-    resRows+=`<div class="row"><span>Voix perdues à gauche ${arrow}</span><b>${pm.perte>0?pm.perte+" %":"—"}</b></div>`;
-    resDet+=`<p><b>Voix perdues à gauche</b> : la gauche (LFI, PS, EELV, PCF) a perdu <b>${pm.perte}%</b> de ses voix entre `+
-      `${scLab(selA)} et ${scLab(selB)} (voix réelles). Une valeur négative = progression.</p>`; }
+  // Réservoirs de voix entre les DEUX scrutins choisis (sélecteur A→B), recalculés à la
+  // volée. Tout est exprimé en NOMBRE DE VOIX (retour Elia) pour rester homogène avec le
+  // haut du Carnet de campagne : on ne mélange plus %, points et voix dans ce bloc.
+  const pm=pairMetrics(o), arrow=`${selA}→${selB}`, nbv=v=>v.toLocaleString('fr');
+  let resRows="", resDet=`<p>Réservoirs entre les <b>deux scrutins choisis</b> dans le sélecteur en haut de carte, tous exprimés en <b>nombre de voix</b>.</p>`;
+  if(pm.dlfiv!=null){
+    resRows+=`<div class="row"><span>Évolution voix LFI ${arrow}</span><b>${pm.dlfiv>0?"+":""}${nbv(pm.dlfiv)} voix</b></div>`;
+    resDet+=`<p><b>Évolution voix LFI</b> : ${pm.dlfiv>=0?"gain":"perte"} de <b>${nbv(Math.abs(pm.dlfiv))}</b> voix LFI entre ${scLab(selA)} et ${scLab(selB)} `+
+      `(voix réelles ${selB} − voix réelles ${selA}). Une valeur négative = voix insoumises à reconquérir.</p>`; }
+  if(pm.pertev!=null){
+    resRows+=`<div class="row"><span>Voix perdues à gauche ${arrow}</span><b>${pm.pertev>0?nbv(pm.pertev)+" voix":"—"}</b></div>`;
+    resDet+=`<p><b>Voix perdues à gauche</b> : la gauche (LFI, PS, EELV, PCF) a perdu <b>${pm.pertev>0?nbv(pm.pertev):0}</b> voix entre `+
+      `${scLab(selA)} et ${scLab(selB)} (voix réelles). Réservoir de gauche à reconquérir ; une valeur ≤ 0 = progression.</p>`; }
   if(o.abst!=null){
-    resRows+=`<div class="row"><span>Abstentionnistes à remobiliser · E24</span><b>${o.abst.toLocaleString('fr')} voix</b></div>`;
+    resRows+=`<div class="row"><span>Abstentionnistes à remobiliser · E24</span><b>${nbv(o.abst)} voix</b></div>`;
     resDet+=`<p><b>Abstentionnistes à remobiliser</b> : <b>nombre</b> d'inscrits n'ayant pas voté aux européennes 2024 `+
-      `(inscrits × taux d'abstention) — et non le <b>taux</b> d'abstention en % affiché plus haut. `+
-      `C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
+      `(inscrits × taux d'abstention). C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
   if(resRows)elec+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
   // Contexte social + déterminants du vote (FILOSOFI + recensement INSEE 2021).
