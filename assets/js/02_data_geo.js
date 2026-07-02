@@ -42,16 +42,22 @@ function pairMetrics(o){ if(!o)return {};
 }
 // Voix à conquérir (retour Elia, point 5) : nombre de voix manquantes, par zone, pour
 // atteindre l'objectif de qualification au 1er tour de la présidentielle 2027 (exprimés
-// estimés × seuil de qualification) AU-DELÀ du socle de voix garanties (plancher gauche
-// sur les scrutins passés). Mêmes hypothèses que le Carnet de campagne (CARNET_HYP).
+// estimés × seuil de qualification) AU-DELÀ du socle de voix garanties LFI (plancher des
+// voix LFI sur les scrutins nationaux où LFI se présente en propre : présidentielle 2022,
+// européennes 2024, législatives 2024). On EXCLUT les municipales 2026 : « conduite par
+// LFI » y vaut 0 dès que LFI ne mène pas de liste, ce qui écraserait le plancher à 0.
+// Aux échelles agrégées (région/dép), la valeur bakée `conq` prime : c'est la SOMME des
+// déficits communaux (chaque commune plafonnée à ≥ 0), pas un calcul sur les totaux
+// régionaux — sinon les communes largement au-dessus de l'objectif masquent les autres.
+const CONQ_SCRUTINS=["P22","E24","L24"];
 function voixConquerir(o){ if(!o)return null; const b=carnetBase(o); if(!b)return null;
-  const gvs=["P22","E24","L24","M26"].map(k=>o[`gv_${k}`]).filter(v=>v!=null);
-  if(!gvs.length)return null;
-  return Math.max(0,Math.round(b.exprimes*CARNET_HYP.qualif1T-Math.min(...gvs))); }
+  const lv=CONQ_SCRUTINS.map(k=>o[`lfiv_${k}`]).filter(v=>v!=null);
+  if(!lv.length)return null;
+  return Math.max(0,Math.round(b.exprimes*CARNET_HYP.qualif1T-Math.min(...lv))); }
 
 // Les autres valeurs sont bakées par prep_bake.py et lues telles quelles.
 function rawVal(o,k){ if(!o)return null;
-  if(k==="conquerir") return voixConquerir(o);
+  if(k==="conquerir") return o.conq!=null?o.conq:voixConquerir(o);  // agrégats : somme bakée
   if(k==="dyn_report")return pairMetrics(o).report;
   if(k==="dyn_dpart") return pairMetrics(o).dpart;
   if(k==="dyn_perte") return pairMetrics(o).perte;

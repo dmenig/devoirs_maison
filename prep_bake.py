@@ -7,6 +7,7 @@ suffisant pour l'usage militant et léger à charger."""
 
 from __future__ import annotations
 
+import collections
 import json
 import math
 import re
@@ -286,6 +287,33 @@ def _baker_admin(com: dict[str, dict], da: Path) -> None:
     print(f"  ✓ admin communes fusionnées ({len(df) - 1})")
 
 
+# Voix à conquérir (retour Elia) — miroir Python de assets/js/02_data_geo.js. Socle = plancher
+# des voix LFI sur les scrutins nationaux où LFI se présente en propre (présidentielle 2022,
+# européennes 2024, législatives 2024). On exclut les municipales 2026 : « conduite par LFI »
+# y vaut 0 sans tête de liste LFI et écraserait le plancher. Aux échelles agrégées, la valeur
+# est la SOMME des déficits communaux (chaque commune plafonnée à ≥ 0).
+QUALIF_1T = 0.20
+CONQ_SCRUTINS = ("P22", "E24", "L24")
+
+
+def _conquerir(o: dict) -> int | None:
+    insc = o.get("insc")
+    if insc is None:
+        abst, part = o.get("abst"), o.get("part_E24")
+        if abst is not None and part is not None and part < 100:
+            insc = round(abst / (1 - part / 100))
+    if insc is None:
+        return None
+    pp = o.get("part_P22")
+    if pp is None:
+        pp = o.get("part_E24")
+    exprimes = round(insc * (pp / 100 if pp is not None else 0.70))
+    socle = [o[f"lfiv_{k}"] for k in CONQ_SCRUTINS if o.get(f"lfiv_{k}") is not None]
+    if not socle:
+        return None
+    return max(0, round(exprimes * QUALIF_1T - min(socle)))
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     DA = Path(__file__).parent / "data_app"
@@ -300,10 +328,14 @@ def main() -> None:
         )
     _ecrire("_scrutins", scrutins_meta)
 
-    for niveau in ("region", "departement"):
-        df = pd.read_parquet(DA / f"resultats_{niveau}.parquet")
-        _ecrire(niveau, _valeurs_niveau(df, ordre, fiables))
-        print(f"  ✓ values {niveau}")
+    # région/département : bakés après les communes, pour y injecter la somme des « voix à
+    # conquérir » communales (cf. plus bas) plutôt qu'un calcul sur les totaux agrégés.
+    niveaux_agr = {
+        niveau: _valeurs_niveau(
+            pd.read_parquet(DA / f"resultats_{niveau}.parquet"), ordre, fiables
+        )
+        for niveau in ("region", "departement")
+    }
 
     # communes : valeurs électorales + revenu/pauvreté, découpées par département
     rc_commune = pd.read_parquet(DA / "resultats_commune.parquet")
@@ -319,9 +351,27 @@ def main() -> None:
         .astype(str)
         .to_dict()
     )
+    conq_reg: dict[str, int] = collections.defaultdict(int)
+    conq_dep: dict[str, int] = collections.defaultdict(int)
     for code, vals in com.items():
-        if regmap.get(code):
-            vals["reg"] = regmap[code]
+        reg = regmap.get(code)
+        valide = reg == reg and str(reg) not in ("nan", "None", "")  # écarte NaN/absent
+        if valide:
+            vals["reg"] = str(reg)
+        c = _conquerir(vals)
+        if c is None:
+            continue
+        vals["conq"] = c
+        if valide:
+            conq_reg[str(reg)] += c
+        conq_dep[code[:3] if code.startswith("97") else code[:2]] += c
+    for reg, v in conq_reg.items():
+        niveaux_agr["region"].setdefault(reg, {})["conq"] = v
+    for dep, v in conq_dep.items():
+        niveaux_agr["departement"].setdefault(dep, {})["conq"] = v
+    for niveau, vals in niveaux_agr.items():
+        _ecrire(niveau, vals)
+        print(f"  ✓ values {niveau}")
     ref_f = DA / "socio_reference.json"
     if ref_f.exists():
         refs = json.loads(ref_f.read_text())
