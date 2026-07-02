@@ -56,7 +56,12 @@ const spoiler=(titre,corps,open=false)=> !corps?"":
 const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 
+// cache:"no-cache" force le navigateur à revalider auprès de GitHub (requête conditionnelle
+// ETag → 304 si inchangé, sinon contenu frais) au lieu de servir aveuglément sa copie en
+// cache : sans ça, après une mise à jour de data_app, la carte gardait les anciennes valeurs
+// (ex. « 0 voix à conquérir ») jusqu'à un vidage manuel du cache. Le cache mémoire `cache{}`
+// dédoublonne les appels dans une même session.
 async function getJSON(p){ if(p in cache)return cache[p];
   $("loading").textContent="…"; let j=null;
-  try{const r=await fetch(BASE+"/"+p); j=r.ok?await r.json():null;}catch(e){j=null;}
+  try{const r=await fetch(BASE+"/"+p,{cache:"no-cache"}); j=r.ok?await r.json():null;}catch(e){j=null;}
   cache[p]=j; $("loading").textContent=""; return j; }
