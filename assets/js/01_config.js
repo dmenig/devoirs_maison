@@ -33,7 +33,9 @@ const ZBACK=0.35;
 const $=id=>document.getElementById(id);
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+// dark_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
+// libellés anglais (pays voisins, mers) ; les noms français viennent des couches de l'atlas.
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
