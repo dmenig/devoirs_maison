@@ -31,6 +31,28 @@ const ZIN=[6.6,8.2,10.5], ZOUT=[0,6.1,7.9,9.8];
 // l'entrée), ZOUT restant un plancher absolu.
 const ZBACK=0.35;
 const $=id=>document.getElementById(id);
+// Zoom trackpad : Leaflet arrondit chaque fenêtre de debounce (40 ms) contenant du
+// mouvement à ±1 niveau ENTIER (zoomSnap=1). Un trackpad émet un flux continu
+// d'événements → 1 niveau/40 ms → toute la plage de zoom traversée en un glissement.
+// On détourne les événements trackpad (mode pixel, petits deltas ou rafale en cours)
+// vers un accumulateur qui n'applique ±1 niveau que tous les TP_PX_PER_ZOOM pixels
+// cumulés ; les crans de molette souris (gros deltaY isolés) gardent le chemin d'origine.
+const TP_PX_PER_ZOOM=240;
+const _wheelScroll=L.Map.ScrollWheelZoom.prototype._onWheelScroll;
+L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
+  const trackpad=e.deltaMode===0&&(Math.abs(e.deltaY)<50||this._tpTimer!=null);
+  if(!trackpad){ _wheelScroll.call(this,e); return; }
+  L.DomEvent.stop(e);
+  this._lastMousePos=this._map.mouseEventToContainerPoint(e);
+  this._tpAcc=(this._tpAcc||0)+e.deltaY;
+  clearTimeout(this._tpTimer);
+  this._tpTimer=setTimeout(()=>{this._tpAcc=0; this._tpTimer=null;},200);
+  if(Math.abs(this._tpAcc)<TP_PX_PER_ZOOM)return;
+  // deltaY>0 = dézoom ; _performZoom (sigmoïde + ceil sur zoomSnap) transforme tout
+  // _delta non nul en exactement ±1 niveau, comme un cran de molette.
+  this._delta=-Math.sign(this._tpAcc); this._tpAcc=0; this._startTime=+new Date();
+  this._performZoom();
+};
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
 // dark_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
