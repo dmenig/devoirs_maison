@@ -2,12 +2,17 @@
 // Permalien : l'URL de la PAGE (pas de l'iframe) reflète la vue courante — centre `ll`,
 // zoom `z`, zone en focus `e` (niveau:code, sommet de pile), sous-mode `sm` (quartiers
 // IRIS) et fiche ouverte `f` (BV/IRIS cliqué) — pour qu'un militant sauvegarde l'URL et
-// retombe exactement sur sa vue. La carte vit dans l'iframe srcdoc de Streamlit (même
-// origine que la page) : on écrit sur window.parent via replaceState (pas de rechargement,
-// pas d'entrée d'historique à chaque zoom) ; si l'accès parent est refusé (déploiement
-// cross-origin), on dégrade en silence sur l'URL de l'iframe.
+// retombe exactement sur sa vue. Écriture via replaceState (pas de rechargement, pas
+// d'entrée d'historique à chaque zoom). La carte vit dans l'iframe srcdoc du composant
+// Streamlit, et Streamlit Community Cloud enveloppe LUI-MÊME l'app dans un iframe interne
+// (/~/+/, même origine que la barre d'adresse) : window.parent n'est donc PAS la page
+// visible. On grimpe la chaîne d'ancêtres jusqu'à la plus haute fenêtre même-origine
+// (window.top en déployé comme en local) ; un ancêtre cross-origin arrête la montée et
+// on dégrade en silence sur la dernière fenêtre accessible.
 const URL_KEYS=["ll","z","e","sm","f"];
-function permWin(){ try{ void window.parent.location.href; return window.parent; }catch(e){ return window; } }
+function permWin(){ let w=window;
+  try{ while(w!==w.parent){ void w.parent.location.href; w=w.parent; } }catch(e){}
+  return w; }
 function urlState(){ const c=map.getCenter(), top=stack[stack.length-1];
   const p={ll:c.lat.toFixed(4)+","+c.lng.toFixed(4), z:map.getZoom().toFixed(2)};
   if(top){ p.e=top.niveau+":"+top.code;
