@@ -37,7 +37,7 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
       ly.on("mouseout",()=>layer.resetStyle(ly));
       const o=valeurs[f.properties.__code];
       const show=()=>infoPanel(f.properties.__nom,o,niveau,f.properties.__code);
-      if(enter){ const go=()=>{enterColor=colOf(v);show();enter(f,ly,o);}; ly.__enter=go;
+      if(enter){ const go=fly=>{enterColor=colOf(v);show();enter(f,ly,o,fly);}; ly.__enter=go;
         ly.on("click",()=>{ if(multiSel&&niveau==="commune")toggleSel(f.properties.__code,o); else go(); }); }
       else ly.on("click",show); }}).addTo(map);
   fadeInLayer(); }
@@ -55,13 +55,16 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
 // En remontant, le panneau de droite ne se vide plus : il se relie à la zone désormais
 // en focus (sommet de pile) — sinon, après un zoom sur un BV, l'info de la commune était
 // définitivement perdue. Seul le retour à la France (pas de zone unique) referme la fiche.
-function jumpTo(d){ clearSel(); stack=stack.slice(0,d); fadeOutLayer();
-  if(d===0){ infoPanel(null); setFil(); return vueFrance(); }
+// fly=false (remontée au dézoom) : simple échange de couche, la caméra reste où
+// l'utilisateur l'a mise — seuls les clics (fil d'Ariane, bouton retour) volent.
+function jumpTo(d,fly=true){ clearSel(); stack=stack.slice(0,d); fadeOutLayer();
+  if(d===0){ infoPanel(null); setFil(); return vueFrance(fly); }
   const t=stack[d-1]; infoPanel(t.nom,t.o,t.niveau,t.code); setFil();
-  // remonter : on plafonne le zoom d'arrivée juste sous le seuil de redescente ZIN[d]
-  // (tout en restant au-dessus de ZOUT[d]), sinon l'ajustement aux contours du parent
-  // retombe pile sur le seuil et on replonge aussitôt dans la zone qu'on vient de quitter.
-  flyTo(t.bounds, ZIN[d]!=null?ZIN[d]-0.1:15); render(t.niveau,t.code); }
+  // remonter en volant : on plafonne le zoom d'arrivée juste sous le seuil de redescente
+  // ZIN[d] (tout en restant au-dessus de ZOUT[d]), sinon l'ajustement aux contours du
+  // parent retombe pile sur le seuil et on replonge aussitôt dans la zone qu'on vient de quitter.
+  if(fly)flyTo(t.bounds, ZIN[d]!=null?ZIN[d]-0.1:15); else t.enterZoom=map.getZoom();
+  render(t.niveau,t.code); }
 function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`;
   stack.forEach((s,i)=>h+=` › <span class="crumb" data-d="${i+1}">${s.nom}</span>`);
   $("fil").innerHTML=h; $("fil").querySelectorAll(".crumb").forEach(e=>e.onclick=()=>jumpTo(+e.dataset.d));
@@ -75,22 +78,22 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.
     clearTimeout(zoomSettle); flushDraw(); setTimeout(()=>busy=false,320); }); }
 
-async function vueFrance(){ clearSel(); stack=[]; setFil(); subToggle(false); flyTo(FRANCE,6);
+async function vueFrance(fly=true){ clearSel(); stack=[]; setFil(); subToggle(false); if(fly)flyTo(FRANCE,6);
   dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
-    (f,ly,o)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"region"); }
+    (f,ly,o,fly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds(),o,fly),"region"); }
 async function vueRegion(code){ subToggle(false);
   const [geo,val,hier]=await Promise.all([getJSON("geo/departements.geojson"),
     getJSON("values/departement.json"),getJSON("values/_hierarchie.json")]);
   const deps=new Set(hier.departements.filter(d=>d.region===code).map(d=>d.code));
   dessiner({type:"FeatureCollection",features:geo.features.filter(f=>deps.has(String(f.properties.code)))},
-    val,"code","nom",(f,ly,o)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"departement"); }
+    val,"code","nom",(f,ly,o,fly)=>entrer("departement",f.properties.__code,f.properties.__nom,ly.getBounds(),o,fly),"departement"); }
 // Présidentielle : pas d'échelle circonscription (scrutin national). Le département
 // descend directement aux communes — ce qui dissout aussi le bug des communes à cheval
 // sur deux circos (cf. EVOLUTIONS.md, chantier 1).
 async function vueDepartement(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
   if(!geo){$("loading").textContent="contours indisponibles";return;}
-  dessiner(geo,val||{},"code","nom",(f,ly,o)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds(),o),"commune"); }
+  dessiner(geo,val||{},"code","nom",(f,ly,o,fly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds(),o,fly),"commune"); }
 const subToggle=show=>{ const adv=document.body.classList.contains("adv");
   $("subtoggle").style.display=(show&&adv)?"flex":"none";
   if(!show){ sousMode="bv";
@@ -119,8 +122,11 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
-function entrer(niveau,code,nom,bounds,o){ clearSel(); stack.push({niveau,code,nom,bounds,o,color:enterColor}); setFil();
-  fadeOutLayer(); flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
+// fly=false (descente au zoom) : la couche fille remplace la couche mère SANS recadrer
+// la caméra — le zoom continu reste la propriété de l'utilisateur ; le clic vole.
+function entrer(niveau,code,nom,bounds,o,fly=true){ clearSel();
+  stack.push({niveau,code,nom,bounds,o,color:enterColor,enterZoom:fly?null:map.getZoom()}); setFil();
+  fadeOutLayer(); if(fly)flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
 // Si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er « retour »
 // restaure la fiche de la COMMUNE (couche déjà à l'écran) au lieu de remonter au
 // département — on ne remonte d'un cran qu'au clic suivant (même logique qu'au dézoom).
@@ -135,24 +141,31 @@ window.__feats=()=>{const a=[];layer&&layer.eachLayer(l=>l.feature&&a.push(l.fea
 function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let best=null,ba=1e18;
   layer.eachLayer(ly=>{ if(ly.getBounds){const b=ly.getBounds(); if(b.contains(c)){
     const a=(b.getEast()-b.getWest())*(b.getNorth()-b.getSouth()); if(a<ba){ba=a;best=ly;}}}}); return best; }
-// remontée/descente auto au zoom-molette. On NE réagit PAS à chaque zoomend : Leaflet en
-// émet plusieurs par coup de molette (momentum compris), ce qui faisait remonter en
-// cascade. On attend que le zoom se POSE (debounce) puis on n'applique qu'UN saut — un
-// dézoom continu = une seule remontée. Sur une remontée on purge en plus le delta molette
-// en attente (disable/enable) pour que l'inertie post-flyTo ne déclenche pas un 2e saut.
-let zoomSettle=null;
+// remontée/descente auto au zoom : PLUS AUCUN recadrage (pas de flyTo) — on n'échange
+// que la couche affichée au franchissement des seuils, la caméra reste où l'utilisateur
+// l'a mise (zoom continu façon carte classique). Directionnel : on ne descend qu'en
+// zoomant, on ne remonte qu'en dézoomant — sans recadrage, une remontée laisse le zoom
+// au-dessus de ZIN et replongerait aussitôt sans ce garde-fou. On NE réagit PAS à chaque
+// zoomend (Leaflet en émet plusieurs par geste) : on attend que le zoom se POSE
+// (debounce) et on n'applique qu'UN saut par pose — la granularité rattrape le zoom
+// pose après pose. Sur une remontée on purge le delta molette en attente (disable/enable).
+let zoomSettle=null, lastSettleZ=null;
 function onZoomSettled(){ if(busy)return; const z=map.getZoom(), d=stack.length;
-  if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(); }
-  else if(d>=1){ const top=stack[d-1];
-    if(top.enterZoom==null) top.enterZoom=z;
-    if(z>top.enterZoom){ top.enterZoom=z; return; } // on plonge : le repère suit le zoom le plus profond atteint
-    const thr=Math.max(ZOUT[d], top.enterZoom-ZBACK);
-    if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable();
-      // si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er dézoom
-      // restaure d'abord la fiche de la zone (la commune) ; on ne remonte qu'au dézoom suivant.
-      if(lastInfo&&lastInfo.code!==top.code){ infoPanel(top.nom,top.o,top.niveau,top.code); return; }
-      jumpTo(d-1); } } }
-// un zoomend pendant un vol programmatique (clic/saut) ne doit jamais armer la descente
-// auto : sinon le zoom d'arrivée, au-dessus de ZIN, fait replonger d'un niveau tout seul
-// (clic Région → descente parasite dans le département centré).
-map.on("zoomend",()=>{ if(busy||animating)return; clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });
+  const dir=lastSettleZ==null?0:Math.sign(z-lastSettleZ); lastSettleZ=z;
+  if(dir>=0){
+    if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(false); }
+    else if(d>=1){ const top=stack[d-1];
+      if(top.enterZoom==null||z>top.enterZoom)top.enterZoom=z; } // le repère suit le zoom le plus profond atteint
+    return; }
+  if(d<1)return;
+  const top=stack[d-1]; if(top.enterZoom==null)top.enterZoom=z;
+  const thr=Math.max(ZOUT[d], top.enterZoom-ZBACK);
+  if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable();
+    // si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er dézoom
+    // restaure d'abord la fiche de la zone (la commune) ; on ne remonte qu'au dézoom suivant.
+    if(lastInfo&&lastInfo.code!==top.code){ infoPanel(top.nom,top.o,top.niveau,top.code); return; }
+    jumpTo(d-1,false); } }
+// un zoomend pendant un vol programmatique (clic/saut, restauration d'URL) ne doit jamais
+// armer la descente auto — il recale seulement le repère directionnel sur le zoom d'arrivée.
+map.on("zoomend",()=>{ if(busy||animating){ lastSettleZ=map.getZoom(); return; }
+  clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });
