@@ -32,38 +32,40 @@ const ZIN=[6.6,8.2,10.5], ZOUT=[0,6.1,7.9,9.8];
 const ZBACK=0.35;
 const $=id=>document.getElementById(id);
 // Zoom trackpad : Leaflet arrondit chaque fenêtre de debounce (40 ms) contenant du
-// mouvement à ±1 niveau ENTIER (zoomSnap=1). Un trackpad émet un flux continu
-// d'événements → 1 niveau/40 ms → toute la plage de zoom traversée en un glissement.
-// Les événements trackpad alimentent un accumulateur : ±1 niveau tous les TP_PX pixels
-// cumulés, au plus 1 niveau par TP_MS. Détection : mode pixel ET (petit delta OU flux
-// en cours OU événement à <90 ms du précédent) — un glissement vigoureux peut débuter
-// par un gros delta, indiscernable d'un cran de molette, d'où la mise en attente
-// TP_HOLD : si un flux suit, il rejoint l'accumulateur, sinon on le rejoue en cran.
-const TP_PX=350, TP_MS=350, TP_HOLD=70;
+// mouvement à ±1 niveau ENTIER — un glissement traverse toute la plage de zoom, et
+// le moindre pas de -1 dépasse ZBACK → remontée de granularité (flyTo) : zoom violent.
+// Remède : zoomSnap 0.25 sur la carte, et le flux trackpad zoome par QUARTS de niveau
+// (TP_PX px cumulés par pas, au plus un pas par TP_MS) — un micro-geste donne ±0.25,
+// sous ZBACK, donc sans bascule de couche. Un gros delta isolé hors flux (cran de
+// molette probable) est retenu TP_HOLD ms : si un flux suit c'était un glissement et
+// il rejoint l'accumulateur, sinon on applique un cran classique de ±1 niveau.
+const TP_PX=150, TP_MS=100, TP_HOLD=70, TP_STEP=0.25;
 const _wheelScroll=L.Map.ScrollWheelZoom.prototype._onWheelScroll;
+function tpZoom(h,mag){ const m=h._map, z=m.getZoom(),
+    t=Math.max(m.getMinZoom(),Math.min(m.getMaxZoom(),z+mag));
+  if(t!==z){ m._stop(); m.setZoomAround(h._lastMousePos,t); } }
 L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
   if(e.deltaMode!==0){ _wheelScroll.call(this,e); return; } // molette « lignes » (Firefox)
-  const now=+new Date(), stream=this._tpTimer!=null||now-(this._tpLast||0)<90;
-  this._tpLast=now;
-  if(Math.abs(e.deltaY)>=50&&!stream){
-    L.DomEvent.stop(e);
-    this._tpHeld=e.deltaY; clearTimeout(this._tpHoldTimer);
-    this._tpHoldTimer=setTimeout(()=>{ this._tpHeld=null; _wheelScroll.call(this,e); },TP_HOLD);
-    return;
-  }
   L.DomEvent.stop(e);
   this._lastMousePos=this._map.mouseEventToContainerPoint(e);
+  const now=+new Date(), stream=this._tpTimer!=null||now-(this._tpLast||0)<90;
+  this._tpLast=now;
+  const dy=e.ctrlKey?e.deltaY*3:e.deltaY; // pincement : deltas minuscules, amplifiés
+  if(Math.abs(dy)>=50&&!stream){
+    this._tpHeld=dy; clearTimeout(this._tpHoldTimer);
+    this._tpHoldTimer=setTimeout(()=>{ this._tpHeld=null; tpZoom(this,dy>0?-1:1); },TP_HOLD);
+    return;
+  }
   if(this._tpHeld!=null){ clearTimeout(this._tpHoldTimer); this._tpAcc=(this._tpAcc||0)+this._tpHeld; this._tpHeld=null; }
-  this._tpAcc=(this._tpAcc||0)+e.deltaY;
+  this._tpAcc=(this._tpAcc||0)+dy;
   clearTimeout(this._tpTimer);
   this._tpTimer=setTimeout(()=>{this._tpAcc=0; this._tpTimer=null;},200);
   if(Math.abs(this._tpAcc)<TP_PX||now-(this._tpZoomAt||0)<TP_MS)return;
-  // deltaY>0 = dézoom ; _performZoom (sigmoïde + ceil sur zoomSnap) transforme tout
-  // _delta non nul en exactement ±1 niveau, comme un cran de molette.
-  this._tpZoomAt=now; this._delta=-Math.sign(this._tpAcc); this._tpAcc=0; this._startTime=now;
-  this._performZoom();
+  this._tpZoomAt=now;
+  const dir=this._tpAcc>0?-1:1; this._tpAcc=0; // deltaY>0 = dézoom
+  tpZoom(this,dir*TP_STEP);
 };
-const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
+const map=L.map('map',{zoomControl:true,zoomSnap:0.25,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
 // dark_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
 // libellés anglais (pays voisins, mers) ; les noms français viennent des couches de l'atlas.
