@@ -4,13 +4,30 @@
   :root{
     --pbg:rgba(26,22,36,.93); --pbg2:#221d30; --bord:#3a3350;
     --txt:#e9e4f2; --mut:#9b93ad; --mut2:#7d7591; --lav:#b39ddb; --cram:#e8456f;
+    /* hauteur du bandeau d'accueil : ajustée par JS à la hauteur réelle (0 si masqué),
+       elle décale tous les panneaux ancrés en haut pour qu'aucun ne le recouvre. */
+    --banner-h:44px;
   }
   html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:#0f0d15;color:var(--txt)}
   #map{position:absolute;inset:0;background:#0f0d15}
   .panel{position:absolute;z-index:1000;background:var(--pbg);color:var(--txt);
          border:1px solid var(--bord);border-radius:10px;
          box-shadow:0 2px 14px rgba(0,0,0,.5);padding:7px 10px;font-size:13px;backdrop-filter:blur(6px)}
-  #top{top:10px;left:52px;right:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  /* bandeau d'accueil : pleine largeur, collé en haut, au-dessus des autres panneaux.
+     Refermable via ✕ (choix mémorisé) ; sa hauteur pilote --banner-h. */
+  #banner{top:0;left:0;right:0;border-radius:0;border-width:0 0 1px 0;z-index:1200;
+          display:flex;align-items:center;gap:11px;padding:8px 14px;
+          background:linear-gradient(90deg,rgba(107,58,158,.96),rgba(26,22,36,.94))}
+  #banner.hidden{display:none}
+  #banner .bnr-ico{font-size:18px;flex:none;line-height:1}
+  #banner .bnr-txt{line-height:1.35;color:var(--txt)}
+  #banner .bnr-txt b{color:#fff}
+  #banner .bnr-cta{color:var(--lav)}
+  #bnrclose{flex:none;margin-left:auto;cursor:pointer;border:none;background:transparent;
+            color:var(--mut);font-size:15px;line-height:1;padding:4px 7px;border-radius:6px}
+  #bnrclose:hover{color:var(--txt);background:rgba(255,255,255,.08)}
+  .leaflet-top{top:var(--banner-h)}
+  #top{top:calc(var(--banner-h) + 10px);left:52px;right:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   #fil{font-weight:700;color:var(--lav)}
   .crumb{cursor:pointer} .crumb:hover{text-decoration:underline}
   #back{cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 10px}
@@ -19,7 +36,7 @@
   #search{flex:1;min-width:340px;padding:5px 7px;border:1px solid var(--bord);border-radius:7px;font-size:13px;
           background:var(--pbg2);color:var(--txt)}
   #search::placeholder{color:var(--mut2)}
-  #pastilles{top:54px;left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
+  #pastilles{top:calc(var(--banner-h) + 54px);left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
   /* groupe « comparaison de scrutins » : le sélecteur ⚖️ ne pilote QUE les pastilles
      qu'il contient (Report / Δ Participation / Perte). La bordure s'allume quand l'une
      d'elles colore la carte, et se grise sinon — pour montrer ce que la paire affecte. */
@@ -35,7 +52,7 @@
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
   .chip:hover{border-color:var(--lav)}
   .chip.on{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
-  #info{top:100px;right:10px;width:min(820px,56vw);max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:18px 22px}
+  #info{top:calc(var(--banner-h) + 100px);right:10px;width:min(820px,56vw);max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:18px 22px}
   /* sections en parallèle : colonnes auto-réparties (≥2 dès que la largeur le permet,
      1 seule en mobile) pour moins scroller. break-inside évite de couper une carte. */
   #info .cols{columns:300px;column-gap:22px}
@@ -190,7 +207,7 @@
   #info .amini .arow .ab i{display:block;height:100%;background:var(--lav)}
   #info .amini .arow b{color:var(--txt);font-variant-numeric:tabular-nums;width:40px;text-align:right;flex:none}
   #info .ahint{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:5px 0 2px}
-  #subtoggle{top:54px;right:10px;display:none;gap:6px}
+  #subtoggle{top:calc(var(--banner-h) + 54px);right:10px;display:none;gap:6px}
   #legend{bottom:14px;left:10px;max-width:300px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
        background:linear-gradient(to right,#3b8fd4,#2d5b82,#46415a,#9e3b34,#d23f2d)}
@@ -220,7 +237,7 @@
   #advtoggle:hover,#exportbtn:hover,#multitoggle:hover{border-color:var(--lav)}
   #advtoggle[aria-pressed="true"],#multitoggle[aria-pressed="true"]{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
   /* barre de sélection multiple : sous la barre du haut, à gauche (au-dessus des pastilles) */
-  #selbar{top:54px;left:52px;display:flex;gap:8px;align-items:center;padding:6px 10px;z-index:1100}
+  #selbar{top:calc(var(--banner-h) + 54px);left:52px;display:flex;gap:8px;align-items:center;padding:6px 10px;z-index:1100}
   #selbar #selcount{font-size:12px;font-weight:700;color:var(--lav)}
   #selbar select{background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
        border-radius:7px;padding:3px 6px;font-size:12px;cursor:pointer}
@@ -244,7 +261,9 @@
     .leaflet-control-zoom{display:none}
     .panel{font-size:13px}
 
-    #top{left:8px;right:8px;top:8px;gap:6px;padding:7px 9px}
+    #banner{gap:9px;padding:7px 10px;font-size:12px}
+    #banner .bnr-cta{display:none}
+    #top{left:8px;right:8px;top:calc(var(--banner-h) + 8px);gap:6px;padding:7px 9px}
     #back,#pastoggle{padding:6px 11px;font-size:15px}
     #pastoggle{display:inline-block}
     /* fil d'Ariane sur une ligne tronquée → hauteur de #top stable (2 lignes) */
@@ -254,7 +273,7 @@
 
     /* tiroir indicateurs : caché par défaut, déployé sous la barre quand .open.
        S'ouvre par-dessus la carte (action volontaire) ; #top reste tappable au-dessus. */
-    #pastilles{display:none;top:90px;left:8px;right:8px;
+    #pastilles{display:none;top:calc(var(--banner-h) + 90px);left:8px;right:8px;
                max-height:calc(100% - 104px);overflow-y:auto;
                -webkit-overflow-scrolling:touch;padding:9px 10px}
     #pastilles.open{display:flex}
@@ -263,7 +282,7 @@
     #pairsel select{font-size:16px;padding:5px 6px}
 
     /* BV/IRIS : sous la barre, à droite (n'apparaît qu'au niveau commune) */
-    #subtoggle{top:90px;right:8px}
+    #subtoggle{top:calc(var(--banner-h) + 90px);right:8px}
     #subtoggle .chip{padding:6px 11px;font-size:13px}
 
     /* légende compacte en bas-gauche ; couverte par la fiche quand celle-ci s'ouvre */
