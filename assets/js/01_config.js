@@ -34,23 +34,33 @@ const $=id=>document.getElementById(id);
 // Zoom trackpad : Leaflet arrondit chaque fenêtre de debounce (40 ms) contenant du
 // mouvement à ±1 niveau ENTIER (zoomSnap=1). Un trackpad émet un flux continu
 // d'événements → 1 niveau/40 ms → toute la plage de zoom traversée en un glissement.
-// On détourne les événements trackpad (mode pixel, petits deltas ou rafale en cours)
-// vers un accumulateur qui n'applique ±1 niveau que tous les TP_PX_PER_ZOOM pixels
-// cumulés ; les crans de molette souris (gros deltaY isolés) gardent le chemin d'origine.
-const TP_PX_PER_ZOOM=240;
+// Les événements trackpad alimentent un accumulateur : ±1 niveau tous les TP_PX pixels
+// cumulés, au plus 1 niveau par TP_MS. Détection : mode pixel ET (petit delta OU flux
+// en cours OU événement à <90 ms du précédent) — un glissement vigoureux peut débuter
+// par un gros delta, indiscernable d'un cran de molette, d'où la mise en attente
+// TP_HOLD : si un flux suit, il rejoint l'accumulateur, sinon on le rejoue en cran.
+const TP_PX=350, TP_MS=350, TP_HOLD=70;
 const _wheelScroll=L.Map.ScrollWheelZoom.prototype._onWheelScroll;
 L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
-  const trackpad=e.deltaMode===0&&(Math.abs(e.deltaY)<50||this._tpTimer!=null);
-  if(!trackpad){ _wheelScroll.call(this,e); return; }
+  if(e.deltaMode!==0){ _wheelScroll.call(this,e); return; } // molette « lignes » (Firefox)
+  const now=+new Date(), stream=this._tpTimer!=null||now-(this._tpLast||0)<90;
+  this._tpLast=now;
+  if(Math.abs(e.deltaY)>=50&&!stream){
+    L.DomEvent.stop(e);
+    this._tpHeld=e.deltaY; clearTimeout(this._tpHoldTimer);
+    this._tpHoldTimer=setTimeout(()=>{ this._tpHeld=null; _wheelScroll.call(this,e); },TP_HOLD);
+    return;
+  }
   L.DomEvent.stop(e);
   this._lastMousePos=this._map.mouseEventToContainerPoint(e);
+  if(this._tpHeld!=null){ clearTimeout(this._tpHoldTimer); this._tpAcc=(this._tpAcc||0)+this._tpHeld; this._tpHeld=null; }
   this._tpAcc=(this._tpAcc||0)+e.deltaY;
   clearTimeout(this._tpTimer);
   this._tpTimer=setTimeout(()=>{this._tpAcc=0; this._tpTimer=null;},200);
-  if(Math.abs(this._tpAcc)<TP_PX_PER_ZOOM)return;
+  if(Math.abs(this._tpAcc)<TP_PX||now-(this._tpZoomAt||0)<TP_MS)return;
   // deltaY>0 = dézoom ; _performZoom (sigmoïde + ceil sur zoomSnap) transforme tout
   // _delta non nul en exactement ±1 niveau, comme un cran de molette.
-  this._delta=-Math.sign(this._tpAcc); this._tpAcc=0; this._startTime=+new Date();
+  this._tpZoomAt=now; this._delta=-Math.sign(this._tpAcc); this._tpAcc=0; this._startTime=now;
   this._performZoom();
 };
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).fitBounds(FRANCE);
