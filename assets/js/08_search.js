@@ -50,5 +50,8 @@ $("search").addEventListener("change",()=>{ const sb=$("search"),e=sb.__byval&&s
 async function init(){ buildSelecteur(); buildPastilles();
   window.__scr=await getJSON("values/_scrutins.json"); window.__adminFr=await getJSON("values/_admin_fr.json");
   window.__socioFr=await getJSON("values/_socio_fr.json"); window.__socioReg=await getJSON("values/_socio_reg.json");
-  await initSearch(); vueFrance(); }
+  await initSearch();
+  // permalien : si l'URL porte une vue sauvegardée (zoom/zone/fiche), on la restaure au
+  // lieu de la vue France (cf. 11_permalink.js).
+  if(!(await restoreFromURL()))vueFrance(); }
 init();  // amorçage — perdu lors de l'éclatement en modules, sans quoi rien ne se charge

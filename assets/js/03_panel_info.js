@@ -74,6 +74,7 @@ function galink(nom){ const q=encodeURIComponent(nom);
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,niveau,code}:null;
+  writeURL();  // un clic sur un BV/IRIS ouvre la fiche sans bouger la carte : l'URL doit suivre
   if(!o){hideInfoSheet(info);return;}
   panelDetails=[];
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
