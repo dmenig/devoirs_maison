@@ -31,41 +31,39 @@ const ZIN=[6.6,8.2,10.5], ZOUT=[0,6.1,7.9,9.8];
 // l'entrée), ZOUT restant un plancher absolu.
 const ZBACK=0.35;
 const $=id=>document.getElementById(id);
-// Zoom trackpad : Leaflet arrondit chaque fenêtre de debounce (40 ms) contenant du
-// mouvement à ±1 niveau ENTIER — un glissement traverse toute la plage de zoom, et
-// le moindre pas de -1 dépasse ZBACK → remontée de granularité (flyTo) : zoom violent.
-// Remède : zoomSnap 0.25 sur la carte, et le flux trackpad zoome par QUARTS de niveau
-// (TP_PX px cumulés par pas, au plus un pas par TP_MS) — un micro-geste donne ±0.25,
-// sous ZBACK, donc sans bascule de couche. Un gros delta isolé hors flux (cran de
-// molette probable) est retenu TP_HOLD ms : si un flux suit c'était un glissement et
-// il rejoint l'accumulateur, sinon on applique un cran classique de ±1 niveau.
-const TP_PX=150, TP_MS=100, TP_HOLD=70, TP_STEP=0.25;
-const _wheelScroll=L.Map.ScrollWheelZoom.prototype._onWheelScroll;
-function tpZoom(h,mag){ const m=h._map, z=m.getZoom(),
-    t=Math.max(m.getMinZoom(),Math.min(m.getMaxZoom(),z+mag));
-  if(t!==z){ m._stop(); m.setZoomAround(h._lastMousePos,t); } }
+// Zoom molette/trackpad CONTINU, sans détection d'appareil ni pas discrets : la CIBLE
+// de zoom suit les pixels scrollés (proportionnel, TP_PXL px = 1 niveau) et la caméra
+// la rejoint frame par frame à vitesse plafonnée (TP_VMAX niveau/ms) — un micro-geste
+// donne un micro-zoom, un glissement soutenu avance au rythme du doigt, jamais plus
+// vite que le plafond. La cible ne peut devancer la caméra de plus de TP_AHEAD niveau :
+// l'inertie du trackpad (macOS) n'accumule donc pas un retard qui continuerait à
+// défiler longtemps après le geste. Application directe par setZoomAround sans
+// animation Leaflet (l'animation ~250 ms par appel est ce qui rendait chaque pas
+// « élastique » et cumulait les sauts). Pincement (ctrlKey) : deltas minuscules,
+// amplifiés. deltaMode≠0 : molette « lignes » (Firefox) ou pages, converties en pixels.
+const TP_PXL=140, TP_VMAX=0.004, TP_AHEAD=1;
 L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
-  if(e.deltaMode!==0){ _wheelScroll.call(this,e); return; } // molette « lignes » (Firefox)
   L.DomEvent.stop(e);
-  this._lastMousePos=this._map.mouseEventToContainerPoint(e);
-  const now=+new Date(), stream=this._tpTimer!=null||now-(this._tpLast||0)<90;
-  this._tpLast=now;
-  const dy=e.ctrlKey?e.deltaY*3:e.deltaY; // pincement : deltas minuscules, amplifiés
-  if(Math.abs(dy)>=50&&!stream){
-    this._tpHeld=dy; clearTimeout(this._tpHoldTimer);
-    this._tpHoldTimer=setTimeout(()=>{ this._tpHeld=null; tpZoom(this,dy>0?-1:1); },TP_HOLD);
-    return;
-  }
-  if(this._tpHeld!=null){ clearTimeout(this._tpHoldTimer); this._tpAcc=(this._tpAcc||0)+this._tpHeld; this._tpHeld=null; }
-  this._tpAcc=(this._tpAcc||0)+dy;
-  clearTimeout(this._tpTimer);
-  this._tpTimer=setTimeout(()=>{this._tpAcc=0; this._tpTimer=null;},200);
-  if(Math.abs(this._tpAcc)<TP_PX||now-(this._tpZoomAt||0)<TP_MS)return;
-  this._tpZoomAt=now;
-  const dir=this._tpAcc>0?-1:1; this._tpAcc=0; // deltaY>0 = dézoom
-  tpZoom(this,dir*TP_STEP);
+  const m=this._map,
+    px=e.deltaMode===0?e.deltaY:e.deltaY*(e.deltaMode===1?33:400),
+    dy=e.ctrlKey?px*2.5:px;
+  // boucle inactive = cible périmée (un flyTo/clic a pu bouger le zoom entre-temps)
+  if(this._tpRaf==null)this._tpGoal=m.getZoom();
+  this._tpGoal=Math.max(m.getMinZoom(),Math.min(m.getMaxZoom(),this._tpGoal-dy/TP_PXL));
+  this._tpPos=m.mouseEventToContainerPoint(e);
+  if(this._tpRaf!=null)return;
+  this._tpPrevT=null;
+  const step=t=>{ this._tpRaf=null;
+    const z=m.getZoom(), dt=this._tpPrevT==null?17:Math.min(100,t-this._tpPrevT);
+    this._tpPrevT=t;
+    this._tpGoal=Math.max(z-TP_AHEAD,Math.min(z+TP_AHEAD,this._tpGoal));
+    const d=Math.max(-TP_VMAX*dt,Math.min(TP_VMAX*dt,this._tpGoal-z));
+    if(Math.abs(this._tpGoal-z)<0.001){ this._tpGoal=null; return; }
+    if(d){ m._stop(); m.setZoomAround(this._tpPos,z+d,{animate:false}); }
+    this._tpRaf=requestAnimationFrame(step); };
+  this._tpRaf=requestAnimationFrame(step);
 };
-const map=L.map('map',{zoomControl:true,zoomSnap:0.25,preferCanvas:true}).fitBounds(FRANCE);
+const map=L.map('map',{zoomControl:true,zoomSnap:0,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
 // dark_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
 // libellés anglais (pays voisins, mers) ; les noms français viennent des couches de l'atlas.
