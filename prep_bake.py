@@ -235,6 +235,36 @@ SCRUTIN_REGISTRE = (
     "2024-europeenne"  # registre de référence (taille du corps électoral)
 )
 
+# Paris/Lyon/Marseille : le recensement (admin_commune) est ventilé par arrondissement
+# (751xx / 6938x / 132xx) alors que l'électoral (inscrits) porte sur le code INSEE agrégé
+# (75056 / 69123 / 13055). Sans réagrégation, ces trois villes — les plus densément
+# militantes — n'auraient ni population ni estimation de non-/mal-inscription dans le Carnet.
+PLM_AGG = {"75056": "751", "69123": "6938", "13055": "132"}
+
+
+def _agreger_plm(adm: pd.DataFrame) -> pd.DataFrame:
+    """Reconstitue une ligne recensement par ville PLM : population sommée, parts (âge,
+    logement, migration…) pondérées par la population des arrondissements."""
+    codes = adm.index.astype(str)
+    num_cols = [
+        c for c in adm.columns if c != "pop" and pd.api.types.is_numeric_dtype(adm[c])
+    ]
+    lignes: dict[str, dict] = {}
+    for agg, prefixe in PLM_AGG.items():
+        sub = adm[codes.str.startswith(prefixe)]
+        if sub.empty:
+            continue
+        poids = sub["pop"].astype(float)
+        total = poids.sum()
+        ligne: dict[str, float | None] = {"pop": float(total)}
+        for c in num_cols:
+            vals = sub[c].astype(float)
+            m = vals.notna() & poids.notna()
+            w = poids[m].sum()
+            ligne[c] = float((vals[m] * poids[m]).sum() / w) if w else None
+        lignes[agg] = ligne
+    return pd.DataFrame.from_dict(lignes, orient="index")
+
 
 def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
     """Champs du Carnet de campagne (chantier 3) : inscrits (registre), population, et
@@ -251,7 +281,8 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
     if not f.exists():
         return
     adm = pd.read_parquet(f).set_index("code_commune")
-    for code, row in adm.drop(index="FRANCE", errors="ignore").iterrows():
+    adm = pd.concat([adm.drop(index="FRANCE", errors="ignore"), _agreger_plm(adm)])
+    for code, row in adm.iterrows():
         o = com.get(str(code))
         if o is None or pd.isna(row.get("pop")):
             continue
