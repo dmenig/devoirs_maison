@@ -41,7 +41,7 @@ const $=id=>document.getElementById(id);
 // animation Leaflet (l'animation ~250 ms par appel est ce qui rendait chaque pas
 // « élastique » et cumulait les sauts). Pincement (ctrlKey) : deltas minuscules,
 // amplifiés. deltaMode≠0 : molette « lignes » (Firefox) ou pages, converties en pixels.
-const TP_PXL=140, TP_VMAX=0.004, TP_AHEAD=1;
+const TP_PXL=220, TP_VMAX=0.003, TP_AHEAD=1;
 L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
   L.DomEvent.stop(e);
   const m=this._map,
