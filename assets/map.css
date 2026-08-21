@@ -1,37 +1,79 @@
-  /* Thème sombre cohérent avec le fond de carte CARTO dark_all.
-     Panneaux anthracite teintés violet, texte lavande clair,
-     accents violet (#b39ddb) et cramoisi (#e8456f) repris de la charte. */
+  /* DEUX THÈMES, UNE SEULE FEUILLE : toutes les couleurs d'interface passent par les
+     tokens ci-dessous. Le thème sombre (défaut, cohérent avec le fond CARTO dark_nolabels)
+     est défini sur :root ; le thème clair ne redéfinit que les tokens, sous
+     :root[data-theme="light"]. Aucune règle plus bas ne code une couleur en dur, à
+     l'exception des couleurs de DONNÉES (nuances politiques, échelle bleu→rouge de la
+     choroplèthe), identiques dans les deux thèmes.
+     Accents violet (--lav) et cramoisi (--cram) repris de la charte. */
   :root{
-    --pbg:rgba(26,22,36,.93); --pbg2:#221d30; --bord:#3a3350;
+    --pbg:rgba(26,22,36,.93); --pbg2:#221d30; --pbg3:#322b46; --bord:#3a3350;
+    --bg:#0f0d15;
     --txt:#e9e4f2; --mut:#9b93ad; --mut2:#7d7591; --lav:#b39ddb; --cram:#e8456f;
+    /* fort = texte à contraste maximal sur fond de panneau ; onacc = texte sur fond accentué */
+    --strong:#fff; --onacc:#fff;
+    --acc:#6b3a9e; --acc2:#7d49b3;
+    /* teintes violettes translucides : fonds de cartes internes (soft) et survol (softh) */
+    --soft:rgba(90,60,130,.16); --softh:rgba(123,73,179,.22);
+    --track:#2c2640; --tick:#fff; --sh:rgba(0,0,0,.5);
+    --bnr1:rgba(107,58,158,.96); --bnr2:rgba(26,22,36,.94);
+    /* bloc « plan d'action » / « conclusions » : carte violette plus dense */
+    --actbg:#2d1640; --actbd:#4a2d63; --acttx:#f3ecfa; --actld:#d9c7ec; --actmu:#c9b6e0;
+    /* volet de détail (méthodo) */
+    --detbg:rgba(90,60,130,.18); --detbd:#6b4d94; --dettx:#cabfdc;
+    --warnbg:rgba(184,124,30,.16); --warnbd:rgba(184,124,30,.5); --warntx:#f3d9a6;
+    /* couleurs lues par le JS (contours des polygones, zones sans données) */
+    --geosel:#fff; --geoline:#1a1a1a; --geonodata:#3a3a3a;
+    /* Échelle de la choroplèthe (rang : bleu = faible → rouge = élevé). Le thème sombre
+       creuse la luminosité au centre (violet-gris) et sature aux extrêmes ; ses demi-tons
+       (bleu et rouge foncés) deviendraient boueux sur fond clair, d'où une seconde échelle
+       de type RdBu. Dans les deux cas le ton médian reste nettement distinct du fond de
+       carte ET du gris « pas de données » (--geonodata), qui lui doit s'en approcher. */
+    --ramp0:#3b8fd4; --ramp1:#2d5b82; --ramp2:#46415a; --ramp3:#9e3b34; --ramp4:#d23f2d;
     /* hauteur du bandeau d'accueil : ajustée par JS à la hauteur réelle (0 si masqué),
        elle décale tous les panneaux ancrés en haut pour qu'aucun ne le recouvre. */
     --banner-h:44px;
   }
-  html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:#0f0d15;color:var(--txt)}
-  #map{position:absolute;inset:0;background:#0f0d15}
+  /* Thème clair : mêmes accents (violet LFI, cramoisi), fond papier lavande. Le cramoisi
+     et le violet sont assombris pour rester lisibles sur fond clair (contraste AA). */
+  :root[data-theme="light"]{
+    --pbg:rgba(255,255,255,.94); --pbg2:#f3f1f8; --pbg3:#e7e2f0; --bord:#d2ccdf;
+    --bg:#eceaf1;
+    --txt:#1d1829; --mut:#5d5674; --mut2:#7f7894; --lav:#6b3a9e; --cram:#c41d4f;
+    --strong:#120e1c; --onacc:#fff;
+    --acc:#6b3a9e; --acc2:#7d49b3;
+    --soft:rgba(107,58,158,.07); --softh:rgba(107,58,158,.15);
+    --track:#e2dcee; --tick:#1d1829; --sh:rgba(40,28,66,.18);
+    --bnr1:rgba(107,58,158,.22); --bnr2:rgba(255,255,255,.92);
+    --actbg:#f7f2fc; --actbd:#dccdea; --acttx:#241d33; --actld:#5c2f8a; --actmu:#5d5674;
+    --detbg:rgba(107,58,158,.09); --detbd:#a487c9; --dettx:#332a49;
+    --warnbg:rgba(184,124,30,.14); --warnbd:rgba(184,124,30,.45); --warntx:#7a4b0b;
+    --geosel:#fff; --geoline:#4a4458; --geonodata:#dcd9e2;
+    --ramp0:#0d6ba8; --ramp1:#6ba8d1; --ramp2:#c6bdd4; --ramp3:#e8916d; --ramp4:#c4231c;
+  }
+  html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+  #map{position:absolute;inset:0;background:var(--bg)}
   .panel{position:absolute;z-index:1000;background:var(--pbg);color:var(--txt);
          border:1px solid var(--bord);border-radius:10px;
-         box-shadow:0 2px 14px rgba(0,0,0,.5);padding:7px 10px;font-size:13px;backdrop-filter:blur(6px)}
+         box-shadow:0 2px 14px var(--sh);padding:7px 10px;font-size:13px;backdrop-filter:blur(6px)}
   /* bandeau d'accueil : pleine largeur, collé en haut, au-dessus des autres panneaux.
      Refermable via ✕ (choix mémorisé) ; sa hauteur pilote --banner-h. */
   #banner{top:0;left:0;right:0;border-radius:0;border-width:0 0 1px 0;z-index:1200;
           display:flex;align-items:center;gap:11px;padding:8px 14px;
-          background:linear-gradient(90deg,rgba(107,58,158,.96),rgba(26,22,36,.94))}
+          background:linear-gradient(90deg,var(--bnr1),var(--bnr2))}
   #banner.hidden{display:none}
   #banner .bnr-ico{font-size:18px;flex:none;line-height:1}
   #banner .bnr-txt{line-height:1.35;color:var(--txt)}
-  #banner .bnr-txt b{color:#fff}
+  #banner .bnr-txt b{color:var(--strong)}
   #banner .bnr-cta{color:var(--lav)}
   #bnrclose{flex:none;margin-left:auto;cursor:pointer;border:none;background:transparent;
             color:var(--mut);font-size:15px;line-height:1;padding:4px 7px;border-radius:6px}
-  #bnrclose:hover{color:var(--txt);background:rgba(255,255,255,.08)}
+  #bnrclose:hover{color:var(--txt);background:var(--softh)}
   .leaflet-top{top:var(--banner-h)}
   #top{top:calc(var(--banner-h) + 10px);left:52px;right:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   #fil{font-weight:700;color:var(--lav)}
   .crumb{cursor:pointer} .crumb:hover{text-decoration:underline}
-  #back{cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 10px}
-  #back:hover:not(:disabled){background:#7d49b3}
+  #back{cursor:pointer;border:none;background:var(--acc);color:var(--onacc);border-radius:7px;padding:5px 10px}
+  #back:hover:not(:disabled){background:var(--acc2)}
   #back:disabled{opacity:.3;cursor:default}
   #search{flex:1;min-width:340px;padding:5px 7px;border:1px solid var(--bord);border-radius:7px;font-size:13px;
           background:var(--pbg2);color:var(--txt)}
@@ -41,9 +83,9 @@
      qu'il contient (Report / Δ Participation / Perte). La bordure s'allume quand l'une
      d'elles colore la carte, et se grise sinon — pour montrer ce que la paire affecte. */
   #pairgroup{display:flex;gap:6px;align-items:center;padding:3px 8px 3px 7px;
-       border:1px solid var(--bord);border-radius:16px;background:rgba(90,60,130,.12);transition:.2s}
+       border:1px solid var(--bord);border-radius:16px;background:var(--soft);transition:.2s}
   #pairgroup:not(.active){opacity:.62}
-  #pairgroup.active{border-color:var(--lav);background:rgba(123,73,179,.22)}
+  #pairgroup.active{border-color:var(--lav);background:var(--softh)}
   #pairlab{font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.03em;white-space:nowrap}
   #pairgroup.active #pairlab{color:var(--lav)}
   #pairsel{display:flex;gap:4px;align-items:center;font-size:12px;font-weight:700;color:var(--lav)}
@@ -51,7 +93,7 @@
   #pairsel .arr{color:var(--mut);font-weight:700}
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
   .chip:hover{border-color:var(--lav)}
-  .chip.on{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  .chip.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
   #info{top:calc(var(--banner-h) + 100px);right:10px;width:min(820px,56vw);max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:18px 22px}
   /* sections en parallèle : colonnes auto-réparties (≥2 dès que la largeur le permet,
      1 seule en mobile) pour moins scroller. break-inside évite de couper une carte. */
@@ -72,7 +114,7 @@
   #info .srow .sv{flex:none;text-align:right;white-space:nowrap}
   #info .srow .sv b{color:var(--txt);font-variant-numeric:tabular-nums}
   #info .srow .sv .ref{display:block;font-size:11px;color:var(--mut);opacity:.8;font-variant-numeric:tabular-nums}
-  #info .bar{margin:3px 0 7px;background:#2c2640;border-radius:5px;height:8px;overflow:hidden}
+  #info .bar{margin:3px 0 7px;background:var(--track);border-radius:5px;height:8px;overflow:hidden}
   #info .bar i{display:block;height:100%;border-radius:5px}
   #info .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mut);margin-top:6px}
   #info .lab b{font-variant-numeric:tabular-nums;color:var(--txt)}
@@ -82,18 +124,18 @@
   #info .tbar{width:60%;background:var(--cram);border-radius:3px 3px 0 0;min-height:2px}
   #info .tv{font-weight:700;color:var(--cram);font-size:11px}
   #info .mnote{margin-top:7px;font-size:11px;line-height:1.4;color:var(--mut);border-left:2px solid var(--cram);padding-left:7px}
-  #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:700}
+  #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:var(--onacc);font-weight:700}
   #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .bal .bn{background:#3b6ea5;display:flex;align-items:center;justify-content:center;min-width:30px}
   #info .exp .exph{cursor:pointer;position:relative;padding-right:15px}
   #info .exp .exph::after{content:"›";position:absolute;right:1px;top:1px;color:var(--lav);font-weight:700}
   /* Groupes dépliables : rangent l'analyse détaillée derrière un clic. Repliés par défaut
      (seul le Carnet reste ouvert) pour ne pas décourager une lecture non spécialiste. */
-  #info .spoiler{border:1px solid var(--bord);border-radius:9px;margin:9px 0;background:rgba(34,29,48,.45);overflow:hidden}
+  #info .spoiler{border:1px solid var(--bord);border-radius:9px;margin:9px 0;background:var(--soft);overflow:hidden}
   #info .spoiler .sph{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;
        padding:10px 12px;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
        color:var(--lav);user-select:none}
-  #info .spoiler .sph:hover{background:rgba(90,60,130,.16)}
+  #info .spoiler .sph:hover{background:var(--softh)}
   #info .spcaret{color:var(--lav);font-size:16px;font-weight:700;line-height:1;transition:transform .2s;flex:none}
   #info .spoiler.open .spcaret{transform:rotate(90deg)}
   #info .spbody{display:none;padding:2px 12px 11px}
@@ -109,27 +151,27 @@
   #info .back{cursor:pointer;display:none;align-items:center;gap:5px;color:var(--lav);font-weight:700;
        font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px}
   #info .slider.on .back{display:inline-flex}
-  #info .detbody{font-size:12px;color:#cabfdc;line-height:1.55;
-       background:rgba(90,60,130,.18);border-left:3px solid #6b4d94;padding:9px 11px;border-radius:0 8px 8px 0}
+  #info .detbody{font-size:12px;color:var(--dettx);line-height:1.55;
+       background:var(--detbg);border-left:3px solid var(--detbd);padding:9px 11px;border-radius:0 8px 8px 0}
   #info .detbody b{color:var(--txt)}
   #info .detbody p{margin:0 0 7px}#info .detbody p:last-child{margin:0}
   #info .bar{position:relative}
-  #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85;z-index:2}
+  #info .bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--tick);opacity:.85;z-index:2}
   #info .frtag{color:var(--mut2);font-weight:400}
   #info .cmplgd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin:0 0 8px}
   #info .cmplgd span{display:inline-flex;align-items:center;gap:4px}
-  #info .cmplgd .si{width:16px;height:8px;border-radius:4px;background:#7a6fa8;display:inline-block}
-  #info .cmplgd .su{width:2px;height:11px;background:#fff;opacity:.85;display:inline-block}
+  #info .cmplgd .si{width:16px;height:8px;border-radius:4px;background:var(--detbd);display:inline-block}
+  #info .cmplgd .su{width:2px;height:11px;background:var(--tick);opacity:.85;display:inline-block}
   #info .pyr{margin:5px 0 2px}
   #info .pyrhead{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-bottom:3px}
   #info .pyrow{display:flex;align-items:center;gap:4px;margin:2px 0}
-  #info .ph,#info .pf{flex:1;height:9px;background:#2c2640;border-radius:3px;position:relative}
+  #info .ph,#info .pf{flex:1;height:9px;background:var(--track);border-radius:3px;position:relative}
   #info .ph{display:flex;justify-content:flex-end}
   #info .ph i,#info .pf i{display:block;height:100%}
   #info .ph i{border-radius:3px 0 0 3px}#info .pf i{border-radius:0 3px 3px 0}
   #info .pmid{width:42px;text-align:center;font-size:10px;color:var(--mut);flex:none}
-  #info .ph u,#info .pf u{position:absolute;top:-1px;bottom:-1px;width:2px;background:#fff;opacity:.8}
-  #info .recbar{display:flex;height:20px;border-radius:6px;overflow:hidden;margin:5px 0 6px;background:rgba(140,140,150,.15)}
+  #info .ph u,#info .pf u{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--tick);opacity:.8}
+  #info .recbar{display:flex;height:20px;border-radius:6px;overflow:hidden;margin:5px 0 6px;background:var(--track)}
   #info .recbar i{display:block;height:100%}
   #info .reclg{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--mut)}
   #info .reclg span{display:flex;align-items:center;gap:4px}
@@ -139,12 +181,12 @@
   #info table.recompo th,#info table.recompo td{padding:1px 3px;text-align:right;white-space:nowrap}
   #info table.recompo td{color:var(--txt)}
   #info table.recompo td.sc{text-align:left;color:var(--mut)}
-  #info table.recompo tbody tr:nth-child(odd){background:rgba(90,60,130,.14)}
+  #info table.recompo tbody tr:nth-child(odd){background:var(--soft)}
   /* Carnet de campagne (chantier 3) : en-tête de la fiche commune. */
   #info .carnet{margin:6px 0 4px}
   #info .clead{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--cram)}
   #info .scns{display:flex;gap:6px;margin:8px 0 4px}
-  #info .scn{flex:1;background:rgba(90,60,130,.18);border:1px solid var(--bord);border-radius:8px;padding:6px 7px;min-width:0}
+  #info .scn{flex:1;background:var(--soft);border:1px solid var(--bord);border-radius:8px;padding:6px 7px;min-width:0}
   #info .scn .scl{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;line-height:1.2;min-height:22px}
   #info .scn .scv{font-size:18px;font-weight:800;color:var(--lav);line-height:1.1;font-variant-numeric:tabular-nums}
   #info .scn .scv small{font-size:10px;color:var(--mut);font-weight:600}
@@ -154,8 +196,8 @@
   #info .hypnote{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:2px 0 6px}
   #info .cfoot{font-size:10px;color:var(--mut2);margin-top:6px;border-top:1px solid var(--bord);padding-top:5px}
   /* Bandeau de transparence outre-mer (retour n°18). */
-  #info .warn{font-size:11px;line-height:1.4;color:#f3d9a6;background:rgba(184,124,30,.16);
-    border:1px solid rgba(184,124,30,.5);border-radius:8px;padding:6px 9px;margin:6px 0}
+  #info .warn{font-size:11px;line-height:1.4;color:var(--warntx);background:var(--warnbg);
+    border:1px solid var(--warnbd);border-radius:8px;padding:6px 9px;margin:6px 0}
   /* Définitions (ex. nomenclature CSP) dans le volet de détail (retour n°16). */
   #info .defs{margin:5px 0;padding-left:16px;font-size:12px;line-height:1.45}
   #info .defs li{margin:3px 0}
@@ -171,27 +213,27 @@
   #info .compo .crow i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px}
   /* Leviers du plan d'action : numérotés, datés, avec réservoir en voix. */
   #info .act ul.levers{list-style:none;padding:0;margin:4px 0 0}
-  #info .lever{margin:7px 0;padding-bottom:7px;border-bottom:1px solid #4a2d63}
+  #info .lever{margin:7px 0;padding-bottom:7px;border-bottom:1px solid var(--actbd)}
   #info .lever:last-child{border-bottom:none;padding-bottom:0}
   #info .lvh{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  #info .lvn{background:var(--cram);color:#fff;font-weight:800;font-size:11px;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex:none}
-  #info .lvh b{color:#fff;font-size:12.5px}
-  #info .lvwin{font-size:10px;color:#c9b6e0;border:1px solid #4a2d63;border-radius:10px;padding:1px 7px}
+  #info .lvn{background:var(--cram);color:var(--onacc);font-weight:800;font-size:11px;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  #info .lvh b{color:var(--strong);font-size:12.5px}
+  #info .lvwin{font-size:10px;color:var(--actmu);border:1px solid var(--actbd);border-radius:10px;padding:1px 7px}
   #info .lvres{margin-left:auto;font-size:11px;font-weight:700;color:var(--lav);font-variant-numeric:tabular-nums;white-space:nowrap}
-  #info .lvb{font-size:12px;line-height:1.45;margin-top:3px;color:#e7ddf3}
-  #info .act{background:#2d1640;color:#f3ecfa;border:1px solid #4a2d63;border-radius:8px;padding:9px 11px;margin:12px 0 2px}
-  #info .act .ah{font-weight:800;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:#d9c7ec;margin-bottom:6px}
+  #info .lvb{font-size:12px;line-height:1.45;margin-top:3px;color:var(--acttx)}
+  #info .act{background:var(--actbg);color:var(--acttx);border:1px solid var(--actbd);border-radius:8px;padding:9px 11px;margin:12px 0 2px}
+  #info .act .ah{font-weight:800;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--actld);margin-bottom:6px}
   #info .act ul{margin:0;padding-left:16px} #info .act li{margin:5px 0;line-height:1.45}
-  #info .act b{color:#fff}
-  #info .act .leg{margin-top:8px;font-size:11px;line-height:1.7;border-top:1px solid #4a2d63;padding-top:7px}
+  #info .act b{color:var(--strong)}
+  #info .act .leg{margin-top:8px;font-size:11px;line-height:1.7;border-top:1px solid var(--actbd);padding-top:7px}
   #info .act .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
-  #info .act .inv{margin-top:8px;font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.5}
+  #info .act .inv{margin-top:8px;font-size:11px;font-style:italic;color:var(--actmu);line-height:1.5}
   /* Conclusions opérationnelles (retour n°9) : recos en tête, détail au clic. */
-  #info .recos .rcohint{font-size:11px;font-style:italic;color:#c9b6e0;line-height:1.4;margin-bottom:7px}
-  #info .recos .exp{margin:6px 0;padding-bottom:6px;border-bottom:1px solid #4a2d63}
+  #info .recos .rcohint{font-size:11px;font-style:italic;color:var(--actmu);line-height:1.4;margin-bottom:7px}
+  #info .recos .exp{margin:6px 0;padding-bottom:6px;border-bottom:1px solid var(--actbd)}
   #info .recos .exp:last-child{border-bottom:none;padding-bottom:0}
-  #info .rcot{color:#fff;font-weight:700;font-size:12.5px}
-  #info ul.rcom{margin:3px 0 0;padding-left:16px} #info ul.rcom li{margin:3px 0;line-height:1.4;font-size:12px;color:#e7ddf3}
+  #info .rcot{color:var(--strong);font-weight:700;font-size:12.5px}
+  #info ul.rcom{margin:3px 0 0;padding-left:16px} #info ul.rcom li{margin:3px 0;line-height:1.4;font-size:12px;color:var(--acttx)}
   #info .rcoc{margin-top:6px}
   /* Vue d'ensemble locale (échelle GA) embarquée en bas de la fiche commune. */
   #info .apercu{margin:4px 0 2px}
@@ -199,43 +241,46 @@
   #info .amini{flex:1;min-width:84px;margin:0;background:var(--pbg2);border:1px solid var(--bord);border-radius:8px;padding:5px 6px}
   #info .amini figcaption{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;text-align:center}
   #info .amini svg{display:block;width:100%;height:auto;aspect-ratio:150/128}
-  #info .amini path{transition:stroke-width .1s} #info .amini path:hover{stroke:#fff;stroke-width:1.2}
+  #info .amini path{transition:stroke-width .1s} #info .amini path:hover{stroke:var(--tick);stroke-width:1.2}
   #info .amini.wide{flex:1 1 100%;min-width:0}
   #info .amini .arow{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);margin:2px 0}
   #info .amini .arow .al{width:54px;flex:none;color:var(--mut2);font-variant-numeric:tabular-nums}
-  #info .amini .arow .ab{flex:1;height:8px;background:rgba(140,140,150,.18);border-radius:4px;overflow:hidden}
+  #info .amini .arow .ab{flex:1;height:8px;background:var(--track);border-radius:4px;overflow:hidden}
   #info .amini .arow .ab i{display:block;height:100%;background:var(--lav)}
   #info .amini .arow b{color:var(--txt);font-variant-numeric:tabular-nums;width:40px;text-align:right;flex:none}
   #info .ahint{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:5px 0 2px}
   #subtoggle{top:calc(var(--banner-h) + 54px);right:10px;display:none;gap:6px}
   #legend{bottom:14px;left:10px;max-width:300px}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
-       background:linear-gradient(to right,#3b8fd4,#2d5b82,#46415a,#9e3b34,#d23f2d)}
+       background:linear-gradient(to right,var(--ramp0),var(--ramp1),var(--ramp2),var(--ramp3),var(--ramp4))}
   .hint{color:var(--mut2);font-size:11px}
   /* Widgets natifs Leaflet alignés sur le thème sombre */
   .leaflet-tooltip{background:var(--pbg);color:var(--txt);border:1px solid var(--bord);
-       box-shadow:0 2px 10px rgba(0,0,0,.5)}
+       box-shadow:0 2px 10px var(--sh)}
   .leaflet-tooltip-left:before{border-left-color:var(--bord)}
   .leaflet-tooltip-right:before{border-right-color:var(--bord)}
   .leaflet-tooltip-top:before{border-top-color:var(--bord)}
   .leaflet-tooltip-bottom:before{border-bottom-color:var(--bord)}
-  .leaflet-bar{border:1px solid var(--bord);box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .leaflet-bar{border:1px solid var(--bord);box-shadow:0 2px 10px var(--sh)}
   .leaflet-bar a,.leaflet-bar a:hover{background:var(--pbg2);color:var(--txt);border-bottom:1px solid var(--bord)}
-  .leaflet-bar a:hover{background:#322b46}
+  .leaflet-bar a:hover{background:var(--pbg3)}
   .leaflet-control-attribution{background:var(--pbg)!important;color:var(--mut2)}
   .leaflet-control-attribution a{color:var(--mut)}
 
   /* Bouton « drawer indicateurs » : masqué en desktop, révélé en mobile (voir media query). */
-  #pastoggle{display:none;cursor:pointer;border:none;background:#6b3a9e;color:#fff;border-radius:7px;padding:5px 9px;font-size:14px;line-height:1}
-  #pastoggle.on{background:#7d49b3;box-shadow:0 0 0 2px var(--lav) inset}
+  #pastoggle{display:none;cursor:pointer;border:none;background:var(--acc);color:var(--onacc);border-radius:7px;padding:5px 9px;font-size:14px;line-height:1}
+  #pastoggle.on{background:var(--acc2);box-shadow:0 0 0 2px var(--lav) inset}
 
   /* Prise en main simplifiée (chantier 2) : par défaut, le seul geste est de cliquer son
      territoire sur la carte. Indicateurs, sélecteur de scrutins et bascule BV/IRIS ne sont
      révélés qu'en mode « Avancé » (bouton ⚙️). Le bake fixe les choix d'office. */
-  #advtoggle,#exportbtn,#multitoggle{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
+  #advtoggle,#exportbtn,#multitoggle,#themetoggle{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
        border-radius:7px;padding:5px 9px;font-size:12px;line-height:1;white-space:nowrap}
-  #advtoggle:hover,#exportbtn:hover,#multitoggle:hover{border-color:var(--lav)}
-  #advtoggle[aria-pressed="true"],#multitoggle[aria-pressed="true"]{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  #advtoggle:hover,#exportbtn:hover,#multitoggle:hover,#themetoggle:hover{border-color:var(--lav)}
+  /* bascule clair/sombre : icône seule (l'intitulé est dans le title), pour ne pas
+     allonger la barre du haut ; le choix est mémorisé (localStorage). */
+  #themetoggle{font-size:14px;padding:4px 8px}
+  #advtoggle[aria-pressed="true"],#multitoggle[aria-pressed="true"]{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
   /* barre de sélection multiple : sous la barre du haut, à gauche (au-dessus des pastilles) */
   #selbar{top:calc(var(--banner-h) + 54px);left:52px;display:flex;gap:8px;align-items:center;padding:6px 10px;z-index:1100}
   #selbar #selcount{font-size:12px;font-weight:700;color:var(--lav)}
@@ -244,7 +289,7 @@
   #selbar button{cursor:pointer;background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
        border-radius:7px;padding:4px 9px;font-size:12px;line-height:1;white-space:nowrap}
   #selbar button:hover:not(:disabled){border-color:var(--lav)}
-  #selbar #selview{background:#6b3a9e;color:#fff;border-color:#6b3a9e}
+  #selbar #selview{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
   #selbar button:disabled{opacity:.4;cursor:default}
   body.multi #pastilles{top:92px}
   body:not(.adv) #pastilles{display:none}
@@ -294,7 +339,7 @@
     #info{left:0;right:0;bottom:0;top:auto;width:auto;max-height:50vh;
           border-radius:16px 16px 0 0;padding:8px 16px 14px;
           padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
-          box-shadow:0 -3px 18px rgba(0,0,0,.55);transition:transform .25s ease}
+          box-shadow:0 -3px 18px var(--sh);transition:transform .25s ease}
     #info .sheet-handle{display:block;position:sticky;top:0;z-index:3;cursor:grab;
           touch-action:none;user-select:none;-webkit-user-select:none;
           text-align:center;padding:6px 0 8px;background:var(--pbg)}

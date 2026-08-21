@@ -65,9 +65,23 @@ L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
 };
 const map=L.map('map',{zoomControl:true,zoomSnap:0,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
-// dark_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
+// {dark,light}_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
 // libellés anglais (pays voisins, mers) ; les noms français viennent des couches de l'atlas.
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+// La variante suit le thème (voir 13_theme.js, qui remplace l'URL à la bascule).
+const tileURL=t=>`https://{s}.basemaps.cartocdn.com/${t==="light"?"light":"dark"}_nolabels/{z}/{x}/{y}{r}.png`;
+// thème posé sur <html> avant le premier rendu par le script d'entête de map.html
+const theme=()=>document.documentElement.dataset.theme==="light"?"light":"dark";
+// Couleurs d'interface que le JS écrit lui-même (contours des polygones, fonds de barres,
+// repères, échelle de la choroplèthe) : elles ne sont PAS dupliquées ici, on les lit dans
+// les tokens CSS. Relecture groupée à chaque changement de thème plutôt que par polygone :
+// getComputedStyle par bureau de vote coûterait des milliers d'appels sur une grande commune.
+const CVARS=["geosel","geoline","geonodata","track","tick","softh","detbd","bg",
+             "ramp0","ramp1","ramp2","ramp3","ramp4"];
+const C={};
+function syncColors(){ const cs=getComputedStyle(document.documentElement);
+  for(const n of CVARS)C[n]=cs.getPropertyValue("--"+n).trim(); }
+syncColors();
+const tiles=L.tileLayer(tileURL(theme()),
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la

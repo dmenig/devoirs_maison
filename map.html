@@ -6,6 +6,8 @@
 <title>Atlas électoral militant</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>/*__CSS__*/</style>
+<script>/* thème appliqué avant le premier rendu : sinon la page s'affiche en sombre puis bascule (flash) quand 13_theme.js s'exécute, en bas du document. Défaut = sombre, seul un choix explicite de l'utilisateur bascule en clair. */
+try{document.documentElement.dataset.theme=localStorage.getItem("atlas_theme")==="light"?"light":"dark";}catch(e){}</script>
 </head>
 <body>
 <div id="map"></div>
@@ -22,6 +24,7 @@
   <span id="fil"></span>
   <button id="exportbtn" title="Exporter la fiche en PDF (impression → Enregistrer au format PDF)">⬇️ Export PDF</button>
   <button id="advtoggle" aria-pressed="false" title="Affichage avancé : indicateurs et comparaison de scrutins">⚙️ Avancé</button>
+  <button id="themetoggle" title="Basculer entre thème clair et thème sombre"></button>
   <button id="multitoggle" aria-pressed="false" title="Sélection multiple de communes : regrouper plusieurs communes en une fiche agrégée (utile à l'échelle interco/circo)">⊕ Multi-communes</button>
   <input id="search" list="zones" autocomplete="off"
          placeholder="🔎 Rechercher une zone (région, département, commune)…"/>
@@ -47,7 +50,7 @@
 </div>
 <div id="info" class="panel"></div>
 <div id="legend" class="panel">
-  <div id="legtitle" style="font-weight:600;color:#5b2a86"></div>
+  <div id="legtitle" style="font-weight:600;color:var(--lav)"></div>
   <div style="margin-top:4px"><span style="color:#2166ac">– faible</span>
     <span class="bar"></span><span style="color:#b2182b">élevé +</span></div>
   <div class="hint">couleur = rang parmi les zones affichées (bleu = plus faible, rouge = plus élevé) · zoomez ou cliquez pour descendre</div>

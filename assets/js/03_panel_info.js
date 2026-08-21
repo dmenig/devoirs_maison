@@ -1,15 +1,15 @@
 // Barre de dispersion des revenus (niveau de vie par UC) : moustaches D1→D9, segment
-// épais Q1→Q3, trait blanc = médiane. Échelle bornée à [D1..D9] (ou [Q1..Q3] à la commune).
+// épais Q1→Q3, trait vertical = médiane. Échelle bornée à [D1..D9] (ou [Q1..Q3] à la commune).
 function distBand(o){ const lo=o.d1??o.q1, hi=o.d9??o.q3;
   if(lo==null||hi==null||hi<=lo)return "";
   const pos=v=>v==null?null:Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));
   const q1=pos(o.q1),q3=pos(o.q3),md=pos(o.rev),d1=pos(o.d1),d9=pos(o.d9);
   const seg=(a,b,bg,ht)=> a==null||b==null?"":
     `<i style="position:absolute;left:${a}%;width:${Math.max(.5,b-a)}%;top:50%;transform:translateY(-50%);height:${ht}px;background:${bg};border-radius:2px"></i>`;
-  const tick=p=>p==null?"":`<u style="position:absolute;left:${p}%;top:2px;bottom:2px;width:2px;background:#fff;opacity:.9"></u>`;
+  const tick=p=>p==null?"":`<u style="position:absolute;left:${p}%;top:2px;bottom:2px;width:2px;background:${C.tick};opacity:.9"></u>`;
   const eur=v=>v.toLocaleString('fr')+" €";
-  return `<div style="position:relative;height:20px;margin:6px 0 3px;background:#2c2640;border-radius:5px">`+
-    seg(d1,d9,"rgba(123,73,179,.4)",6)+seg(q1,q3,"#6b4d94",12)+tick(md)+`</div>`+
+  return `<div style="position:relative;height:20px;margin:6px 0 3px;background:${C.track};border-radius:5px">`+
+    seg(d1,d9,C.softh,6)+seg(q1,q3,C.detbd,12)+tick(md)+`</div>`+
     `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut)">`+
     `<span>${eur(lo)}</span><span>médiane ${o.rev!=null?eur(o.rev):"—"}</span><span>${eur(hi)}</span></div>`; }
 

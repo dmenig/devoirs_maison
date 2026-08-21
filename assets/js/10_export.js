@@ -21,7 +21,7 @@ function exportPDF(){ if(!lastInfo){ $("loading").textContent="cliquez une zone 
   const css=Array.from(document.querySelectorAll("style")).map(s=>s.textContent).join("\n");
   const html=`<!doctype html><html lang="fr"><head><meta charset="utf-8">`+
     `<title>atlas_${lvl}_${code}</title><style>${css}</style><style>`+
-    `html,body{background:#15111f;margin:0;padding:0}`+
+    `html,body{background:${C.bg};margin:0;padding:0}`+
     `*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}`+
     `#info{position:static !important;display:block !important;width:auto !important;max-width:780px;`+
       `margin:0 auto !important;max-height:none !important;overflow:visible !important;box-shadow:none !important;`+

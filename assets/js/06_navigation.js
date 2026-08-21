@@ -29,11 +29,11 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   // En mode sélection multiple (communes uniquement), une commune sélectionnée garde un
   // liseré blanc épais — y compris après un mouseout (resetStyle réapplique ce style).
   const selStyle=f=>{ const sel=multiSel&&niveau==="commune"&&selCodes.has(f.properties.__code);
-    return {fillColor:colOf(valOf(f.properties)),color:sel?"#fff":"#1a1a1a",weight:sel?2.6:.5,fillOpacity:sel?.95:.85}; };
+    return {fillColor:colOf(valOf(f.properties)),color:sel?C.geosel:C.geoline,weight:sel?2.6:.5,fillOpacity:sel?.95:.85}; };
   layer=L.geoJSON(geo,{style:selStyle,
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
       ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
-      ly.on("mouseover",()=>ly.setStyle({weight:2.6,color:"#fff"}));
+      ly.on("mouseover",()=>ly.setStyle({weight:2.6,color:C.geosel}));
       ly.on("mouseout",()=>layer.resetStyle(ly));
       const o=valeurs[f.properties.__code];
       const show=()=>infoPanel(f.properties.__nom,o,niveau,f.properties.__code);

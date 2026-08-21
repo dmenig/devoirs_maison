@@ -39,7 +39,7 @@ function apercuCartes(geo,vals,code){
     if(!series.some(v=>v!=null))return "";
     const fc=colorer(series);
     const svg=paths.map((p,i)=>{ const v=series[i], cu=p.code===code;
-      return `<path d="${p.d}" fill="${v==null?'#3a3a3a':fc(v)}" stroke="${cu?'#fff':'#15131c'}" `+
+      return `<path d="${p.d}" fill="${v==null?C.geonodata:fc(v)}" stroke="${cu?C.geosel:C.bg}" `+
         `stroke-width="${cu?1.6:.4}"><title>${p.nom} — ${v==null?'—':v+'%'}</title></path>`; }).join("");
     return `<figure class="amini"><figcaption>${lab}</figcaption>`+
       `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">${svg}</svg></figure>`;

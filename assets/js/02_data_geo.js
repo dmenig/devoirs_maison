@@ -16,13 +16,13 @@ const irisInCommune=(ci,code)=>{ const r=PLM[code]; return r?r.test(ci):ci.slice
 
 // Coloration par RANG (percentile) parmi les zones affichées : les couleurs
 // s'étalent sur toute la distribution (chaque zone ayant une valeur est colorée).
-// Le centre (blanc) = la médiane des zones ; bleu = plus faible, rouge = plus élevé.
+// Le centre (ton médian de l'échelle) = la médiane des zones ; bleu = plus faible, rouge = plus élevé.
 function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>a-b);
-  if(!xs.length)return()=>"#3a3a3a";
-  const n=xs.length, s=["#3b8fd4","#2d5b82","#46415a","#9e3b34","#d23f2d"];
+  if(!xs.length)return()=>C.geonodata;
+  const n=xs.length, s=[C.ramp0,C.ramp1,C.ramp2,C.ramp3,C.ramp4];
   const rang=v=>{ let lo=0,hi=n; while(lo<hi){const md=(lo+hi)>>1; xs[md]<v?lo=md+1:hi=md;}
     let hi2=lo; while(hi2<n&&xs[hi2]===v)hi2++; return ((lo+hi2)/2)/n; };
-  return v=>{ if(v==null||isNaN(v))return"#3a3a3a";
+  return v=>{ if(v==null||isNaN(v))return C.geonodata;
     const x=rang(v)*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
 // Réservoirs entre les deux scrutins choisis (A→B), recalculés à la volée à partir des
 // voix réelles bakées (lfiv_*, gv_*) et de la participation — mêmes formules que

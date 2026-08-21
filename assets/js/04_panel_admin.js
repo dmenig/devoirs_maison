@@ -5,7 +5,7 @@
 function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adminFr||{};
   const exp=expBlock;
   const sec=t=>`<div class="sec">${t}</div>`;
-  // barre comparative : remplissage commune + repère France (trait blanc « u »)
+  // barre comparative : remplissage commune + repère France (trait vertical « u »)
   const cmp=(lab,v,f,col,max)=> v==null?"":
     `<div class="lab"><span>${lab}</span><b>${v} %${f!=null?` <span class="frtag">· Fr ${f}</span>`:""}</b></div>`+
     `<div class="bar">${f!=null?`<u style="left:${Math.min(100,f/max*100)}%"></u>`:""}`+
@@ -14,7 +14,7 @@ function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adm
   let lgdDone=false;
   const lgd=()=> lgdDone?"":(lgdDone=true,
     `<div class="cmplgd"><span><span class="si"></span> bande colorée = la commune</span>`+
-    `<span><span class="su"></span> trait blanc = la France</span></div>`);
+    `<span><span class="su"></span> trait vertical = la France</span></div>`);
   let h="";
   if(a.ageh&&a.ageh.some(v=>v!=null)){
     const all=[...a.ageh,...a.agef,...(fr.ageh||[]),...(fr.agef||[])].filter(v=>v!=null), mx=Math.max(...all,1);
@@ -27,7 +27,7 @@ function adminPanel(o){ const a=o&&o.adm; if(!a)return ""; const fr=window.__adm
         `<i style="width:${(a.agef[i]||0)/mx*100}%;background:#cf2e5b"></i></div></div>`; }
     h+=lgd()+exp(sec("Pyramide des âges · 2021")+`<div class="pyr"><div class="pyrhead"><span>◀ Hommes</span><span>Femmes ▶</span></div>${rows}</div>`,
       `Population par <b>sexe et tranche d'âge</b> (% de la population), recensement INSEE 2021. Barres = la commune, `+
-      `<b>trait blanc</b> = la France. Mesure la jeunesse / le vieillissement par rapport à la moyenne nationale.`); }
+      `<b>trait vertical</b> = la France. Mesure la jeunesse / le vieillissement par rapport à la moyenne nationale.`); }
   if(a.prop!=null||a.loc!=null) h+=lgd()+exp(sec("Logement · statut d'occupation · 2021")+
     cmp("Propriétaires",a.prop,fr.prop,"#3b6ea5",100)+cmp("Locataires",a.loc,fr.loc,"#cf2e5b",100)+
     cmp("dont HLM",a.hlm,fr.hlm,"#b08a2e",100),
