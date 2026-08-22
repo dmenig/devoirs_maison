@@ -77,7 +77,7 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
   map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11,
     paddingTopLeft:[0,topInset()],paddingBottomRight:[infoInset(),sheetInset()]});
   map.once("moveend",()=>{ animating=false; if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
-    // le zoomend final du vol ne doit PAS déclencher onZoomSettled (sinon descente auto en
+    // le zoomend final du vol ne doit PAS déclencher onZoomSettled (sinon remontée en
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.
     clearTimeout(zoomSettle); flushDraw(); setTimeout(()=>busy=false,320); }); }
 
@@ -125,8 +125,8 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
-// fly=false (descente au zoom) : la couche fille remplace la couche mère SANS recadrer
-// la caméra — le zoom continu reste la propriété de l'utilisateur ; le clic vole.
+// Le clic vole vers la zone ; `fly=false` (hook de test / navigation programmatique) échange
+// la couche sans recadrer la caméra.
 function entrer(niveau,code,nom,bounds,o,fly=true){ clearSel();
   stack.push({niveau,code,nom,bounds,o,color:enterColor,enterZoom:fly?null:map.getZoom()}); setFil();
   fadeOutLayer(); if(fly)flyTo(bounds,niveau==="commune"?15:11); render(niveau,code); }
@@ -140,36 +140,36 @@ $("back").onclick=()=>{ const top=stack[stack.length-1];
 window.__enter=entrer;
 window.__feats=()=>{const a=[];layer&&layer.eachLayer(l=>l.feature&&a.push(l.feature.properties.__nom));return a;};
 
-// zoom-molette = descendre/remonter automatiquement
-function featureAuCentre(){ if(!layer)return null; const c=map.getCenter(); let best=null,ba=1e18;
-  layer.eachLayer(ly=>{ if(ly.getBounds){const b=ly.getBounds(); if(b.contains(c)){
-    const a=(b.getEast()-b.getWest())*(b.getNorth()-b.getSouth()); if(a<ba){ba=a;best=ly;}}}}); return best; }
-// remontée/descente auto au zoom : PLUS AUCUN recadrage (pas de flyTo) — on n'échange
-// que la couche affichée au franchissement des seuils, la caméra reste où l'utilisateur
-// l'a mise (zoom continu façon carte classique). Directionnel : on ne descend qu'en
-// zoomant, on ne remonte qu'en dézoomant — sans recadrage, une remontée laisse le zoom
-// au-dessus de ZIN et replongerait aussitôt sans ce garde-fou. On NE réagit PAS à chaque
-// zoomend (Leaflet en émet plusieurs par geste) : on attend que le zoom se POSE
-// (debounce) et on n'applique qu'UN saut par pose — la granularité rattrape le zoom
-// pose après pose. Sur une remontée on purge le delta molette en attente (disable/enable).
+// zoom-molette = REMONTER seulement. Zoomer ne change JAMAIS la couche affichée : la
+// descente d'un niveau est réservée au clic (et au fil d'Ariane). C'est ce qui permet de
+// zoomer à fond sur une zone puis de revenir à son zoom initial sans que les données
+// changent sous les doigts.
+// La remontée n'entraîne aucun recadrage : on n'échange que la couche, la caméra reste où
+// l'utilisateur l'a mise. Le repère `enterZoom` est FIGÉ au zoom d'entrée dans la zone
+// (posé par flyTo / jumpTo) : un zoom manuel ne le réhausse pas, sinon le seuil de sortie
+// suivrait le doigt et le moindre retour en arrière ferait remonter d'un cran.
+// On ne réagit pas à chaque zoomend (Leaflet en émet plusieurs par geste) : on attend que
+// le zoom se POSE (debounce), puis on calcule d'un coup la profondeur cible — un dézoom
+// franc peut donc remonter plusieurs niveaux en une fois via le plancher absolu ZOUT.
 let zoomSettle=null, lastSettleZ=null;
-function onZoomSettled(){ if(busy)return; const z=map.getZoom(), d=stack.length;
-  const dir=lastSettleZ==null?0:Math.sign(z-lastSettleZ); lastSettleZ=z;
-  if(dir>=0){
-    if(d<4 && ZIN[d]!=null && z>=ZIN[d]){ const f=featureAuCentre(); if(f&&f.__enter)f.__enter(false); }
-    else if(d>=1){ const top=stack[d-1];
-      if(top.enterZoom==null||z>top.enterZoom)top.enterZoom=z; } // le repère suit le zoom le plus profond atteint
-    return; }
-  if(d<1)return;
-  const top=stack[d-1]; if(top.enterZoom==null)top.enterZoom=z;
-  const thr=Math.max(ZOUT[d], top.enterZoom-ZBACK);
-  if(z<=thr){ map.scrollWheelZoom.disable(); map.scrollWheelZoom.enable();
-    // si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er dézoom
-    // restaure d'abord la fiche de la zone (la commune) ; on ne remonte qu'au dézoom suivant.
-    if(lastInfo&&lastInfo.code!==top.code){ infoPanel(top.nom,top.o,top.niveau,top.code); return; }
-    jumpTo(d-1,false); } }
+// profondeur où le zoom `z` doit nous laisser : on dépile tant qu'on est sous le seuil de
+// sortie du niveau courant (max du plancher absolu ZOUT et du repère relatif enterZoom-ZBACK).
+function profondeurCible(z){ let d=stack.length;
+  while(d>=1){ const e=stack[d-1].enterZoom;
+    if(z>Math.max(ZOUT[d],(e==null?z:e)-ZBACK))break;
+    d--; }
+  return d; }
+function onZoomSettled(){ if(busy)return;
+  const z=map.getZoom(), monte=lastSettleZ!=null&&z>=lastSettleZ; lastSettleZ=z;
+  if(monte||!stack.length)return;
+  const d=stack.length, cible=profondeurCible(z); if(cible===d)return;
+  // si la fiche affiche un sous-élément (BV/IRIS) de la zone en focus, le 1er dézoom
+  // restaure d'abord la fiche de la zone (la commune) ; on ne remonte qu'au dézoom suivant.
+  const top=stack[d-1];
+  if(lastInfo&&lastInfo.code!==top.code){ infoPanel(top.nom,top.o,top.niveau,top.code); return; }
+  jumpTo(cible,false); }
 // un zoomend pendant un vol programmatique (clic/saut, restauration d'URL) ne doit jamais
-// armer la descente auto — il recale seulement le repère directionnel sur le zoom d'arrivée.
+// armer la remontée — il recale seulement le repère directionnel sur le zoom d'arrivée.
 map.on("zoomend",()=>{ if(busy||animating){ lastSettleZ=map.getZoom(); return; }
   clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });
 // Opacité/contour dépendent du zoom : on ne repeint qu'au FRANCHISSEMENT d'un palier,
