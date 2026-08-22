@@ -17,9 +17,17 @@
     btn.title = t === "light" ? "Passer au thème sombre" : "Passer au thème clair";
     btn.setAttribute("aria-pressed", String(t === "light"));
     syncColors();
-    tiles.setUrl(tileURL(t));
-    labels.setUrl(labelURL(t));
-    overprint.setUrl(tileURL(t));
+    // setUrl() sans noRedraw appelle redraw(), qui recale `_tileZoom` sur le zoom COURANT
+    // sans l'arrondir. Avec zoomSnap:0 ce zoom est fractionnaire (12.2858…) : Leaflet le
+    // met tel quel dans l'URL des tuiles, CARTO répond n'importe quoi et on se retrouvait
+    // avec des libellés d'Algérie par-dessus Toulouse. On change donc l'URL SANS redraw,
+    // on vide les tuiles, et on laisse la carte refaire une pose de grille propre
+    // (viewreset → _resetView, qui lui arrondit le niveau de tuiles).
+    for (const [couche, url] of [[tiles, tileURL(t)], [labels, labelURL(t)], [overprint, tileURL(t)]]) {
+      couche.setUrl(url, true);
+      couche._removeAllTiles();
+    }
+    map.fire("viewreset");
   };
   paint(theme());
   btn.addEventListener("click", () => {

@@ -17,6 +17,7 @@ function toggleSel(code){ if(selCodes.has(code))selCodes.delete(code); else selC
 
 function selBarSync(){ const bar=$("selbar"); if(!bar)return;
   bar.style.display=multiSel?"flex":"none";
+  if(window.__syncLayout)window.__syncLayout();
   const n=selCodes.size;
   $("selcount").textContent=n?`${n} commune${n>1?"s":""} sélectionnée${n>1?"s":""}`
     :"Cliquez les communes à regrouper";

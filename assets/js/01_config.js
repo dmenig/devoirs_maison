@@ -78,7 +78,7 @@ const theme=()=>document.documentElement.dataset.theme==="light"?"light":"dark";
 // les tokens CSS. Relecture groupée à chaque changement de thème plutôt que par polygone :
 // getComputedStyle par bureau de vote coûterait des milliers d'appels sur une grande commune.
 const CVARS=["geosel","geoline","geonodata","track","tick","softh","detbd","bg",
-             "ramp0","ramp1","ramp2","ramp3","ramp4"];
+             "ramp0","ramp1","ramp2","ramp3","ramp4","lr","rn"];
 const C={};
 function syncColors(){ const cs=getComputedStyle(document.documentElement);
   for(const n of CVARS)C[n]=cs.getPropertyValue("--"+n).trim(); }
@@ -102,8 +102,12 @@ const labelURL=t=>`https://{s}.basemaps.cartocdn.com/${t==="light"?"light":"dark
 const LBL_MINZ=9;
 map.createPane("labels").style.zIndex=450;
 map.getPane("labels").style.pointerEvents="none";
+// updateWhenZooming:false — pendant un vol, Leaflet empilait deux niveaux de tuiles de
+// libellés (l'ancien mis à l'échelle + le nouveau) : les noms de communes s'affichaient
+// en double, décalés, plusieurs secondes après l'atterrissage.
 const labels=L.tileLayer(labelURL(theme()),
-  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"labels"}).addTo(map);
+  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"labels",
+   updateWhenZooming:false,updateWhenIdle:true}).addTo(map);
 // SURIMPRESSION : une seconde copie du fond de carte, posée elle aussi au-dessus des
 // polygones et composée en fusion (multiply en thème clair, screen en sombre — voir
 // map.css). Le fond de CARTO étant quasi uni, il laisse la couleur de la zone intacte ;
@@ -114,7 +118,8 @@ const labels=L.tileLayer(labelURL(theme()),
 map.createPane("overprint").style.zIndex=440;
 map.getPane("overprint").style.pointerEvents="none";
 const overprint=L.tileLayer(tileURL(theme()),
-  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"overprint",opacity:.8}).addTo(map);
+  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"overprint",opacity:.8,
+   updateWhenZooming:false,updateWhenIdle:true}).addTo(map);
 // Remplissage des zones : la trame étant désormais surimprimée, il reste franc (.8) — juste
 // assez transparent pour donner de la profondeur. Le CONTOUR s'épaissit d'autant, pour que
 // la zone reste délimitée sous l'encre. Un seul palier, celui de l'encre : deux réglages

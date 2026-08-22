@@ -24,10 +24,13 @@ let _sheetPan=0;
 function showInfoSheet(info){
   const wasHidden=info.style.display!=="block";
   info.scrollTop=0; info.style.display="block";
+  // body.fiche : en bottom-sheet, la légende occupe la même bande et doit s'effacer
+  document.body.classList.add("fiche"); if(window.__syncLayout)window.__syncLayout();
   if(isMobileSheet()&&wasHidden){
     _sheetPan=Math.round((info.getBoundingClientRect().height-topInset())/2);
     if(_sheetPan)map.panBy([0,_sheetPan],{animate:true}); } }
 function hideInfoSheet(info){ info.style.display="none";
+  document.body.classList.remove("fiche"); if(window.__syncLayout)window.__syncLayout();
   if(_sheetPan){ map.panBy([0,-_sheetPan],{animate:false}); _sheetPan=0; } }
 // hauteur occultée par le bottom-sheet (mobile) : sert de marge basse aux cadrages
 // flyTo pour que la zone visée soit centrée dans la carte VISIBLE, pas sous la fiche.
@@ -144,8 +147,8 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     elec+=exp(sec("Rapport de force · Europ. 2024")+
       barRow("Gauche (LFI-PS-EELV-PCF)",o.gauche_E24,"#cf2e5b")+
       barRow("Macron (Renaissance)",o.em_E24,"#e6902e")+
-      barRow("Droite (LR)",o.lr_E24,"#3b6ea5")+
-      barRow("RN / extrême droite",o.rn_E24,"#1f3a63"),
+      barRow("Droite (LR)",o.lr_E24,C.lr)+
+      barRow("RN / extrême droite",o.rn_E24,C.rn),
       `Poids de chaque bloc en <b>% des inscrits</b> aux européennes 2024. `+
       `<b>Gauche</b> = LFI + PS + EELV + PCF + divers gauche. <b>Macron</b> = Renaissance / MoDem / Horizons. `+
       `<b>Droite</b> = LR + divers droite. <b>RN</b> = RN + Reconquête + extrême droite.`); }
@@ -154,7 +157,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   if(window.__scr&&o.rec){
     const heads=["FI","PS","EM","LR","RN","Div","Abs"],
       full=["LFI-PCF","PS-EELV","Macron","LR-DVD","RN-ED","Autres"],
-      cols=["#cf2e5b","#c2348b","#e6902e","#3b6ea5","#1f3a63","#8a8a8a"], gris="rgba(140,140,150,.45)";
+      cols=["#cf2e5b","#c2348b","#e6902e",C.lr,C.rn,"#8a8a8a"], gris="rgba(140,140,150,.45)";
     let li=-1; window.__scr.forEach((s,i)=>{ if(o.rec[i])li=i; }); // dernier scrutin disponible
     if(li>=0){ const r=o.rec[li];
       const seg=r.slice(0,6).map((v,j)=> v?`<i style="width:${v}%;background:${cols[j]}" title="${full[j]} ${v}%"></i>`:"").join("")+
@@ -165,7 +168,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
       window.__scr.forEach((s,i)=>{ const rr=o.rec[i]; if(!rr)return;
         rows+=`<tr><td class="sc" title="${s.c}">${s.l}</td>`+
           rr.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
-      elec+=exp(sec("Recomposition · "+window.__scr[li].c)+
+      elec+=exp(sec("Recomposition · "+window.__scr[li].l)+
         `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`,
         `Poids de chaque <b>bloc en % des inscrits</b>. Historique scrutin par scrutin (2012→2026) : `+
         `<b>FI</b>=LFI-PCF-EXG · <b>PS</b>=PS-EELV · <b>EM</b>=MoDem-Renaissance · <b>LR</b>=LR-DVD · `+

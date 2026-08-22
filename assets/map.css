@@ -6,7 +6,9 @@
      choroplèthe), identiques dans les deux thèmes.
      Accents violet (--lav) et cramoisi (--cram) repris de la charte. */
   :root{
-    --pbg:rgba(26,22,36,.93); --pbg2:#221d30; --pbg3:#322b46; --bord:#3a3350;
+    /* --pbgs : même teinte que --pbg mais OPAQUE, pour les éléments collants qui
+       doivent masquer le contenu qui défile dessous (poignée du bottom-sheet). */
+    --pbg:rgba(26,22,36,.93); --pbgs:#1a1624; --pbg2:#221d30; --pbg3:#322b46; --bord:#3a3350;
     --bg:#0f0d15;
     --txt:#e9e4f2; --mut:#9b93ad; --mut2:#7d7591; --lav:#b39ddb; --cram:#e8456f;
     /* fort = texte à contraste maximal sur fond de panneau ; onacc = texte sur fond accentué */
@@ -29,14 +31,29 @@
        de type RdBu. Dans les deux cas le ton médian reste nettement distinct du fond de
        carte ET du gris « pas de données » (--geonodata), qui lui doit s'en approcher. */
     --ramp0:#3b8fd4; --ramp1:#2d5b82; --ramp2:#46415a; --ramp3:#9e3b34; --ramp4:#d23f2d;
+    /* Bleus LR / RN : SEULE exception à « les couleurs de données ne changent pas avec le
+       thème ». Le navy RN (#1f3a63), lisible sur papier, tombe à 1,56:1 sur fond sombre —
+       en-tête de colonne et barre littéralement invisibles. On garde la hiérarchie
+       (RN plus sombre que LR) en remontant les deux d'un cran en thème sombre. */
+    --lr:#7fa8d4; --rn:#4a74b8;
     /* hauteur du bandeau d'accueil : ajustée par JS à la hauteur réelle (0 si masqué),
        elle décale tous les panneaux ancrés en haut pour qu'aucun ne le recouvre. */
     --banner-h:44px;
+    /* Repères de mise en page mesurés par JS (14_layout.js), parce qu'ils dépendent du
+       CONTENU : la barre du haut passe à deux ou trois lignes selon la largeur et la
+       longueur du fil d'Ariane, la barre de sélection n'existe qu'en mode multi, la
+       bascule BV/IRIS et la fiche occupent une largeur variable à droite. Les décalages
+       codés en dur (54 px, 92 px) faisaient recouvrir la recherche par les indicateurs
+       dès que la barre passait à deux lignes, et la barre multi par les pastilles.
+       --top-b : bas de #top · --bar-b : bas de la dernière barre (top ou selbar)
+       --sub-w : largeur de la bascule BV/IRIS, réservée à droite des pastilles
+       --info-t : haut de la fiche = sous TOUT ce qui est ancré en haut. */
+    --top-b:97px; --bar-b:97px; --sub-w:0px; --info-t:140px;
   }
   /* Thème clair : mêmes accents (violet LFI, cramoisi), fond papier lavande. Le cramoisi
      et le violet sont assombris pour rester lisibles sur fond clair (contraste AA). */
   :root[data-theme="light"]{
-    --pbg:rgba(255,255,255,.94); --pbg2:#f3f1f8; --pbg3:#e7e2f0; --bord:#d2ccdf;
+    --pbg:rgba(255,255,255,.94); --pbgs:#fff; --pbg2:#f3f1f8; --pbg3:#e7e2f0; --bord:#d2ccdf;
     --bg:#eceaf1;
     --txt:#1d1829; --mut:#5d5674; --mut2:#7f7894; --lav:#6b3a9e; --cram:#c41d4f;
     --strong:#120e1c; --onacc:#fff;
@@ -49,12 +66,16 @@
     --warnbg:rgba(184,124,30,.14); --warnbd:rgba(184,124,30,.45); --warntx:#7a4b0b;
     --geosel:#fff; --geoline:#4a4458; --geonodata:#dcd9e2;
     --ramp0:#0d6ba8; --ramp1:#6ba8d1; --ramp2:#c6bdd4; --ramp3:#e8916d; --ramp4:#c4231c;
+    --lr:#3b6ea5; --rn:#1f3a63;
   }
   html,body{margin:0;height:100%;font-family:system-ui,sans-serif;background:var(--bg);color:var(--txt)}
   #map{position:absolute;inset:0;background:var(--bg)}
   .panel{position:absolute;z-index:1000;background:var(--pbg);color:var(--txt);
          border:1px solid var(--bord);border-radius:10px;
          box-shadow:0 2px 14px var(--sh);padding:7px 10px;font-size:13px;backdrop-filter:blur(6px)}
+  /* les champs et boutons des panneaux ont une largeur en % ET du padding : sans
+     border-box, la recherche débordait de 12 px hors de la barre en mobile. */
+  .panel,.panel *{box-sizing:border-box}
   /* bandeau d'accueil : pleine largeur, collé en haut, au-dessus des autres panneaux.
      Refermable via ✕ (choix mémorisé) ; sa hauteur pilote --banner-h. */
   #banner{top:0;left:0;right:0;border-radius:0;border-width:0 0 1px 0;z-index:1200;
@@ -78,11 +99,14 @@
   #search{flex:1;min-width:340px;padding:5px 7px;border:1px solid var(--bord);border-radius:7px;font-size:13px;
           background:var(--pbg2);color:var(--txt)}
   #search::placeholder{color:var(--mut2)}
-  #pastilles{top:calc(var(--banner-h) + 54px);left:52px;display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
+  /* sous la dernière barre, et bornées à droite par ce qui occupe déjà cette bande
+     (bascule BV/IRIS, fiche) : les pastilles s'enroulent au lieu de passer dessous. */
+  #pastilles{top:calc(var(--bar-b) + 8px);left:52px;right:calc(var(--sub-w) + 18px);
+             display:flex;gap:6px;flex-wrap:wrap;padding:6px 8px}
   /* groupe « comparaison de scrutins » : le sélecteur ⚖️ ne pilote QUE les pastilles
      qu'il contient (Report / Δ Participation / Perte). La bordure s'allume quand l'une
      d'elles colore la carte, et se grise sinon — pour montrer ce que la paire affecte. */
-  #pairgroup{display:flex;gap:6px;align-items:center;padding:3px 8px 3px 7px;
+  #pairgroup{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:3px 8px 3px 7px;
        border:1px solid var(--bord);border-radius:16px;background:var(--soft);transition:.2s}
   #pairgroup:not(.active){opacity:.62}
   #pairgroup.active{border-color:var(--lav);background:var(--softh)}
@@ -94,7 +118,14 @@
   .chip{cursor:pointer;border:1px solid var(--bord);border-radius:14px;padding:3px 10px;background:var(--pbg2);color:var(--txt);font-size:12px}
   .chip:hover{border-color:var(--lav)}
   .chip.on{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
-  #info{top:calc(var(--banner-h) + 100px);right:10px;width:min(820px,56vw);max-height:calc(100vh - 120px);overflow:hidden auto;display:none;padding:18px 22px}
+  /* max-height : la hauteur DISPONIBLE dépend du bandeau (le panneau démarre sous lui),
+     sinon la fiche dépassait toujours du bas de l'écran de banner-h − 20 px et sa fin
+     restait inatteignable. z-index au-dessus de la légende (même classe .panel, mais
+     la légende vient après dans le DOM et passait par-dessus la fiche).
+     overscroll-behavior : le défilement en butée ne se propage plus à la page hôte. */
+  #info{top:var(--info-t);right:10px;width:min(820px,56vw);
+        max-height:calc(100vh - var(--info-t) - 20px);overflow:hidden auto;overscroll-behavior:contain;
+        z-index:1050;display:none;padding:18px 22px}
   /* sections en parallèle : colonnes auto-réparties (≥2 dès que la largeur le permet,
      1 seule en mobile) pour moins scroller. break-inside évite de couper une carte. */
   #info .cols{columns:300px;column-gap:22px}
@@ -147,6 +178,10 @@
   #info .slider{display:flex;width:200%;transition:transform .32s ease;align-items:flex-start}
   #info .slider.on{transform:translateX(-50%)}
   #info .pane{width:50%;flex:0 0 50%;box-sizing:border-box}
+  /* volet de détail ouvert : la vue principale, translatée hors champ, ne doit plus
+     imposer sa hauteur — sinon trois lignes de méthodo s'affichaient dans un panneau
+     de 700 px vide. */
+  #info .slider.on>.pane:first-child{max-height:0;overflow:hidden}
   #info .detpane{padding-left:2px}
   #info .back{cursor:pointer;display:none;align-items:center;gap:5px;color:var(--lav);font-weight:700;
        font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px}
@@ -249,11 +284,16 @@
   #info .amini .arow .ab i{display:block;height:100%;background:var(--lav)}
   #info .amini .arow b{color:var(--txt);font-variant-numeric:tabular-nums;width:40px;text-align:right;flex:none}
   #info .ahint{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:5px 0 2px}
-  #subtoggle{top:calc(var(--banner-h) + 54px);right:10px;display:none;gap:6px}
+  #subtoggle{top:calc(var(--top-b) + 8px);right:10px;display:none;gap:6px}
   #legend{bottom:14px;left:10px;max-width:300px}
-  .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;
+  /* sous ~760 px la fiche latérale descend jusqu'au coin bas-gauche : on resserre la
+     légende pour qu'elles ne se recouvrent plus. */
+  @media (max-width:760px){ #legend{max-width:210px} }
+  .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;margin:0 6px;
        background:linear-gradient(to right,var(--ramp0),var(--ramp1),var(--ramp2),var(--ramp3),var(--ramp4))}
   .hint{color:var(--mut2);font-size:11px}
+  /* message d'état : n'occupe la barre que s'il dit quelque chose. */
+  #loading:empty{display:none}
   /* Surimpression du fond de carte au-dessus des zones (cf. 01_config.js). L'encre
      assombrit sur fond clair (multiply) et éclaircit sur fond sombre (screen) : dans les
      deux cas le fond quasi uni laisse la couleur de la zone en place et seules les lignes
@@ -290,7 +330,7 @@
   #themetoggle{font-size:14px;padding:4px 8px}
   #advtoggle[aria-pressed="true"],#multitoggle[aria-pressed="true"]{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
   /* barre de sélection multiple : sous la barre du haut, à gauche (au-dessus des pastilles) */
-  #selbar{top:calc(var(--banner-h) + 54px);left:52px;display:flex;gap:8px;align-items:center;padding:6px 10px;z-index:1100}
+  #selbar{top:calc(var(--top-b) + 8px);left:52px;display:flex;gap:8px;align-items:center;padding:6px 10px;z-index:1100}
   #selbar #selcount{font-size:12px;font-weight:700;color:var(--lav)}
   #selbar select{background:var(--pbg2);color:var(--txt);border:1px solid var(--bord);
        border-radius:7px;padding:3px 6px;font-size:12px;cursor:pointer}
@@ -299,7 +339,6 @@
   #selbar button:hover:not(:disabled){border-color:var(--lav)}
   #selbar #selview{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
   #selbar button:disabled{opacity:.4;cursor:default}
-  body.multi #pastilles{top:92px}
   body:not(.adv) #pastilles{display:none}
   body:not(.adv) #subtoggle{display:none!important}
   body:not(.adv) #pastoggle{display:none!important}
@@ -317,30 +356,51 @@
     #banner{gap:9px;padding:7px 10px;font-size:12px}
     #banner .bnr-cta{display:none}
     #top{left:8px;right:8px;top:calc(var(--banner-h) + 8px);gap:6px;padding:7px 9px}
-    #back,#pastoggle{padding:6px 11px;font-size:15px}
+    /* Cibles tactiles : 44 px de côté (les boutons faisaient 24 px de haut). Pour que la
+       barre tienne quand même en deux lignes, les boutons passent en ICÔNE SEULE — leur
+       intitulé est dans un <span class="lbl">, masqué ici, et reste dans le title. */
+    #back,#pastoggle,#advtoggle,#exportbtn,#multitoggle,#themetoggle{
+       min-width:44px;min-height:44px;padding:6px 10px;font-size:17px;line-height:1}
     #pastoggle{display:inline-block}
+    .lbl{display:none}
     /* fil d'Ariane sur une ligne tronquée → hauteur de #top stable (2 lignes) */
-    #fil{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #fil{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
     #search{order:5;flex:1 0 100%;min-width:0;font-size:16px;padding:8px 10px}
-    #loading{order:4}
+    /* message d'état : sa propre ligne, lisible, au lieu d'un filet gris coincé
+       entre deux boutons (134 px de large en 360 px). */
+    #loading{order:6;flex:1 0 100%;font-size:12px;color:var(--warntx);white-space:normal}
+    #bnrclose{min-width:44px;min-height:44px;font-size:17px}
 
     /* tiroir indicateurs : caché par défaut, déployé sous la barre quand .open.
        S'ouvre par-dessus la carte (action volontaire) ; #top reste tappable au-dessus. */
-    #pastilles{display:none;top:calc(var(--banner-h) + 90px);left:8px;right:8px;
-               max-height:calc(100% - 104px);overflow-y:auto;
-               -webkit-overflow-scrolling:touch;padding:9px 10px}
+    #pastilles{display:none;top:calc(var(--top-b) + 8px);left:8px;right:8px;
+               max-height:calc(100% - var(--top-b) - 20px);overflow-y:auto;
+               -webkit-overflow-scrolling:touch;padding:9px 10px;z-index:1150}
     #pastilles.open{display:flex}
     #pastilles .chip{padding:7px 12px;font-size:13px}
     #pairgroup{flex-wrap:wrap}
     #pairsel select{font-size:16px;padding:5px 6px}
 
     /* BV/IRIS : sous la barre, à droite (n'apparaît qu'au niveau commune) */
-    #subtoggle{top:calc(var(--banner-h) + 90px);right:8px}
-    #subtoggle .chip{padding:6px 11px;font-size:13px}
+    #subtoggle{top:calc(var(--top-b) + 8px);right:8px}
+    /* le tiroir d'indicateurs occupe toute cette bande : la bascule BV/IRIS s'efface
+       le temps qu'il est ouvert (elle réapparaît dès qu'on choisit une pastille). */
+    #pastilles.open ~ #subtoggle{display:none!important}
+    #subtoggle .chip{padding:9px 13px;font-size:13px}
+    /* barre de sélection multiple : elle gardait la mise en page desktop (une seule
+       ligne à partir de 52 px) et sortait de l'écran de 253 px — boutons inatteignables. */
+    #selbar{left:8px;right:8px;top:calc(var(--top-b) + 8px);flex-wrap:wrap;gap:6px;padding:8px 10px}
+    #selbar #selcount{flex:1 0 100%}
+    #selbar button,#selbar select{min-height:40px;padding:8px 12px;font-size:13px}
 
-    /* légende compacte en bas-gauche ; couverte par la fiche quand celle-ci s'ouvre */
+    /* légende compacte en bas-gauche, ESCAMOTÉE quand la fiche est ouverte : en
+       bottom-sheet elles occupent la même bande, et la légende recouvrait la fiche
+       (jusqu'à la masquer entièrement une fois celle-ci repliée). */
     #legend{bottom:8px;left:8px;right:8px;max-width:none}
     #legend .hint{display:none}
+    body.fiche #legend{display:none}
+    /* la mention Leaflet/CARTO passait sous la légende pleine largeur */
+    body:not(.fiche) .leaflet-bottom{bottom:52px}
 
     /* fiche zone en bottom-sheet rétractable : pleine largeur, ancrée en bas,
        scroll interne. La poignée bascule l'état replié (peek = nom seul). */
@@ -348,14 +408,33 @@
           border-radius:16px 16px 0 0;padding:8px 16px 14px;
           padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));
           box-shadow:0 -3px 18px var(--sh);transition:transform .25s ease}
+    /* poignée OPAQUE (--pbg est translucide) : sinon le contenu défilait visiblement
+       sous la poignée collante et laissait une ligne de texte fantôme. */
     #info .sheet-handle{display:block;position:sticky;top:0;z-index:3;cursor:grab;
           touch-action:none;user-select:none;-webkit-user-select:none;
-          text-align:center;padding:6px 0 8px;background:var(--pbg)}
+          text-align:center;padding:6px 0 8px;background:var(--pbgs)}
     #info .sheet-handle::before{content:"";display:block;width:40px;height:4px;
           margin:0 auto;border-radius:3px;background:var(--mut2)}
     #info .sh-name{display:none;margin-top:6px;font-weight:700;font-size:14px;color:var(--lav)}
+    /* tableau scrutin par scrutin : resserré pour tenir dans la largeur du téléphone,
+       sinon la dernière colonne (abstention) tombait hors cadre. */
+    #info table.recompo{font-size:9.5px}
+    #info table.recompo th,#info table.recompo td{padding:1px 2px}
     /* replié : on masque le contenu et n'affiche que la poignée + le nom */
     #info.collapsed{max-height:none;overflow:hidden}
     #info.collapsed .slider{display:none}
     #info.collapsed .sh-name{display:block}
+  }
+
+  /* ====== ÉCRANS COURTS (téléphone en paysage, clavier logiciel ouvert) ======
+     À 390 px de haut, bandeau + barre occupaient 130 px et la fiche latérale débordait
+     de 68 px : plus de carte du tout. On sacrifie le bandeau et on rend la fiche
+     entièrement scrollable dans la hauteur restante. */
+  @media (max-height:520px){
+    #banner{display:none}
+    #legend{display:none}
+  }
+  @media (max-height:520px) and (max-width:680px){
+    /* la carte tient dans la moitié haute, la fiche dans la moitié basse */
+    #info{max-height:62vh}
   }

@@ -11,11 +11,20 @@ const labelFor=k=>{ const p=PAST.find(x=>x[0]===k); if(!p)return k;
 const updatePairActive=()=>$("pairgroup").classList.toggle("active",usesPair(indicKey));
 // Revenu/Pauvreté n'ont de données qu'en vue Quartiers IRIS : on n'affiche leurs pastilles
 // que là, et on rebascule sur un indicateur électoral en quittant (sinon choroplèthe vide).
-const socioActive=()=>$("subtoggle").style.display!=="none"&&sousMode==="iris";
+// « on est en train d'afficher des quartiers IRIS » — indépendant du mode avancé : la
+// bascule est masquée hors mode avancé, mais un permalien ?sm=iris ouvre bien la vue IRIS.
+const socioActive=()=>{ const t=stack[stack.length-1];
+  return sousMode==="iris"&&!!t&&t.niveau==="commune"; };
+// iris.json ne porte QUE des variables sociales : avec un indicateur électoral, chaque
+// quartier était « sans donnée » et la carte devenait une dalle grise muette. En vue IRIS
+// on n'expose donc que les pastilles sociales (et on bascule dessus), et inversement.
 function syncSocioChips(){ const on=socioActive();
   $("pastilles").querySelectorAll(".chip").forEach(c=>{
-    if(SOCIO.has(c.dataset.k))c.style.display=on?"":"none"; });
-  if(!on&&SOCIO.has(indicKey))setIndic("lfi"); }
+    c.style.display=(SOCIO.has(c.dataset.k)===on)?"":"none"; });
+  $("pairgroup").style.display=on?"none":"";
+  if(!on&&SOCIO.has(indicKey))setIndic("lfi");
+  if(on&&!SOCIO.has(indicKey))setIndic("rev");
+  if(window.__syncLayout)window.__syncLayout(); }
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
   indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
@@ -35,7 +44,8 @@ $("pastoggle").onclick=()=>{ const open=$("pastilles").classList.toggle("open");
 // BV/IRIS. Replié par défaut → la prise en main se limite à cliquer son territoire.
 $("advtoggle").onclick=()=>{ const on=document.body.classList.toggle("adv");
   $("advtoggle").setAttribute("aria-pressed",String(on)); closeDrawer();
-  const t=stack[stack.length-1]; if(t&&t.niveau==="commune")subToggle(true); };
+  const t=stack[stack.length-1]; if(t&&t.niveau==="commune")subToggle(true);
+  if(window.__syncLayout)window.__syncLayout(); };
 // sélecteur de deux scrutins : peuple A/B et recalcule réservoirs (carte + fiche) à la volée
 function buildSelecteur(){
   for(const id of ["selA","selB"]){ const sel=$(id), cur=id==="selA"?selA:selB;

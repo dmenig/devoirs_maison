@@ -68,14 +68,23 @@ function jumpTo(d,fly=true){ clearSel(); stack=stack.slice(0,d); fadeOutLayer();
   // parent retombe pile sur le seuil et on replonge aussitôt dans la zone qu'on vient de quitter.
   if(fly)flyTo(t.bounds, ZIN[d]!=null?ZIN[d]-0.1:15); else t.enterZoom=map.getZoom();
   render(t.niveau,t.code); }
-function setFil(){ let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`;
+function setFil(){ const court=matchMedia("(max-width:680px)").matches;
+  // Mobile : la ligne fait ~150 px, on n'y met QUE la zone courante (le chemin complet
+  // était tronqué à « 🇫🇷 … », c'est-à-dire à rien d'utile ; remonter se fait par ⬅).
+  if(court&&stack.length){ const t=stack[stack.length-1];
+    $("fil").innerHTML=`<span class="crumb" data-d="${stack.length-1}">${t.nom}</span>`;
+    $("fil").querySelector(".crumb").onclick=()=>jumpTo(stack.length-1);
+    $("back").disabled=false; if(window.__syncLayout)window.__syncLayout(); return; }
+  let h=`<span class="crumb" data-d="0">🇫🇷 France</span>`;
   stack.forEach((s,i)=>h+=` › <span class="crumb" data-d="${i+1}">${s.nom}</span>`);
   $("fil").innerHTML=h; $("fil").querySelectorAll(".crumb").forEach(e=>e.onclick=()=>jumpTo(+e.dataset.d));
-  $("back").disabled=stack.length===0; }
+  $("back").disabled=stack.length===0;
+  if(window.__syncLayout)window.__syncLayout(); }
+addEventListener("resize",()=>setFil());
 
 function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
   map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11,
-    paddingTopLeft:[0,topInset()],paddingBottomRight:[infoInset(),sheetInset()]});
+    paddingTopLeft:[14,topInset()],paddingBottomRight:[infoInset()+14,sheetInset()]});
   map.once("moveend",()=>{ animating=false; if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
     // le zoomend final du vol ne doit PAS déclencher onZoomSettled (sinon remontée en
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.
@@ -95,10 +104,12 @@ async function vueRegion(code){ subToggle(false);
 // sur deux circos (cf. EVOLUTIONS.md, chantier 1).
 async function vueDepartement(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
-  if(!geo){$("loading").textContent="contours indisponibles";return;}
+  if(!geo){$("loading").textContent="Contours des communes indisponibles pour ce département "+
+    "(non générés pour l'outre-mer) — utilisez la recherche pour ouvrir une commune.";return;}
   dessiner(geo,val||{},"code","nom",(f,ly,o,fly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds(),o,fly),"commune"); }
 const subToggle=show=>{ const adv=document.body.classList.contains("adv");
   $("subtoggle").style.display=(show&&adv)?"flex":"none";
+  if(window.__syncLayout)window.__syncLayout();
   if(!show){ sousMode="bv";
     $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m==="bv")); }
   syncSocioChips(); };
@@ -121,7 +132,9 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   // $("loading").textContent=masques?`${masques}/${tous.length} bureau·x au tracé peu fiable masqué·s — voir l'export`:"";
   // if(!fiables.length){$("loading").textContent="contours de bureaux trop peu fiables ici — utilisez l'export des données";return;}
   $("loading").textContent="";
-  dessiner({type:"FeatureCollection",features:tous},val||{},"bureau","bureau",null,"bv"); }
+  tous.forEach(f=>{ const b=String(f.properties.bureau), n=(b.split("_")[1]||b).replace(/^0+/,"");
+    f.properties.__bvlab=`Bureau ${n||b}`; });
+  dessiner({type:"FeatureCollection",features:tous},val||{},"bureau","__bvlab",null,"bv"); }
 
 function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }

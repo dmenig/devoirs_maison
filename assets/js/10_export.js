@@ -34,6 +34,9 @@ function exportPDF(){ if(!lastInfo){ $("loading").textContent="cliquez une zone 
     `#info table.recompo{width:100% !important;font-size:7.5px !important;table-layout:fixed !important}`+
     `#info .back,#info .sheet-handle{display:none !important}`+
     `.exp,.act,.lever,.scn,.amini,.carnet,.sec,.pyr,.recbar,.trend,.bal,.dist,.detbody{break-inside:avoid}`+
+    // l'en-tête d'un groupe reste avec son contenu (sinon « PLAN D'ACTION » finissait seul
+    // au bas d'une page, suivi d'un cadre vide, et le corps passait à la suivante)
+    `#info .spoiler{break-inside:auto}#info .spoiler .sph{break-after:avoid}`+
     `@page{size:A4;margin:12mm}`+
     `</style></head><body><div id="info" class="panel">${content}</div>`+
     `<scr`+`ipt>window.onload=function(){setTimeout(function(){window.focus();window.print();},350);};</scr`+`ipt>`+
