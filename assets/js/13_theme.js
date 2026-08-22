@@ -19,6 +19,7 @@
     syncColors();
     tiles.setUrl(tileURL(t));
     labels.setUrl(labelURL(t));
+    overprint.setUrl(tileURL(t));
   };
   paint(theme());
   btn.addEventListener("click", () => {

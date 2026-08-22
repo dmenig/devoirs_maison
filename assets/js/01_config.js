@@ -99,13 +99,23 @@ map.createPane("labels").style.zIndex=450;
 map.getPane("labels").style.pointerEvents="none";
 const labels=L.tileLayer(labelURL(theme()),
   {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"labels"}).addTo(map);
-// Remplissage des zones : opaque aux échelles nationales (rien d'utile dessous), aminci
-// dès que la trame urbaine apparaît pour laisser lire rues et noms. La perte de contraste
-// est compensée par le CONTOUR, opaque et épaissi d'autant : la zone reste délimitée même
-// quand sa couleur s'éclaircit. Les paliers suivent ZIN (commune ≈ 10.5, BV ≈ 13+).
+// SURIMPRESSION : une seconde copie du fond de carte, posée elle aussi au-dessus des
+// polygones et composée en fusion (multiply en thème clair, screen en sombre — voir
+// map.css). Le fond de CARTO étant quasi uni, il laisse la couleur de la zone intacte ;
+// seul ce qui s'en écarte — casings de routes, contours de bâtiments, cours d'eau —
+// s'imprime PAR-DESSUS elle, comme une encre sur du papier. C'est ce qui permet de garder
+// un remplissage franc au lieu de délaver la zone pour apercevoir la trame. Les tuiles ont
+// la MÊME URL que le fond : le navigateur les sert depuis son cache, sans requête réseau.
+map.createPane("overprint").style.zIndex=440;
+map.getPane("overprint").style.pointerEvents="none";
+const overprint=L.tileLayer(tileURL(theme()),
+  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"overprint",opacity:.8}).addTo(map);
+// Remplissage des zones : la trame étant désormais surimprimée, il reste franc (.8) — juste
+// assez transparent pour donner de la profondeur. Le CONTOUR s'épaissit avec le zoom pour
+// que la zone reste délimitée sous l'encre. Paliers alignés sur ZIN (commune ≈ 10.5, BV ≈ 13+).
 function fillStyle(){ const z=map.getZoom();
-  if(z>=13)return{op:.5,w:1.2};
-  if(z>=LBL_MINZ)return{op:.65,w:.9};
+  if(z>=13)return{op:.8,w:1.2};
+  if(z>=LBL_MINZ)return{op:.82,w:.9};
   return{op:.85,w:.5}; }
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
