@@ -90,11 +90,16 @@ const tiles=L.tileLayer(tileURL(theme()),
 // choroplèthe au lieu d'être recouverts par elle — c'est ce qui permet de baisser
 // l'opacité des zones sans perdre la lecture du terrain. Le pane est transparent aux
 // clics, sans quoi il intercepterait les clics destinés aux polygones.
-// Activée seulement à partir de LBL_MINZ : plus bas, CARTO n'a que des toponymes de pays
-// et de mers EN ANGLAIS (la raison d'être du fond _nolabels) ; au-delà ce sont des noms
-// locaux, donc français, et c'est là que la trame urbaine devient utile au porte-à-porte.
+// Activée seulement à partir de LBL_MINZ : plus bas, CARTO écrit des noms de régions et de
+// mers ANGLICISÉS (« New Aquitania » dès le zoom 8) — la raison d'être du fond _nolabels ;
+// à partir du zoom 9 ce ne sont plus que des toponymes locaux (Bordeaux, Foix, Vielha).
+// Ce seuil est un SCALE, pas une taille d'écran : c'est justement pourquoi il doit rester
+// bas. Un même territoire s'affiche ~2 niveaux plus bas sur un écran étroit (ajuster des
+// bounds à 390 px de large donne un zoom bien inférieur qu'à 1500 px) : avec un seuil à 11,
+// Toulouse tombait à 10.6 en portable et n'avait NI libellés NI encre, là où le desktop
+// était à 12.35 et les avait. À 9, les deux se rejoignent dès l'échelle communale.
 const labelURL=t=>`https://{s}.basemaps.cartocdn.com/${t==="light"?"light":"dark"}_only_labels/{z}/{x}/{y}{r}.png`;
-const LBL_MINZ=11;
+const LBL_MINZ=9;
 map.createPane("labels").style.zIndex=450;
 map.getPane("labels").style.pointerEvents="none";
 const labels=L.tileLayer(labelURL(theme()),
@@ -111,12 +116,10 @@ map.getPane("overprint").style.pointerEvents="none";
 const overprint=L.tileLayer(tileURL(theme()),
   {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"overprint",opacity:.8}).addTo(map);
 // Remplissage des zones : la trame étant désormais surimprimée, il reste franc (.8) — juste
-// assez transparent pour donner de la profondeur. Le CONTOUR s'épaissit avec le zoom pour
-// que la zone reste délimitée sous l'encre. Paliers alignés sur ZIN (commune ≈ 10.5, BV ≈ 13+).
-function fillStyle(){ const z=map.getZoom();
-  if(z>=13)return{op:.8,w:1.2};
-  if(z>=LBL_MINZ)return{op:.82,w:.9};
-  return{op:.85,w:.5}; }
+// assez transparent pour donner de la profondeur. Le CONTOUR s'épaissit d'autant, pour que
+// la zone reste délimitée sous l'encre. Un seul palier, celui de l'encre : deux réglages
+// qui s'allument au même seuil, donc identiques en portable comme en desktop.
+function fillStyle(){ return map.getZoom()>=LBL_MINZ?{op:.8,w:1}:{op:.85,w:.5}; }
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
 // carte montre d'emblée le besoin de mobilisation par zone plutôt que la participation.
