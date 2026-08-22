@@ -18,6 +18,7 @@
     btn.setAttribute("aria-pressed", String(t === "light"));
     syncColors();
     tiles.setUrl(tileURL(t));
+    labels.setUrl(labelURL(t));
   };
   paint(theme());
   btn.addEventListener("click", () => {

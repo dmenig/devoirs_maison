@@ -5,7 +5,7 @@
 // repeint) — on défère donc à la fin de l'animation, avec un fondu d'apparition. Le fetch
 // reste lancé tôt (il chevauche le vol). Un minuteur de secours garantit le rendu si
 // moveend n'arrive pas (ex. flyToBounds sans déplacement à l'amorçage).
-let animating=false, pendingDraw=null, pendingTimer=null;
+let animating=false, pendingDraw=null, pendingTimer=null, layerStyle=null;
 function overlayEl(){ const p=map.getPanes().overlayPane; return p.querySelector("canvas")||p.querySelector("svg"); }
 function fadeInLayer(){ const el=overlayEl(); if(!el)return;
   el.style.transition="none"; el.style.opacity="0";
@@ -29,7 +29,10 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   // En mode sélection multiple (communes uniquement), une commune sélectionnée garde un
   // liseré blanc épais — y compris après un mouseout (resetStyle réapplique ce style).
   const selStyle=f=>{ const sel=multiSel&&niveau==="commune"&&selCodes.has(f.properties.__code);
-    return {fillColor:colOf(valOf(f.properties)),color:sel?C.geosel:C.geoline,weight:sel?2.6:.5,fillOpacity:sel?.95:.85}; };
+    const fs=fillStyle();
+    return {fillColor:colOf(valOf(f.properties)),color:sel?C.geosel:C.geoline,
+            weight:sel?2.6:fs.w,fillOpacity:sel?Math.min(.95,fs.op+.2):fs.op}; };
+  layerStyle=selStyle;
   layer=L.geoJSON(geo,{style:selStyle,
     onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
       ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
@@ -169,3 +172,8 @@ function onZoomSettled(){ if(busy)return; const z=map.getZoom(), d=stack.length;
 // armer la descente auto — il recale seulement le repère directionnel sur le zoom d'arrivée.
 map.on("zoomend",()=>{ if(busy||animating){ lastSettleZ=map.getZoom(); return; }
   clearTimeout(zoomSettle); zoomSettle=setTimeout(onZoomSettled,260); });
+// Opacité/contour dépendent du zoom : on ne repeint qu'au FRANCHISSEMENT d'un palier,
+// pas à chaque cran de molette (la couche BV d'une grande ville est lourde à restyler).
+let fillPalier=null;
+map.on("zoomend",()=>{ const op=fillStyle().op; if(op===fillPalier)return; fillPalier=op;
+  if(layer&&layerStyle)layer.setStyle(layerStyle); });

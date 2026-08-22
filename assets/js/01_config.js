@@ -83,6 +83,28 @@ function syncColors(){ const cs=getComputedStyle(document.documentElement);
 syncColors();
 const tiles=L.tileLayer(tileURL(theme()),
   {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+// CARTO sert les libellés (rues, quartiers, communes) dans une couche SÉPARÉE : on la pose
+// dans un pane AU-DESSUS des polygones. Les noms sont donc imprimés PAR-DESSUS la
+// choroplèthe au lieu d'être recouverts par elle — c'est ce qui permet de baisser
+// l'opacité des zones sans perdre la lecture du terrain. Le pane est transparent aux
+// clics, sans quoi il intercepterait les clics destinés aux polygones.
+// Activée seulement à partir de LBL_MINZ : plus bas, CARTO n'a que des toponymes de pays
+// et de mers EN ANGLAIS (la raison d'être du fond _nolabels) ; au-delà ce sont des noms
+// locaux, donc français, et c'est là que la trame urbaine devient utile au porte-à-porte.
+const labelURL=t=>`https://{s}.basemaps.cartocdn.com/${t==="light"?"light":"dark"}_only_labels/{z}/{x}/{y}{r}.png`;
+const LBL_MINZ=11;
+map.createPane("labels").style.zIndex=450;
+map.getPane("labels").style.pointerEvents="none";
+const labels=L.tileLayer(labelURL(theme()),
+  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"labels"}).addTo(map);
+// Remplissage des zones : opaque aux échelles nationales (rien d'utile dessous), aminci
+// dès que la trame urbaine apparaît pour laisser lire rues et noms. La perte de contraste
+// est compensée par le CONTOUR, opaque et épaissi d'autant : la zone reste délimitée même
+// quand sa couleur s'éclaircit. Les paliers suivent ZIN (commune ≈ 10.5, BV ≈ 13+).
+function fillStyle(){ const z=map.getZoom();
+  if(z>=13)return{op:.5,w:1.2};
+  if(z>=LBL_MINZ)return{op:.65,w:.9};
+  return{op:.85,w:.5}; }
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
 // carte montre d'emblée le besoin de mobilisation par zone plutôt que la participation.
