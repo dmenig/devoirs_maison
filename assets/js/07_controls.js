@@ -12,21 +12,24 @@ const updatePairActive=()=>$("pairgroup").classList.toggle("active",usesPair(ind
 // Revenu/Pauvreté n'ont de données qu'en vue Quartiers IRIS : on n'affiche leurs pastilles
 // que là, et on rebascule sur un indicateur électoral en quittant (sinon choroplèthe vide).
 // « on est en train d'afficher des quartiers IRIS » — indépendant du mode avancé : la
-// bascule est masquée hors mode avancé, mais un permalien ?sm=iris ouvre bien la vue IRIS.
+// bascule est masquée hors mode avancé, mais un permalien ?sm=bv rouvre bien la vue bureaux.
 const socioActive=()=>{ const t=stack[stack.length-1];
   return sousMode==="iris"&&!!t&&t.niveau==="commune"; };
-// iris.json ne porte QUE des variables sociales : avec un indicateur électoral, chaque
-// quartier était « sans donnée » et la carte devenait une dalle grise muette. En vue IRIS
-// on n'expose donc que les pastilles sociales (et on bascule dessus), et inversement.
+// Le quartier porte désormais les DEUX jeux : le social (FILOSOFI/recensement, publié à
+// cette maille et à elle seule) et l'électoral ESTIMÉ depuis les bureaux de vote. Toutes
+// les pastilles y sont donc pertinentes ; ailleurs, les pastilles sociales restent
+// masquées (elles n'ont de valeurs qu'à l'IRIS) et on rebascule sur l'électoral.
 function syncSocioChips(){ const on=socioActive();
   $("pastilles").querySelectorAll(".chip").forEach(c=>{
-    c.style.display=(SOCIO.has(c.dataset.k)===on)?"":"none"; });
-  $("pairgroup").style.display=on?"none":"";
-  if(!on&&SOCIO.has(indicKey))setIndic("lfi");
-  if(on&&!SOCIO.has(indicKey))setIndic("rev");
+    c.style.display=(on||!SOCIO.has(c.dataset.k))?"":"none"; });
+  if(!on&&SOCIO.has(indicKey))setIndic("lfi"); else syncLegend();
   if(window.__syncLayout)window.__syncLayout(); }
+// Les valeurs électorales d'un quartier sont estimées : la légende de la carte le dit,
+// comme l'infobulle et la fiche.
+function syncLegend(){ $("legtitle").textContent=indicLabel+
+  (socioActive()&&!SOCIO.has(indicKey)?" · estimé":""); }
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
-  indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
+  indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; syncLegend();
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
   updatePairActive();
   // le chiffre de tête de la fiche EST l'indicateur actif : une fiche déjà ouverte doit
@@ -37,7 +40,7 @@ function buildPastilles(){ const box=$("pastilles"), grp=$("pairgroup");
     c.textContent=labelFor(k); c.dataset.k=k;
     c.onclick=()=>{ setIndic(k); closeDrawer(); const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); };
     (k.startsWith("dyn_")?grp:box).appendChild(c); });
-  $("legtitle").textContent=labelFor(indicKey); updatePairActive(); syncSocioChips(); }
+  indicLabel=labelFor(indicKey); syncLegend(); updatePairActive(); syncSocioChips(); }
 // tiroir indicateurs (mobile) : le bouton 📊 déploie #pastilles ; sélectionner une
 // pastille le referme pour redécouvrir la carte. Sans effet en desktop (#pastoggle masqué).
 function closeDrawer(){ $("pastilles").classList.remove("open"); $("pastoggle").classList.remove("on"); $("pastoggle").setAttribute("aria-expanded","false"); }
@@ -56,7 +59,7 @@ function buildSelecteur(){
     sel.onchange=()=>{ selA=$("selA").value; selB=$("selB").value; refreshPair(); }; } }
 function refreshPair(){
   $("pastilles").querySelectorAll(".chip").forEach(c=>{ if(usesPair(c.dataset.k))c.textContent=labelFor(c.dataset.k); });
-  if(usesPair(indicKey)){ indicLabel=labelFor(indicKey); $("legtitle").textContent=indicLabel;
+  if(usesPair(indicKey)){ indicLabel=labelFor(indicKey); syncLegend();
     const t=stack[stack.length-1]; t?render(t.niveau,t.code):vueFrance(); }
   if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o,lastInfo.niveau,lastInfo.code); }
 // clic sur une section : translate la fiche sur le côté pour révéler son détail (et retour)
@@ -88,7 +91,6 @@ $("info").addEventListener("click",e=>{ const sl=$("info").querySelector(".slide
 // bascule Bureaux de vote ⇄ Quartiers IRIS (au niveau commune)
 $("subtoggle").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ const m=c.dataset.m; if(m===sousMode)return;
   sousMode=m; $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===m));
-  const socio=SOCIO.has(indicKey);
-  if(m==="iris"&&!socio)setIndic("rev"); else if(m==="bv"&&socio)setIndic("lfi");
+  if(m==="bv"&&SOCIO.has(indicKey))setIndic("lfi");
   syncSocioChips();
   const t=stack[stack.length-1]; if(t&&t.niveau==="commune")vueCommune(t.code); });

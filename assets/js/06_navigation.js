@@ -80,7 +80,7 @@ function prefetchEnfants(niveau,code){
     getJSON("values/_hierarchie.json"); return; }
   if(niveau==="departement"){ getJSON(`geo/communes/${code}.geojson`); getJSON(`values/commune/${code}.json`); return; }
   if(niveau==="commune"){ const d=depOf(code);
-    if(sousMode==="iris"){ getJSON(`geo/iris/${d}.geojson`); getJSON("values/iris.json"); }
+    if(sousMode==="iris"){ getJSON(`geo/iris/${d}.geojson`); getJSON(`values/iris/${d}.json`); }
     else { getJSON(`geo/bv/${d}.geojson`); getJSON(`values/bv/${d}.json`); } }
 }
 
@@ -113,7 +113,10 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   const st=styleFactory(geo,niveau); layerStyle=st;
   layer=L.geoJSON(geo,{style:st}).addTo(map);
   layer.bindTooltip(l=>{ const p=l.feature.properties;
-    return `<b>${p.__nom}</b><br>${indicLabel} : ${fmtVal(valOf(p),indicUnit)}`; },{sticky:true});
+    // un chiffre estimé (quartier) ne doit jamais se lire comme un chiffre mesuré, même
+    // dans une infobulle survolée à la volée.
+    const est=estime(curVals[p.__code])?" <i>(estimé)</i>":"";
+    return `<b>${p.__nom}</b><br>${indicLabel} : ${fmtVal(valOf(p),indicUnit)}${est}`; },{sticky:true});
   layer.on("mouseover",e=>{ const ly=e.layer; if(!ly||!ly.feature)return;
     ly.setStyle({weight:2.6,color:C.geosel});
     prefetchEnfants(niveau,ly.feature.properties.__code); });
@@ -206,12 +209,12 @@ async function vueDepartement(code){ subToggle(false);
 const subToggle=show=>{ const adv=document.body.classList.contains("adv");
   $("subtoggle").style.display=(show&&adv)?"flex":"none";
   if(window.__syncLayout)window.__syncLayout();
-  if(!show){ sousMode="bv";
-    $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m==="bv")); }
+  if(!show){ sousMode=SOUS_DEFAUT;
+    $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===SOUS_DEFAUT)); }
   syncSocioChips(); };
 async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(sousMode==="iris"){
-    const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON("values/iris.json")]);
+    const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON(`values/iris/${dep}.json`)]);
     if(!geo){$("loading").textContent="quartiers indisponibles ici";return;}
     const fc={type:"FeatureCollection",features:geo.features.filter(f=>irisInCommune(String(f.properties.code_iris),code))};
     if(!fc.features.length){$("loading").textContent="pas de données par quartier";return;}

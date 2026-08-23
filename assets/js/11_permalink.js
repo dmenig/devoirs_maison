@@ -16,7 +16,7 @@ function permWin(){ let w=window;
 function urlState(){ const c=map.getCenter(), top=stack[stack.length-1];
   const p={ll:c.lat.toFixed(4)+","+c.lng.toFixed(4), z:map.getZoom().toFixed(2)};
   if(top){ p.e=top.niveau+":"+top.code;
-    if(top.niveau==="commune"&&sousMode==="iris")p.sm="iris"; }
+    if(top.niveau==="commune"&&sousMode!==SOUS_DEFAUT)p.sm=sousMode; }
   if(lastInfo&&top&&lastInfo.code!==top.code&&(lastInfo.niveau==="bv"||lastInfo.niveau==="iris"))
     p.f=lastInfo.niveau+":"+lastInfo.code;
   return p; }
@@ -40,7 +40,7 @@ async function restoreFiche(f){ const [niv,code]=f.split(":"), top=stack[stack.l
   if(!top||top.niveau!=="commune")return; const dep=depOf(top.code);
   if(niv==="bv"){ const val=await getJSON(`values/bv/${dep}.json`), o=(val||{})[code];
     if(o)infoPanel(code,o,"bv",code); }
-  else if(niv==="iris"){ const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON("values/iris.json")]);
+  else if(niv==="iris"){ const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON(`values/iris/${dep}.json`)]);
     const o=(val||{})[code]; if(!o)return;
     const ft=geo&&geo.features.find(x=>String(x.properties.code_iris)===code);
     infoPanel((ft&&ft.properties.nom_iris)||code,o,"iris",code); } }
@@ -54,8 +54,10 @@ async function restoreFromURL(){ let q; try{ q=new URL(permWin().location.href).
   const e=q.get("e"), z=parseFloat(q.get("z")), ll=(q.get("ll")||"").split(",").map(Number);
   const hasView=!isNaN(z)&&ll.length===2&&ll.every(v=>!isNaN(v));
   if(!e&&!hasView)return false;
-  if(q.get("sm")==="iris"){ sousMode="iris";
-    $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m==="iris")); }
+  // `sm` ne porte que le sous-mode NON par défaut ; les permaliens d'avant la bascule
+  // (?sm=iris) restent valides puisqu'ils nomment le mode explicitement.
+  const sm=q.get("sm"); if(sm==="iris"||sm==="bv"){ sousMode=sm;
+    $("subtoggle").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.m===sm)); }
   if(e){ const [niv,code]=e.split(":"), idx=await getJSON("values/search_index.json");
     const ent=(idx||[]).find(x=>x.niveau===niv&&x.code===code);
     if(!ent&&!hasView)return false;

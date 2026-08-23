@@ -188,6 +188,23 @@ def _ecrire(nom: str, data: dict) -> None:
     (OUT / f"{nom}.json").write_text(_dumps(data))
 
 
+def _dep(code: str) -> str:
+    return code[:3] if code.startswith("97") else code[:2]
+
+
+def _ecrire_par_dep(nom: str, vals: dict[str, dict]) -> int:
+    """Un fichier par département : le client ne télécharge que la zone qu'il ouvre.
+    Indispensable à l'IRIS depuis qu'il porte aussi l'électoral (le fichier national
+    dépasserait les 70 Mo pour l'affichage d'un seul quartier)."""
+    (OUT / nom).mkdir(exist_ok=True)
+    par_dep: dict[str, dict] = {}
+    for code, v in vals.items():
+        par_dep.setdefault(_dep(code), {})[code] = v
+    for dep, d in par_dep.items():
+        (OUT / nom / f"{dep}.json").write_text(_dumps(d))
+    return len(par_dep)
+
+
 # FILOSOFI -> clés client compactes. Niveau de vie (revenu disponible par UC), seuil de
 # pauvreté, et la dispersion (quartiles / déciles / interdécile / Gini) que la prez
 # demande de regarder (slide « niveau de vie des ménages »). IRIS = jeu complet ;
@@ -305,6 +322,40 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
             o["malinsc"] = round(pop_majeur * taux)
 
 
+def _baker_iris_elec(
+    iris_vals: dict[str, dict], da: Path, ordre: list[str], fiables: set[str]
+) -> None:
+    """Ajoute aux quartiers l'électoral ESTIMÉ par intersection avec les bureaux de vote
+    (cf. prep_iris_bv). Le drapeau `est` marque ces valeurs : la fiche et l'infobulle
+    doivent dire qu'elles sont estimées, jamais mesurées. Les IRIS que les contours de
+    bureaux ne recouvrent pas (garde-fou COUV_MIN) sont absents du fichier et restent
+    donc purement socio-économiques."""
+    f = da / "resultats_iris.parquet"
+    if not f.exists():
+        print(
+            "  ⚠ resultats_iris absent — quartiers sans électoral (lancer prep_iris_bv)"
+        )
+        return
+    ri = pd.read_parquet(f)
+    for code, vals in _valeurs_niveau(ri, ordre, fiables).items():
+        o = iris_vals.setdefault(code, {})
+        o.update(vals)
+        o["est"] = 1
+    insc = ri[ri["scrutin"] == SCRUTIN_REGISTRE].set_index("code")["inscrits"]
+    for code, v in insc.items():
+        o = iris_vals.get(str(code))
+        if o is not None and pd.notna(v):
+            o["insc"] = int(v)
+    for o in iris_vals.values():
+        if o.get("est"):
+            c = _conquerir(o)
+            if c is not None:
+                o["conq"] = c
+    print(
+        f"  ✓ électoral estimé sur {ri['code'].nunique()} quartiers (intersection BV)"
+    )
+
+
 def _baker_admin(com: dict[str, dict], da: Path) -> None:
     """Fusionne admin_commune dans les valeurs communales + écrit la référence France."""
     f = da / "admin_commune.parquet"
@@ -395,7 +446,7 @@ def main() -> None:
         vals["conq"] = c
         if valide:
             conq_reg[str(reg)] += c
-        conq_dep[code[:3] if code.startswith("97") else code[:2]] += c
+        conq_dep[_dep(code)] += c
     for reg, v in conq_reg.items():
         niveaux_agr["region"].setdefault(reg, {})["conq"] = v
     for dep, v in conq_dep.items():
@@ -411,14 +462,7 @@ def main() -> None:
             "_socio_reg", {k: _socio_champs(v) for k, v in refs.items() if k != "FR"}
         )
         print("  ✓ références socio (nationale + régions)")
-    (OUT / "commune").mkdir(exist_ok=True)
-    par_dep: dict[str, dict] = {}
-    for code, vals in com.items():
-        dep = code[:3] if code.startswith("97") else code[:2]
-        par_dep.setdefault(dep, {})[code] = vals
-    for dep, d in par_dep.items():
-        (OUT / "commune" / f"{dep}.json").write_text(_dumps(d))
-    print(f"  ✓ values commune (par département, {len(par_dep)})")
+    print(f"  ✓ values commune (par département, {_ecrire_par_dep('commune', com)})")
 
     iris = pd.read_parquet(DA / "socio_iris.parquet")
     iris_vals = {}
@@ -436,8 +480,8 @@ def main() -> None:
             cur["reg"] = regmap[str(r.code_commune)]
         for cle, val in _socio_champs(r._asdict()).items():
             cur.setdefault(cle, val)
-    _ecrire("iris", iris_vals)
-    print("  ✓ values iris")
+    _baker_iris_elec(iris_vals, DA, ordre, fiables)
+    print(f"  ✓ values iris (par département, {_ecrire_par_dep('iris', iris_vals)})")
 
     bv = pd.read_parquet(DA / "resultats_bureau.parquet")
     bv["dep"] = (

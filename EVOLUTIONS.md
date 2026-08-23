@@ -252,3 +252,20 @@ France à l'échelle courante ?
 | 17 | Préciser que le **renouvellement** est mesuré **sur un an** (2020→2021) | ✅ Fait | Titre de section → « Renouvellement de population · sur 1 an (2020→2021) » et détail explicite (variable IRAN, RP 2021, comparaison 2020↔2021) dans [04_panel_admin.js](assets/js/04_panel_admin.js). |
 | 18 | **Outre-mer** : validation politique douteuse si indispo ; warning ou standardisation ? | ⚠️ Parti-pris : **warning, pas de fabrication** | Bandeau de transparence (`omBanner`, [03_panel_info.js](assets/js/03_panel_info.js)) affiché sur les territoires ultramarins (codes 97-/98-, régions DOM) : « peu de stats publiques, recos avec précaution ». **Choix assumé : ne PAS standardiser des chiffres manquants** — fabriquer des estimations sans source est indéfendable pour un outil cherchant une validation politique, et la transparence sur le manque protège mieux le produit. **À trancher avec le PEE** : faut-il purement masquer le Carnet outre-mer, ou le garder avec le bandeau ? |
 | 19 | Lien cliquable vers les **GA les plus proches** de la ville | ✅ Fait (lien à confirmer) | Lien en bas de la fiche commune (`galink`, [03_panel_info.js](assets/js/03_panel_info.js)) vers l'annuaire Action Populaire `actionpopulaire.fr/groupes/?q=<commune>`. **Ouvert** : le paramètre de recherche exact de la plateforme (SPA, non vérifiable à distance) reste à confirmer avec quelqu'un ayant accès au back-office LFI ; le lien dégrade proprement vers l'annuaire si `?q=` est ignoré. |
+
+---
+
+## Vue par défaut sous la commune : le quartier (IRIS), électoral compris
+
+> Retour Elia : « pas convaincue pour le niveau BDV dans le sens où ça sera utilisé à
+> l'échelle des GA et que les GA sont à minima à l'échelle d'arrondissement/de grand
+> quartier ».
+
+| Statut | Détail |
+| ------ | ------ |
+| ✅ Fait | **L'IRIS devient la sous-maille servie par défaut** sous la commune (`SOUS_DEFAUT`, [01_config.js](assets/js/01_config.js)) ; la bascule 🗳️ Bureaux de vote reste à un clic en mode avancé. Le quartier n'était jusque-là qu'une fiche sociale : il porte désormais aussi **l'analyse électorale**. |
+| ✅ Fait | **Électoral estimé à l'IRIS** ([prep_iris_bv.py](prep_iris_bv.py)) : intersection des contours IRIS (IGN) et des bureaux de vote (Voronoï data.gouv), répartition des voix **au prorata de la population** de chaque intersection, puis **recalage sur le résultat communal réel** (la somme des quartiers redonne exactement la commune). Toutes les pastilles électorales et le sélecteur ⚖️ sont désormais actifs en vue quartiers. |
+| ✅ Fait | **Deux garde-fous, aucune donnée plutôt qu'une fausse** : `COUV_MIN` (99 % de l'aire de l'IRIS doit être recouverte par des contours de bureaux → 392 quartiers écartés sur 48 512) et `ELEC_MIN` (90 % de l'électorat communal doit être porté par des bureaux localisables, sinon le recalage extrapole au lieu de rattraper → commune écartée scrutin par scrutin, ex. Bordeaux 2024-2026). Rapport conservé dans `data_app/iris_bv_couverture.parquet`. |
+| ✅ Fait | **L'estimation est dite partout** : « · estimé » dans la légende de la carte et dans l'intitulé du chiffre de tête, « (estimé) » dans l'infobulle, bandeau en tête de l'analyse électorale et méthodologie complète dans le volet de détail. |
+| ✅ Fait | `values/iris.json` (14 Mo, national) **découpé par département** (`values/iris/<dep>.json`) : porteur de l'électoral, le fichier national aurait dépassé 70 Mo pour afficher un seul quartier. |
+| 🐛 Corrigé au passage | `gotoZone` ([08_search.js](assets/js/08_search.js)) empilait la commune **après** l'avoir rendue : la sous-maille et la légende étaient calculées comme si l'on était encore au département (arrivée par la recherche ou par permalien). La commune est désormais empilée avant le rendu, comme au clic. |

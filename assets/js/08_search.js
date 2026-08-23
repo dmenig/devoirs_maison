@@ -37,9 +37,13 @@ async function gotoZone(e){ infoPanel(null);
     stack=[{niveau:"region",code:e.region,nom:regNom(e.region),bounds:null},
            {niveau:"departement",code:e.code,nom:e.nom,bounds:null}];
     await vueDepartement(e.code); }
+  // la commune est empilée AVANT d'être rendue (comme au clic, cf. entrer) : vueCommune
+  // interroge le sommet de pile pour savoir quelle sous-maille servir et comment libeller
+  // la légende — l'empiler après faisait croire qu'on était encore au département.
   else{ stack=[{niveau:"region",code:e.region,nom:regNom(e.region),bounds:null},
-               {niveau:"departement",code:e.dep,nom:depNom(e.dep),bounds:null}];
-    await vueCommune(e.code); stack.push({niveau:"commune",code:e.code,nom:e.nom,bounds:null});
+               {niveau:"departement",code:e.dep,nom:depNom(e.dep),bounds:null},
+               {niveau:"commune",code:e.code,nom:e.nom,bounds:null}];
+    await vueCommune(e.code);
     const cv=await getJSON(`values/commune/${e.dep}.json`); infoPanel(e.nom,(cv||{})[e.code],"commune",e.code); }
   setFil();
   const b=layer&&layer.getBounds&&layer.getBounds();

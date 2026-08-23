@@ -65,6 +65,12 @@ function omBanner(niveau,code){
     `Nouvelle-Calédonie, en Polynésie…). Estimations et recommandations à prendre avec précaution.</div>`;
 }
 
+// Bandeau d'estimation (quartiers IRIS) : aucun résultat électoral n'est publié à cette
+// maille, tout ce qui suit est reconstitué depuis les bureaux de vote qui la recoupent.
+// Un quartier mal recouvert par les contours de bureaux n'a AUCUNE clé électorale (filtré
+// à la fabrication) : le bandeau ne peut donc jamais coiffer un chiffre non estimable.
+const estBanner=o=>o&&o.est?`<div class="warn">${EST_NOTE}</div>`:"";
+
 // Lien sortant vers l'annuaire officiel des groupes d'action (retour n°19). On passe le
 // nom de la commune en recherche ; si le territoire n'a pas de GA, la plateforme propose
 // les plus proches. NB : vérifier le paramètre de recherche exact d'Action Populaire.
@@ -100,24 +106,25 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // Chiffre de tête = valeur de l'INDICATEUR ACTIF pour cette zone (cf. HEAD_INFO) : la fiche
   // répond à la question posée par la coloration de la carte. Repli sur le vote LFI puis le
   // revenu quand l'indicateur n'a pas de valeur ici (ex. réservoir A→B sur un scrutin absent).
-  const iv=rawVal(o,indicKey), hi=HEAD_INFO[indicKey];
+  const iv=rawVal(o,indicKey), hi=HEAD_INFO[indicKey], est=estime(o);
   let headline="";
   if(iv!=null&&hi){
     const sgn=(indicKey==="dyn_dpart"&&iv>0)?"+":"";
-    headline=exp(`<div class="lead">${headLead(indicKey)}</div>`+
-           `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,hi[2]());
+    headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}</div>`+
+           `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,
+      hi[2]()+(est?EST_METHODO:""));
   } else if(lfi!=null){
-    headline=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
+    headline=exp(`<div class="lead">Vote LFI · Europ. 2024${est?" · estimé":""}</div>`+
            `<div class="head">${lfi} %<small> des inscrits</small></div>`,
       `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+
       `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
-      `Source : Ministère de l'Intérieur.`);
+      `Source : Ministère de l'Intérieur.`+(est?EST_METHODO:""));
   } else if(o.rev!=null){
     headline=exp(`<div class="lead">Revenu médian · quartier · 2021</div>`+
            `<div class="head">${o.rev.toLocaleString('fr')} €<small> par personne / an</small></div>`,
-      `À l'échelle du <b>quartier (IRIS)</b>, les résultats électoraux ne sont pas disponibles : le vote se compte `+
-      `par <b>bureau de vote</b>, pas par IRIS. On affiche donc le <b>contexte social</b> — revenu médian par personne `+
-      `après impôts et aides. Source : INSEE FILOSOFI 2021.`);
+      `<b>Revenu médian</b> par personne après impôts et aides — la seule donnée publiée à l'échelle du `+
+      `<b>quartier (IRIS)</b>, avec le reste du contexte social. Source : INSEE FILOSOFI 2021. `+
+      `Les résultats électoraux, eux, n'y sont pas mesurés mais <b>estimés</b> depuis les bureaux de vote.`);
   }
 
   // L'analyse détaillée est rangée dans des spoilers repliés (cf. assemblage en fin de
@@ -281,7 +288,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     }
   } else {
     h+=headline;
-    h+=spoiler("Analyse électorale",cols(elec));
+    h+=spoiler("Analyse électorale",elec?estBanner(o)+cols(elec):"");
     h+=spoiler("Profil sociologique",cols(socio));
   }
   info.classList.remove("collapsed");

@@ -9,6 +9,26 @@ const STAT=new Set(["lfi","part","rn","gauche"]);
 // rev/pauv : FILOSOFI, dispo seulement à la maille IRIS (absents aux échelons agrégés
 // région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
 const SOCIO=new Set(["rev","pauv"]);
+// L'IRIS n'est PAS une maille électorale : le ministère n'y publie rien. Les résultats
+// affichés par quartier sont ESTIMÉS (cf. prep_iris_bv.py) en répartissant les voix de
+// chaque bureau de vote entre les quartiers que son contour recoupe, au prorata de la
+// population de l'intersection, puis recalés sur le résultat RÉEL de la commune (la somme
+// des quartiers redonne exactement la commune). Un quartier que les contours de bureaux
+// ne recouvrent pas quasi intégralement n'est pas estimé du tout : il n'a aucune clé
+// électorale et la carte le laisse gris — pas de chiffre plutôt qu'un chiffre faux.
+// Le drapeau `est` marque les valeurs estimées ; tout ce qui les affiche doit le dire.
+const estime=(o,k)=>!!(o&&o.est)&&!SOCIO.has(k||indicKey);
+const EST_NOTE=`≈ <b>Résultats estimés</b> — le vote se compte par <b>bureau de vote</b>, pas par `+
+  `quartier. Ces chiffres répartissent les voix des bureaux qui recoupent ce quartier, au prorata `+
+  `de sa population, puis sont recalés sur le résultat réel de la commune.`;
+const EST_METHODO=`<p><b>Chiffre estimé, non mesuré.</b> Aucun résultat électoral n'est publié à `+
+  `l'échelle du <b>quartier (IRIS)</b> : le vote se compte par <b>bureau de vote</b>. On répartit `+
+  `donc les voix de chaque bureau entre les quartiers que son contour recoupe, <b>au prorata de la `+
+  `population</b> de chaque intersection, puis on recale l'ensemble sur le <b>résultat réel de la `+
+  `commune</b> — la somme des quartiers d'une commune redonne exactement son résultat. `+
+  `Sources : contours de bureaux <b>Voronoï data.gouv</b> (approchés), contours IRIS <b>IGN 2025</b>, `+
+  `population <b>recensement INSEE 2021</b>. Un quartier que les contours de bureaux ne recouvrent `+
+  `pas à 99 % n'est pas estimé : il n'affiche aucun chiffre électoral plutôt qu'un chiffre faux.</p>`;
 const PAST=[["conquerir","Voix à conquérir"," voix"],
             ["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
@@ -56,8 +76,8 @@ const HEAD_INFO={
     `C'est le réservoir brut de voix à ramener aux urnes.`,"Abstention"],
   rev:["2021","par personne / an",()=>
     `<b>Revenu médian</b> par personne après impôts et aides, corrigé de la taille du foyer. `+
-    `Source : INSEE FILOSOFI 2021. À l'échelle du <b>quartier (IRIS)</b>, les résultats électoraux ne sont `+
-    `pas disponibles : le vote se compte par <b>bureau de vote</b>, pas par IRIS.`,"Revenu médian"],
+    `Source : INSEE FILOSOFI 2021. C'est la seule échelle où le revenu est publié — à l'inverse des `+
+    `résultats électoraux, qui n'y sont qu'<b>estimés</b> depuis les bureaux de vote.`,"Revenu médian"],
   pauv:["2021","de la population",()=>
     `Part de la population vivant sous <b>60 % du revenu médian national</b>. Source : INSEE FILOSOFI 2021.`],
 };
@@ -183,8 +203,13 @@ function fillStyle(){ return map.getZoom()>=LBL_MINZ?{op:.8,w:1}:{op:.85,w:.5}; 
 // carte montre d'emblée le besoin de mobilisation par zone plutôt que la participation.
 // Le cache mémoire démarre avec la vue France inlinée par le serveur (window.__seed, cf.
 // prep_seed.py) : getJSON la trouve déjà là et le premier tracé ne fait aucune requête.
+// Sous-maille servie par défaut sous la commune : le QUARTIER (IRIS). C'est la maille de
+// lecture du terrain (on y a le revenu, la sociologie ET, désormais, l'électoral estimé),
+// là où le bureau de vote est une maille d'organisation du travail militant — resté
+// disponible d'un clic en mode avancé.
+const SOUS_DEFAUT="iris";
 const cache=window.__seed||{}; let layer=null, stack=[], indicKey="conquerir", indicLabel="Voix à conquérir", indicUnit=" voix",
-    curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[], enterColor=null;
+    curVals={}, busy=false, sousMode=SOUS_DEFAUT, lastInfo=null, panelDetails=[], enterColor=null;
 // Sélection multiple de communes (retour Elia, point 4) : en mode multi, un clic sur une
 // commune l'ajoute/retire de la sélection (fiche agrégée) au lieu d'y descendre.
 let multiSel=false; const selCodes=new Set();

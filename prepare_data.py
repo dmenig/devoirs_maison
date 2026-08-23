@@ -15,6 +15,7 @@ import pandas as pd
 
 import prep_admin
 import prep_geo
+import prep_iris_bv
 from prep_elections import construire_resultats
 from prep_socio import construire_references, construire_socio
 
@@ -105,6 +106,12 @@ def main() -> None:
         if rp.exists():
             refs = construire_references(commune_socio, rp, communes)
             (OUT / "socio_reference.json").write_text(json.dumps(refs))
+            # population par IRIS : sert à répartir les électeurs d'un bureau de vote
+            # entre les quartiers qu'il recoupe, au prorata du peuplement et non de la
+            # seule surface (cf. prep_iris_bv).
+            pd.read_csv(
+                rp, dtype={"code_iris": str}, usecols=["code_iris", "pop"]
+            ).to_parquet(OUT / "pop_iris.parquet", index=False)
         print(f"   IRIS: {len(iris)} | communes: {len(commune_socio)}")
 
     print("→ Données administratives INSEE (âges, logement, transport, maires)")
@@ -137,11 +144,18 @@ def main() -> None:
             "   IRIS contours indisponibles (IGN throttling) — tables IRIS quand même servies"
         )
 
+    print("→ Électoral estimé par quartier (intersection IRIS × bureaux de vote)")
+    if (GEO / "iris").exists() and (GEO / "bv").exists():
+        prep_iris_bv.construire(OUT)
+    else:
+        print("   contours IRIS ou BV absents — étape ignorée")
+
     manifest = {
         "scrutins": sorted(resultats["commune"]["scrutin"].unique().tolist()),
         "niveaux": sorted(resultats.keys()),
         "iris_contours": (GEO / "iris").exists(),
         "admin_commune": (OUT / "admin_commune.parquet").exists(),
+        "iris_electoral_estime": (OUT / "resultats_iris.parquet").exists(),
     }
     (OUT / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2)

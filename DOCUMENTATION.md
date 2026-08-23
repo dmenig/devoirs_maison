@@ -28,6 +28,11 @@ France → Région → Département → Commune → IRIS / Bureau de vote
 
 On clique sur une entité pour descendre d'un niveau. Un fil d'Ariane permet de remonter.
 
+Sous la commune, la vue servie par défaut est le **quartier (IRIS)** : c'est la maille de
+lecture du terrain (revenu, sociologie, logement — et désormais l'électoral estimé), là où
+le bureau de vote est une maille d'**organisation** du travail militant. La bascule
+**🗳️ Bureaux de vote** reste à un clic, en mode avancé.
+
 ## Ce qui est montré à chaque granularité
 
 Toutes les échelles partagent le **socle électoral** (calculé en **% des inscrits**,
@@ -46,7 +51,7 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **Région** | idem, agrégé région | différentiels et reports entre scrutins | — |
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
 | **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
-| **IRIS** (quartier) | — (l'IRIS n'est pas une maille électorale) | — | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) |
+| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) |
 | **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
@@ -58,6 +63,49 @@ réelles (région, département, circonscription, commune, bureau de vote) :
 - **Report LFI** entre deux scrutins (`voix_LFI_B / voix_LFI_A`)
 - **Différentiel de participation** (`participation_B − participation_A`, en points d'inscrits)
 - **Stock d'abstentionnistes mobilisables** (`inscrits × taux d'abstention`)
+
+### Résultats électoraux estimés à l'IRIS (quartier)
+
+Le quartier est la maille de lecture du terrain : c'est la seule à porter le revenu, la
+sociologie et le logement. Mais **l'IRIS n'est pas une maille électorale** — le ministère
+n'y publie rien, le vote se compte par **bureau de vote**. L'atlas y sert donc des
+résultats **estimés**, jamais mesurés, et le dit partout où ils apparaissent (légende de
+la carte, infobulle, bandeau et intitulé du chiffre de tête dans la fiche).
+
+Méthode (`prep_iris_bv.py`) :
+
+1. **Intersection géométrique** des contours IRIS (IGN 2025) et des contours de bureaux de
+   vote (Voronoï data.gouv), couple par couple, à l'intérieur d'une même commune.
+2. **Répartition au prorata de la population** : les voix d'un bureau sont distribuées
+   entre les quartiers que son contour recoupe, pondérées par `aire de l'intersection ×
+   densité de population de l'IRIS` (recensement INSEE 2021) — pas par la seule surface,
+   sans quoi un bureau qui déborde sur un parc ou une zone industrielle y enverrait des
+   électeurs.
+3. **Recalage sur la commune** : chaque colonne est remise à l'échelle pour que la somme
+   des quartiers d'une commune redonne **exactement** son résultat réel. C'est ce qui
+   rattrape les bureaux dépourvus de contour (leurs électeurs sont redistribués au
+   prorata) et garantit qu'on ne lit pas deux totaux différents selon l'échelle.
+
+**Deux garde-fous**, l'un géométrique, l'autre électoral. Dans les deux cas la zone
+écartée n'a **aucune donnée électorale** : la fiche reste purement socio-économique et la
+carte la laisse grise — pas de chiffre plutôt qu'un chiffre faux.
+
+| Garde-fou | Ce qu'il mesure | Seuil | Écarté |
+| --- | --- | --- | --- |
+| `COUV_MIN` | part de l'aire de l'IRIS effectivement recouverte par des contours de bureaux | 99 % | **392 quartiers sur 48 512** (0,8 %) |
+| `ELEC_MIN` | part de l'électorat de la commune portée par des bureaux localisables (le reste étant ce que le recalage extrapole) | 90 % | la commune entière, **scrutin par scrutin** |
+
+Le second garde-fou existe parce que le recalage communal est un rattrapage tant que les
+bureaux sans contour sont marginaux, mais devient une extrapolation quand ils font
+l'essentiel de la commune : à Bordeaux, seuls 12 % de l'électorat sont localisables sur
+les scrutins 2024-2026 (renumérotation des bureaux), et un « résultat estimé par
+intersection » n'y serait rien d'autre que le résultat communal étalé sur la population.
+Le filtre est appliqué **par scrutin** : Bordeaux garde donc ses estimations 2017-2022 et
+perd 2024-2026, plutôt que tout ou rien.
+
+Au total, **47 308 quartiers sur 48 512** sont estimés sur les européennes 2024, soit
+**96 % de l'électorat métropolitain contouré**. Le rapport de couverture par IRIS est
+conservé dans `data_app/iris_bv_couverture.parquet`.
 
 ### Détail socio-économique (FILOSOFI 2021)
 
@@ -97,6 +145,8 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 - **Administratif (commune)** : **recensement INSEE 2021** — bases infracommunales (âges,
   logement, activité/déplacements) et fichier détail « individus localisés » (renouvellement) ;
   **Répertoire national des élus** (data.gouv) pour le maire en exercice.
+- **Électoral par quartier (IRIS)** : **estimé** — croisement des résultats par bureau de
+  vote et des contours IRIS, recalé sur les résultats communaux (voir plus haut).
 - **Découpage administratif** : INSEE **COG 2025** (communes, départements, régions).
 - **Fonds de carte** : régions/départements/communes (france-geojson), circonscriptions
   législatives (INSEE), contours IRIS 2025 (IGN, quand disponibles).
@@ -115,6 +165,11 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   travail (la maille de lecture pertinente pour un GA est plutôt la commune / le grand quartier).
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
+- Les **résultats électoraux à l'IRIS sont estimés**, jamais mesurés (le vote se compte par
+  bureau de vote). Ils héritent donc de l'approximation des contours Voronoï **et** de
+  l'hypothèse que les électeurs d'un bureau se répartissent comme sa population résidente
+  — ce qui est faux là où la structure d'âge ou la part de non-inscrits varie fortement
+  d'un côté à l'autre d'un bureau. Un quartier mal recouvert n'est pas estimé du tout.
 - Le **tableau de recomposition** écarte les **municipales** (2014, 2020) : le scrutin
   plurinominal (panachage, listes) y gonfle les voix bien au-delà des inscrits, rendant les
   blocs en % d'inscrits non comparables. Un garde-fou (`scrutins_fiables`) ne retient que les
