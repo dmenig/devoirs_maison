@@ -97,8 +97,16 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   const estCommune=niveau==="commune"||niveau==="multi";
   if(estCommune)h+=carnet(o);
   if(estCommune)h+=recoPanel(o);
+  // Chiffre de tête = valeur de l'INDICATEUR ACTIF pour cette zone (cf. HEAD_INFO) : la fiche
+  // répond à la question posée par la coloration de la carte. Repli sur le vote LFI puis le
+  // revenu quand l'indicateur n'a pas de valeur ici (ex. réservoir A→B sur un scrutin absent).
+  const iv=rawVal(o,indicKey), hi=HEAD_INFO[indicKey];
   let headline="";
-  if(lfi!=null){
+  if(iv!=null&&hi){
+    const sgn=(indicKey==="dyn_dpart"&&iv>0)?"+":"";
+    headline=exp(`<div class="lead">${headLead(indicKey)}</div>`+
+           `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,hi[2]());
+  } else if(lfi!=null){
     headline=exp(`<div class="lead">Vote LFI · Europ. 2024</div>`+
            `<div class="head">${lfi} %<small> des inscrits</small></div>`,
       `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+

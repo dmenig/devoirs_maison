@@ -28,7 +28,10 @@ function syncSocioChips(){ const on=socioActive();
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
   indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; $("legtitle").textContent=indicLabel;
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));
-  updatePairActive(); }
+  updatePairActive();
+  // le chiffre de tête de la fiche EST l'indicateur actif : une fiche déjà ouverte doit
+  // suivre la pastille (sinon un clic sur « Vote RN » laisse un score LFI affiché).
+  if(lastInfo)infoPanel(lastInfo.nom,lastInfo.o,lastInfo.niveau,lastInfo.code); }
 function buildPastilles(){ const box=$("pastilles"), grp=$("pairgroup");
   PAST.forEach(([k])=>{ const c=document.createElement("span"); c.className="chip"+(k===indicKey?" on":"");
     c.textContent=labelFor(k); c.dataset.k=k;

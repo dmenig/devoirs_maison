@@ -14,6 +14,59 @@ const PAST=[["conquerir","Voix à conquérir"," voix"],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
             ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
             ["abst","Abstention (nb de voix)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
+// Chiffre de tête de la fiche = INDICATEUR ACTIF (pastille sélectionnée) : cliquer un
+// bureau de vote après avoir choisi « Vote RN » doit afficher le vote RN de ce bureau, et
+// non un score LFI figé — la fiche répond à la question que pose la carte. Le vote LFI
+// reste lisible plus bas (section « Évolution du vote LFI »), quel que soit l'indicateur.
+// Par clé : [scrutin FIXE de l'intitulé (null = scrutin(s) du sélecteur ⚖️), légende sous le
+//            chiffre, méthodo du volet détail (paresseuse : dépend de A/B), intitulé au long
+//            (facultatif : la pastille est à l'étroit, la fiche ne l'est pas)].
+const HEAD_INFO={
+  conquerir:["Présid. 2027","à trouver au-delà du socle LFI",()=>
+    `Nombre de voix manquantes, dans cette zone, pour atteindre l'objectif de <b>qualification au `+
+    `1<sup>er</sup> tour de la présidentielle 2027</b> (${Math.round(CARNET_HYP.qualif1T*100)} % des exprimés estimés), `+
+    `au-delà du <b>socle de voix LFI</b> déjà acquises (plancher des voix LFI sur Présid. 2022, Europ. 2024 `+
+    `et Légis. 2024). <b>0</b> = objectif déjà atteint. Aux échelles agrégées (région, département), somme `+
+    `des déficits commune par commune.`],
+  lfi:[null,"des inscrits",()=>
+    `Part des inscrits ayant voté pour la liste <b>LFI / Union de la gauche</b> au scrutin choisi dans le `+
+    `sélecteur ⚖️ (<b>${scLab(selB)}</b>). On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer `+
+    `le poids réel sur le corps électoral. Source : Ministère de l'Intérieur.`],
+  part:[null,"des inscrits",()=>
+    `<b>Participation</b> = votants ÷ inscrits au scrutin choisi ⚖️ (<b>${scLab(selB)}</b>). `+
+    `L'abstention en est le complément (100 − participation).`],
+  rn:[null,"des inscrits",()=>
+    `Part des inscrits ayant voté <b>RN / extrême droite</b> (RN + Reconquête + divers ED) au scrutin `+
+    `choisi ⚖️ (<b>${scLab(selB)}</b>). Source : Ministère de l'Intérieur.`],
+  gauche:[null,"des inscrits",()=>
+    `Part des inscrits ayant voté pour l'ensemble de la <b>gauche</b> (LFI + PS + EELV + PCF + divers `+
+    `gauche) au scrutin choisi ⚖️ (<b>${scLab(selB)}</b>).`],
+  dyn_report:[null,"des voix LFI conservées",()=>
+    `Part des voix LFI de <b>${scLab(selA)}</b> retrouvées à <b>${scLab(selB)}</b> (voix réelles ${selB} ÷ `+
+    `voix réelles ${selA}). 100 % = socle intégralement conservé ; en dessous, des voix insoumises sont à reconquérir.`],
+  dyn_dpart:[null,"de participation",()=>
+    `Écart de <b>participation</b> entre <b>${scLab(selA)}</b> et <b>${scLab(selB)}</b>, en points de pourcentage `+
+    `(part ${selB} − part ${selA}).`],
+  dyn_perte:[null,"des voix de gauche",()=>
+    `Part des voix de <b>gauche</b> (LFI, PS, EELV, PCF) perdues entre <b>${scLab(selA)}</b> et `+
+    `<b>${scLab(selB)}</b> ((voix ${selA} − voix ${selB}) ÷ voix ${selA}). Réservoir de gauche à reconquérir ; `+
+    `une valeur ≤ 0 = progression.`],
+  abst:["Europ. 2024","d'inscrits n'ayant pas voté",()=>
+    `<b>Nombre</b> d'inscrits n'ayant pas voté aux européennes 2024 (inscrits × taux d'abstention). `+
+    `C'est le réservoir brut de voix à ramener aux urnes.`,"Abstention"],
+  rev:["2021","par personne / an",()=>
+    `<b>Revenu médian</b> par personne après impôts et aides, corrigé de la taille du foyer. `+
+    `Source : INSEE FILOSOFI 2021. À l'échelle du <b>quartier (IRIS)</b>, les résultats électoraux ne sont `+
+    `pas disponibles : le vote se compte par <b>bureau de vote</b>, pas par IRIS.`,"Revenu médian"],
+  pauv:["2021","de la population",()=>
+    `Part de la population vivant sous <b>60 % du revenu médian national</b>. Source : INSEE FILOSOFI 2021.`],
+};
+// intitulé du chiffre de tête : scrutins écrits en toutes lettres (la pastille, elle, est
+// à l'étroit et se contente des codes P22/E24…).
+function headLead(k){ const p=PAST.find(x=>x[0]===k); if(!p)return "";
+  const hi=HEAD_INFO[k]||[], nom=hi[3]||p[1];
+  if(hi[0])return `${nom} · ${hi[0]}`;
+  return `${nom} · ${k.startsWith("dyn_")?`${scLab(selA)} → ${scLab(selB)}`:scLab(selB)}`; }
 // profil INSEE de la commune (fiche circonscription de la prez, slides 25-28)
 const AGE_LAB=["0-14","15-29","30-44","45-59","60-74","75+"];
 // indices tr_ : PAS=0,MAR=1,VELO=2,2ROUESMOT=3,VOIT=4,TCOM=5 ; ordre d'affichage = slide 28
