@@ -181,8 +181,13 @@ function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
     // cascade après un clic/saut) — on purge le debounce posé par ce zoomend programmatique.
     clearTimeout(zoomSettle); flushDraw(); setTimeout(()=>busy=false,320); }); }
 
+// Les deux fichiers en PARALLÈLE : passés en arguments, `await geo` puis `await valeurs`
+// s'évaluaient de gauche à droite, donc les valeurs n'étaient demandées qu'une fois les
+// contours arrivés — un aller-retour en série sur le tout premier affichage, le seul que
+// le préchargement au survol ne peut pas masquer. Les autres niveaux le font déjà.
 async function vueFrance(fly=true){ clearSel(); stack=[]; setFil(); subToggle(false); if(fly)flyTo(FRANCE,6);
-  dessiner(await getJSON("geo/regions.geojson"),await getJSON("values/region.json"),"code","nom",
+  const [geo,val]=await Promise.all([getJSON("geo/regions.geojson"),getJSON("values/region.json")]);
+  dessiner(geo,val,"code","nom",
     (f,ly,o,fly)=>entrer("region",f.properties.__code,f.properties.__nom,ly.getBounds(),o,fly),"region"); }
 async function vueRegion(code){ subToggle(false);
   const [geo,val,hier]=await Promise.all([getJSON("geo/departements.geojson"),

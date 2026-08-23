@@ -47,11 +47,31 @@ async function gotoZone(e){ infoPanel(null);
 $("search").addEventListener("change",()=>{ const sb=$("search"),e=sb.__byval&&sb.__byval[sb.value];
   if(e)gotoZone(e); });
 
+// LA CARTE D'ABORD. Rien de ce qui suit n'est nécessaire pour DESSINER, et tout était
+// attendu EN SÉRIE avant le premier polygone : quatre allers-retours pour les références de
+// fiche, puis l'index de recherche (3 Mo, ~38 000 zones à normaliser sur le fil principal).
+// Mesuré à froid : regions.geojson n'était même pas DEMANDÉ avant 466 ms, alors que Leaflet
+// était prêt à 68 ms — ~400 ms de premier affichage perdus à attendre des données qu'on
+// n'affiche pas. Les références de fiche sont toutes lues défensivement (window.__scr && …,
+// window.__socioFr||{}) : elles peuvent arriver après, et comme ce sont de petits fichiers
+// lancés en parallèle, elles sont là bien avant qu'un polygone soit cliquable.
 async function init(){ buildSelecteur(); buildPastilles();
-  window.__scr=await getJSON("values/_scrutins.json"); window.__adminFr=await getJSON("values/_admin_fr.json");
-  window.__socioFr=await getJSON("values/_socio_fr.json"); window.__socioReg=await getJSON("values/_socio_reg.json");
-  await initSearch();
+  // en tête de file : ce qui se voit. getJSON dédoublonne, vueFrance réutilisera ces
+  // promesses au lieu d'en relancer.
+  getJSON("geo/regions.geojson"); getJSON("values/region.json");
+  Promise.all([getJSON("values/_scrutins.json"),getJSON("values/_admin_fr.json"),
+               getJSON("values/_socio_fr.json"),getJSON("values/_socio_reg.json")])
+    .then(([scr,adm,sfr,sreg])=>{ window.__scr=scr; window.__adminFr=adm;
+      window.__socioFr=sfr; window.__socioReg=sreg; });
+  // Un permalien de ZONE (?e=) est la seule exception : gotoZone reconstruit le fil
+  // d'Ariane avec regNom/depNom, qui lisent la hiérarchie chargée par initSearch. Là, on
+  // l'attend d'abord — sinon le fil afficherait des codes au lieu des noms.
+  let perma=false; try{ perma=new URL(permWin().location.href).searchParams.has("e"); }catch(e){}
+  if(perma)await initSearch();
   // permalien : si l'URL porte une vue sauvegardée (zoom/zone/fiche), on la restaure au
   // lieu de la vue France (cf. 11_permalink.js).
-  if(!(await restoreFromURL()))vueFrance(); }
+  if(!(await restoreFromURL()))await vueFrance();
+  // index de recherche : le plus gros fichier de l'amorçage, chargé une fois la carte à
+  // l'écran pour ne pas se disputer la bande passante avec les contours.
+  if(!perma)initSearch(); }
 init();  // amorçage — perdu lors de l'éclatement en modules, sans quoi rien ne se charge
