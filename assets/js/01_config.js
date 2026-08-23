@@ -199,12 +199,24 @@ const spoiler=(titre,corps,open=false)=> !corps?"":
 const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 
-// cache:"no-cache" force le navigateur à revalider auprès de GitHub (requête conditionnelle
-// ETag → 304 si inchangé, sinon contenu frais) au lieu de servir aveuglément sa copie en
-// cache : sans ça, après une mise à jour de data_app, la carte gardait les anciennes valeurs
-// (ex. « 0 voix à conquérir ») jusqu'à un vidage manuel du cache. Le cache mémoire `cache{}`
-// dédoublonne les appels dans une même session.
-async function getJSON(p){ if(p in cache)return cache[p];
-  $("loading").textContent="…"; let j=null;
-  try{const r=await fetch(BASE+"/"+p,{cache:"no-cache"}); j=r.ok?await r.json():null;}catch(e){j=null;}
-  cache[p]=j; $("loading").textContent=""; return j; }
+// values/* : cache:"no-cache" force le navigateur à revalider auprès de GitHub (requête
+// conditionnelle ETag → 304 si inchangé, sinon contenu frais) au lieu de servir aveuglément
+// sa copie en cache : sans ça, après une mise à jour de data_app, la carte gardait les
+// anciennes valeurs (ex. « 0 voix à conquérir ») jusqu'à un vidage manuel du cache.
+// geo/* : les CONTOURS sont immuables (ils ne changent qu'au redécoupage administratif) et
+// pèsent l'essentiel du transfert — on les laisse servir depuis le cache disque, sans
+// aller-retour réseau. C'est ce qui rend une revisite (ou un retour sur une zone déjà vue)
+// instantané au lieu de payer une revalidation par fichier.
+// `inflight` mémorise la PROMESSE et non seulement le résultat : sans ça, deux appels
+// concurrents sur le même fichier (préchargement au survol + clic) lançaient deux
+// téléchargements du même mégaoctet.
+const inflight={}; let loadPending=0;
+function loadTick(d){ loadPending+=d; const e=$("loading");
+  if(loadPending>0)e.textContent="…"; else if(e.textContent==="…")e.textContent=""; }
+function getJSON(p){ if(p in cache)return Promise.resolve(cache[p]);
+  if(p in inflight)return inflight[p];
+  loadTick(1);
+  const q=fetch(BASE+"/"+p,{cache:p.startsWith("geo/")?"default":"no-cache"})
+    .then(r=>r.ok?r.json():null).catch(()=>null)
+    .then(j=>{ cache[p]=j; delete inflight[p]; loadTick(-1); return j; });
+  inflight[p]=q; return q; }

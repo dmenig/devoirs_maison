@@ -5,19 +5,89 @@
 // repeint) — on défère donc à la fin de l'animation, avec un fondu d'apparition. Le fetch
 // reste lancé tôt (il chevauche le vol). Un minuteur de secours garantit le rendu si
 // moveend n'arrive pas (ex. flyToBounds sans déplacement à l'amorçage).
-let animating=false, pendingDraw=null, pendingTimer=null, layerStyle=null;
+//
+// Ces trois durées ÉTAIENT la latence perçue : la couche n'apparaissant qu'à
+// l'atterrissage, 800 ms de vol suivis d'un fondu de 450 ms imposaient plus d'une seconde
+// avant le premier polygone — même sur fibre, même quand les données étaient déjà en
+// cache. Un vol court garde le même repère visuel (on voit d'où l'on vient) et un fondu
+// bref suffit à masquer l'apparition brutale du canvas, pour ~3× moins d'attente.
+// FLY_S balayé au banc (clic → polygones à l'écran, médiane de 4 passes, données déjà
+// préchargées par le survol) : 0.42 s → 527/537/644 ms · 0.30 → 428/391/492 · 0.24 →
+// ~330/345/478 · 0 → 701/728/846 (sans animation, moveend n'arrive pas et c'est le
+// minuteur de secours qui peint : supprimer le vol est plus LENT que le raccourcir).
+// Tout le reste est déjà gratuit : les données arrivent en 20-60 ms grâce au préchargement
+// au survol, le tracé coûte 13-64 ms. Le vol EST la latence — d'où 0.24 s, le seuil sous
+// lequel on ne gagne plus rien.
+const FLY_S=0.24, FADE_IN_S=0.13, FADE_OUT_S=0.09;
+// Fondu croisé de SUBDIVISION : durée du chevauchement entre la zone cliquée (fantôme) et
+// ses enfants. Plus long que le simple fondu d'apparition, parce qu'ici rien ne manque à
+// l'écran pendant ce temps — la couleur du parent tient la place jusqu'au bout, on lit une
+// zone qui se subdivise, pas une attente.
+const CROSS_S=0.20, GHOST_MAX_MS=3000;
+// Filet de sécurité si moveend n'arrive pas (ex. flyToBounds sans déplacement à
+// l'amorçage). Il doit rester FRANCHEMENT au-dessus de la durée réelle du vol : s'il se
+// déclenche avant moveend, on peint pendant l'animation et les bandes partielles
+// reviennent. Vol observé jusqu'à ~480 ms (descente au bureau de vote, zoom 15).
+const DRAW_GUARD_MS=1000;
+let animating=false, pendingDraw=null, pendingTimer=null, layerStyle=null, paintSig=null;
 function overlayEl(){ const p=map.getPanes().overlayPane; return p.querySelector("canvas")||p.querySelector("svg"); }
 function fadeInLayer(){ const el=overlayEl(); if(!el)return;
+  // avec un fantôme à l'écran, l'apparition des enfants et l'effacement du parent sont
+  // lancés dans la MÊME frame : la somme des deux opacités reste constante, on ne voit
+  // jamais de trou.
+  const dur=ghost?CROSS_S:FADE_IN_S;
   el.style.transition="none"; el.style.opacity="0";
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    el.style.transition="opacity .45s ease"; el.style.opacity="1"; })); }
-function fadeOutLayer(){ const el=overlayEl(), old=layer; layer=null;
-  if(old&&el){ el.style.transition="opacity .25s ease"; el.style.opacity="0"; }
-  if(old)setTimeout(()=>old.remove(),260); }
+    el.style.transition=`opacity ${dur}s ease`; el.style.opacity="1"; fadeGhost(); })); }
+function fadeOutLayer(){ const el=overlayEl(), old=layer; layer=null; paintSig=null;
+  if(old&&el){ el.style.transition=`opacity ${FADE_OUT_S}s ease`; el.style.opacity="0"; }
+  if(old)setTimeout(()=>old.remove(),FADE_OUT_S*1000+20); }
+
+// FANTÔME de la zone cliquée. Tout est peint sur un seul canvas : baisser l'opacité de
+// l'overlay effaçait donc AUSSI la zone qu'on venait de choisir, qui disparaissait puis
+// revenait découpée — le clignotement. On recopie donc la zone cliquée dans son propre
+// pane (donc son propre canvas, animable séparément), juste SOUS l'overlay : les zones
+// voisines s'effacent, la zone choisie reste pleine pendant tout le vol, ses enfants se
+// peignent par-dessus, et elle ne s'efface qu'en fondu croisé avec eux. On ne voit plus
+// un trou se remplir mais une zone qui se subdivise. Le fantôme n'existe que le temps de
+// la transition ; pas de fantôme à la remontée (dézoom), où la caméra ne bouge pas.
+map.createPane("ghost").style.zIndex=399;
+map.getPane("ghost").style.pointerEvents="none";
+let ghost=null, ghostTimer=null;
+const ghostEl=()=>map.getPane("ghost").querySelector("canvas");
+function dropGhost(){ clearTimeout(ghostTimer); if(ghost){ ghost.remove(); ghost=null; } }
+function setGhost(feature,style){ dropGhost();
+  ghost=L.geoJSON(feature,{pane:"ghost",renderer:L.canvas({pane:"ghost"}),interactive:false,
+    style:{fillColor:style.fillColor,fillOpacity:style.fillOpacity,stroke:false}}).addTo(map);
+  const el=ghostEl(); if(el){ el.style.transition="none"; el.style.opacity="1"; }
+  // filet : si la descente échoue (contours indisponibles), le fantôme ne reste pas figé.
+  ghostTimer=setTimeout(()=>fadeGhost(),GHOST_MAX_MS); }
+function fadeGhost(){ if(!ghost)return; clearTimeout(ghostTimer);
+  const el=ghostEl(), g=ghost; ghost=null;
+  if(el){ el.style.transition=`opacity ${CROSS_S}s ease`; el.style.opacity="0"; }
+  ghostTimer=setTimeout(()=>g.remove(),CROSS_S*1000+60); }
 function flushDraw(){ clearTimeout(pendingTimer);
   if(pendingDraw){ const d=pendingDraw; pendingDraw=null; d(); } }
 
-function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
+// Préchargement au SURVOL : on survole toujours une zone avant de la cliquer. Le survol
+// lance donc le téléchargement des fichiers dont la descente aura besoin — au clic ils
+// sont déjà là et la couche paraît instantanée. getJSON dédoublonne (résultat + promesse
+// en vol), un survol répété ou le survol de deux communes du même département ne coûtent
+// qu'une requête. On ne précharge QUE ce qu'un clic demanderait de toute façon : rien
+// n'est téléchargé « au cas où » sans geste de l'utilisateur.
+function prefetchEnfants(niveau,code){
+  if(niveau==="region"){ getJSON("geo/departements.geojson"); getJSON("values/departement.json");
+    getJSON("values/_hierarchie.json"); return; }
+  if(niveau==="departement"){ getJSON(`geo/communes/${code}.geojson`); getJSON(`values/commune/${code}.json`); return; }
+  if(niveau==="commune"){ const d=depOf(code);
+    if(sousMode==="iris"){ getJSON(`geo/iris/${d}.geojson`); getJSON("values/iris.json"); }
+    else { getJSON(`geo/bv/${d}.geojson`); getJSON(`values/bv/${d}.json`); } }
+}
+
+// Fabrique de style, séparée de la construction de la couche : changer d'indicateur ne
+// touche ni aux contours ni aux valeurs, il suffit alors de rejouer ce style sur la couche
+// déjà tracée (cf. dessiner).
+function styleFactory(geo,niveau){
   const raws=geo.features.map(f=>valOf(f.properties));
   const fc=colorer(raws);
   // une seule zone porteuse de valeur : la coloration relative la placerait au centre
@@ -28,22 +98,40 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   const colOf=v=>(inherit&&v!=null&&!isNaN(v))?inherit:fc(v);
   // En mode sélection multiple (communes uniquement), une commune sélectionnée garde un
   // liseré blanc épais — y compris après un mouseout (resetStyle réapplique ce style).
-  const selStyle=f=>{ const sel=multiSel&&niveau==="commune"&&selCodes.has(f.properties.__code);
+  const st=f=>{ const sel=multiSel&&niveau==="commune"&&selCodes.has(f.properties.__code);
     const fs=fillStyle();
     return {fillColor:colOf(valOf(f.properties)),color:sel?C.geosel:C.geoline,
             weight:sel?2.6:fs.w,fillOpacity:sel?Math.min(.95,fs.op+.2):fs.op}; };
-  layerStyle=selStyle;
-  layer=L.geoJSON(geo,{style:selStyle,
-    onEachFeature:(f,ly)=>{ const v=valOf(f.properties);
-      ly.bindTooltip(`<b>${f.properties.__nom}</b><br>${indicLabel} : ${fmtVal(v,indicUnit)}`,{sticky:true});
-      ly.on("mouseover",()=>ly.setStyle({weight:2.6,color:C.geosel}));
-      ly.on("mouseout",()=>layer.resetStyle(ly));
-      const o=valeurs[f.properties.__code];
-      const show=()=>infoPanel(f.properties.__nom,o,niveau,f.properties.__code);
-      if(enter){ const go=fly=>{enterColor=colOf(v);show();enter(f,ly,o,fly);}; ly.__enter=go;
-        ly.on("click",()=>{ if(multiSel&&niveau==="commune")toggleSel(f.properties.__code,o); else go(); }); }
-      else ly.on("click",show); }}).addTo(map);
+  st.colOf=colOf; return st; }
+
+// Infobulle et écouteurs posés UNE fois sur le groupe, pas feuille par feuille : Leaflet
+// propage les événements des enfants au FeatureGroup (e.layer = le polygone survolé). Sur
+// une commune à 1300 bureaux, lier 1 Tooltip + 3 closures par feature coûtait plus cher
+// que le tracé lui-même. Le contenu de l'infobulle est calculé à l'ouverture : il suit
+// l'indicateur actif sans qu'on ait à reconstruire quoi que ce soit.
+function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
+  const st=styleFactory(geo,niveau); layerStyle=st;
+  layer=L.geoJSON(geo,{style:st}).addTo(map);
+  layer.bindTooltip(l=>{ const p=l.feature.properties;
+    return `<b>${p.__nom}</b><br>${indicLabel} : ${fmtVal(valOf(p),indicUnit)}`; },{sticky:true});
+  layer.on("mouseover",e=>{ const ly=e.layer; if(!ly||!ly.feature)return;
+    ly.setStyle({weight:2.6,color:C.geosel});
+    prefetchEnfants(niveau,ly.feature.properties.__code); });
+  layer.on("mouseout",e=>{ if(e.layer&&e.layer.feature)layer.resetStyle(e.layer); });
+  layer.on("click",e=>{ const ly=e.layer; if(!ly||!ly.feature)return;
+    const f=ly.feature, p=f.properties, o=valeurs[p.__code];
+    if(enter&&multiSel&&niveau==="commune")return toggleSel(p.__code,o);
+    if(enter){ enterColor=layerStyle.colOf(valOf(p)); setGhost(f,layerStyle(f)); }
+    infoPanel(p.__nom,o,niveau,p.__code);
+    if(enter)enter(f,ly,o,true); });
   fadeInLayer(); }
+
+// Signature de la couche peinte : changer d'indicateur (ou de paire de scrutins) rappelle
+// render() avec les MÊMES contours et les mêmes valeurs. Reconstruire la couche — reparser,
+// recréer N chemins, reposer les écouteurs — était la seconde d'attente ressentie au clic
+// sur une pastille ; on se contente de la recolorer en place.
+const sigOf=(geo,niveau)=>{ const f=geo.features, n=f.length;
+  return `${niveau}|${n}|${n?f[0].properties.__code:""}|${n?f[n-1].properties.__code:""}`; };
 
 // `niveau` = maille des features dessinées (region/departement/commune/iris/bv) : il qualifie
 // la fiche ouverte au clic, pour réserver le Carnet de campagne au clic sur une COMMUNE.
@@ -51,8 +139,11 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
   geo.features.forEach(f=>{f.properties.__code=String(f.properties[codeProp]);
     f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
   selBarSync();  // rafraîchit la barre de sélection multiple (et le sélecteur de circo) selon la maille
+  const sig=sigOf(geo,niveau);
+  if(layer&&!animating&&sig===paintSig){ layerStyle=styleFactory(geo,niveau); layer.setStyle(layerStyle); return; }
+  paintSig=sig;
   const draw=()=>paintLayer(geo,valeurs,enter,niveau);
-  if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,1200); }
+  if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,DRAW_GUARD_MS); }
   else draw(); }
 
 // En remontant, le panneau de droite ne se vide plus : il se relie à la zone désormais
@@ -60,7 +151,7 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
 // définitivement perdue. Seul le retour à la France (pas de zone unique) referme la fiche.
 // fly=false (remontée au dézoom) : simple échange de couche, la caméra reste où
 // l'utilisateur l'a mise — seuls les clics (fil d'Ariane, bouton retour) volent.
-function jumpTo(d,fly=true){ clearSel(); stack=stack.slice(0,d); fadeOutLayer();
+function jumpTo(d,fly=true){ clearSel(); dropGhost(); stack=stack.slice(0,d); fadeOutLayer();
   if(d===0){ infoPanel(null); setFil(); return vueFrance(fly); }
   const t=stack[d-1]; infoPanel(t.nom,t.o,t.niveau,t.code); setFil();
   // remonter en volant : on plafonne le zoom d'arrivée juste sous le seuil de redescente
@@ -83,7 +174,7 @@ function setFil(){ const court=matchMedia("(max-width:680px)").matches;
 addEventListener("resize",()=>setFil());
 
 function flyTo(b,maxZoom){ if(!b)return; busy=true; animating=true;
-  map.flyToBounds(b,{duration:.8,maxZoom:maxZoom||11,
+  map.flyToBounds(b,{duration:FLY_S,maxZoom:maxZoom||11,
     paddingTopLeft:[14,topInset()],paddingBottomRight:[infoInset()+14,sheetInset()]});
   map.once("moveend",()=>{ animating=false; if(stack.length)stack[stack.length-1].enterZoom=map.getZoom();
     // le zoomend final du vol ne doit PAS déclencher onZoomSettled (sinon remontée en
