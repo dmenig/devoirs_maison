@@ -181,7 +181,9 @@ function fillStyle(){ return map.getZoom()>=LBL_MINZ?{op:.8,w:1}:{op:.85,w:.5}; 
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
 // carte montre d'emblée le besoin de mobilisation par zone plutôt que la participation.
-const cache={}; let layer=null, stack=[], indicKey="conquerir", indicLabel="Voix à conquérir", indicUnit=" voix",
+// Le cache mémoire démarre avec la vue France inlinée par le serveur (window.__seed, cf.
+// prep_seed.py) : getJSON la trouve déjà là et le premier tracé ne fait aucune requête.
+const cache=window.__seed||{}; let layer=null, stack=[], indicKey="conquerir", indicLabel="Voix à conquérir", indicUnit=" voix",
     curVals={}, busy=false, sousMode="bv", lastInfo=null, panelDetails=[], enterColor=null;
 // Sélection multiple de communes (retour Elia, point 4) : en mode multi, un clic sur une
 // commune l'ajoute/retire de la sélection (fiche agrégée) au lieu d'y descendre.

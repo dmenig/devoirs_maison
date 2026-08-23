@@ -70,7 +70,15 @@ async function init(){ buildSelecteur(); buildPastilles();
   if(perma)await initSearch();
   // permalien : si l'URL porte une vue sauvegardée (zoom/zone/fiche), on la restaure au
   // lieu de la vue France (cf. 11_permalink.js).
-  if(!(await restoreFromURL()))await vueFrance();
+  // Amorçage : la caméra est DÉJÀ sur la France (fitBounds à la création de la carte).
+  // Voler vers elle ne déplaçait quasiment rien, mais la couche n'étant peinte qu'à
+  // l'atterrissage, ce vol pour rien différait le PREMIER tracé de toute sa durée. On pose
+  // donc le cadrage d'un coup (mêmes marges que flyTo, pour ne pas passer sous les
+  // panneaux) et on dessine tout de suite. Seuls les clics volent.
+  if(!(await restoreFromURL())){
+    map.fitBounds(FRANCE,{animate:false,maxZoom:6,paddingTopLeft:[14,topInset()],
+      paddingBottomRight:[infoInset()+14,sheetInset()]});
+    await vueFrance(false); }
   // index de recherche : le plus gros fichier de l'amorçage, chargé une fois la carte à
   // l'écran pour ne pas se disputer la bande passante avec les contours.
   if(!perma)initSearch(); }
