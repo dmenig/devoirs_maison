@@ -269,3 +269,19 @@ France à l'échelle courante ?
 | ✅ Fait | **L'estimation est dite partout** : « · estimé » dans la légende de la carte et dans l'intitulé du chiffre de tête, « (estimé) » dans l'infobulle, bandeau en tête de l'analyse électorale et méthodologie complète dans le volet de détail. |
 | ✅ Fait | `values/iris.json` (14 Mo, national) **découpé par département** (`values/iris/<dep>.json`) : porteur de l'électoral, le fichier national aurait dépassé 70 Mo pour afficher un seul quartier. |
 | 🐛 Corrigé au passage | `gotoZone` ([08_search.js](assets/js/08_search.js)) empilait la commune **après** l'avoir rendue : la sous-maille et la légende étaient calculées comme si l'on était encore au département (arrivée par la recherche ou par permalien). La commune est désormais empilée avant le rendu, comme au clic. |
+
+---
+
+## Coût du logement : prix au m² et effort d'accession
+
+> « On n'a pas le prix au m² ? » — le revenu ne dit qu'une moitié de la condition
+> matérielle ; l'autre est ce que coûte le fait de se loger.
+
+| Statut | Détail |
+| ------ | ------ |
+| ✅ Fait | **[prep_immo.py](prep_immo.py)** : prix moyen au m² par commune depuis la base **DVF** (Demandes de valeurs foncières, DGFiP) agrégée par commune et par année (data.gouv.fr, ODbL). Les millésimes **2022-2024** sont mis en commun et pondérés par le nombre de ventes ; garde-fou `VENTES_MIN = 5` — sous 5 ventes cumulées, aucun prix (une moyenne tirée de deux mutations ne décrit aucun marché). **27 834 communes** portent un prix. |
+| ✅ Fait | **Effort d'accession** : mensualité du crédit pour **70 m²** ÷ revenu mensuel du ménage médian, en %. C'est ce qui traduit un prix en *capacité réelle à se loger* — 70 m² à Paris (84 %) et 70 m² dans la Creuse (14 %), ce n'est pas le même effort pour le même salaire. Hypothèses regroupées dans `IMMO_HYP` (apport 10 %, 25 ans à 3,5 % hors assurance, 1,55 UC par ménage), **miroir Python/JS** à garder synchronisé, et affichées dans la fiche : un taux d'effort sans ses hypothèses ne veut rien dire. |
+| ✅ Fait | **Références France et région** ([prep_immo.references_immo](prep_immo.py)) injectées dans `socio_reference.json` : un prix ne se lit que comparé. Moyennes pondérées par la **population** communale (même convention que le revenu et la pauvreté), pas par le nombre de ventes — c'est le prix auquel est confronté l'habitant·e moyen·ne, non celui de la transaction moyenne. France **3 172 €/m²** et **33 %** d'effort ; Île-de-France 5 517 €/m² et 51 %. |
+| ✅ Fait | **Fiche** : section « Prix du logement · commune » ([03_panel_info.js](assets/js/03_panel_info.js)), deux lignes comparées à la France et à la région, + nombre de ventes ayant servi à la moyenne. Chaque ligne porte un **« i » d'explication** : **survol** = définition courte (infobulle CSS `.hint`, [map.css](assets/map.css)), **clic** = volet méthodo complet (sources, hypothèses, limites) — le clic remonte à l'entête `.exph` déjà en place. Sur écran tactile, où le survol n'existe pas, l'infobulle est masquée et le tap ouvre directement le volet. |
+| ✅ Fait | **Pastilles de carte** « Prix au m² » et « Effort logement » réservées à la **carte des communes** (vue département, `immoActive()` dans [07_controls.js](assets/js/07_controls.js)) : la donnée étant communale, une choroplèthe IRIS serait uniforme sur toute la commune. La fiche d'un quartier affiche quand même le prix, en disant « à l'échelle de la commune ». |
+| ⚠️ Limite assumée | La source **ignore l'Alsace-Moselle** (57, 67, 68 — livre foncier, hors champ DVF) et l'**outre-mer** : ces communes n'ont pas de valeur, pas de chiffre estimé à la place. Le prix est par ailleurs une **moyenne** (pas une médiane) de **transactions** (pas du parc), maisons et appartements confondus. |

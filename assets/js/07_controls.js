@@ -19,10 +19,15 @@ const socioActive=()=>{ const t=stack[stack.length-1];
 // cette maille et à elle seule) et l'électoral ESTIMÉ depuis les bureaux de vote. Toutes
 // les pastilles y sont donc pertinentes ; ailleurs, les pastilles sociales restent
 // masquées (elles n'ont de valeurs qu'à l'IRIS) et on rebascule sur l'électoral.
-function syncSocioChips(){ const on=socioActive();
-  $("pastilles").querySelectorAll(".chip").forEach(c=>{
-    c.style.display=(on||!SOCIO.has(c.dataset.k))?"":"none"; });
-  if(!on&&SOCIO.has(indicKey))setIndic("lfi"); else syncLegend();
+// Prix au m² / effort d'accession : publiés à la COMMUNE (base DVF, cf. prep_immo.py). Leurs
+// pastilles n'ont de sens que sur une carte de COMMUNES — la vue département : à l'IRIS, tous
+// les quartiers d'une commune porteraient la même valeur, donc la même couleur. La fiche du
+// quartier, elle, continue d'afficher le prix en le disant « à l'échelle de la commune ».
+const immoActive=()=>{ const t=stack[stack.length-1]; return !!t&&t.niveau==="departement"; };
+function syncSocioChips(){ const on=socioActive(), immo=immoActive();
+  $("pastilles").querySelectorAll(".chip").forEach(c=>{ const k=c.dataset.k;
+    c.style.display=(IMMO.has(k)?immo:(on||!SOCIO.has(k)))?"":"none"; });
+  if((!on&&SOCIO.has(indicKey))||(!immo&&IMMO.has(indicKey)))setIndic("lfi"); else syncLegend();
   if(window.__syncLayout)window.__syncLayout(); }
 // Les valeurs électorales d'un quartier sont estimées : la légende de la carte le dit,
 // comme l'infobulle et la fiche.

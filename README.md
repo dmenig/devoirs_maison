@@ -5,7 +5,8 @@ circonscription → commune → IRIS / bureau de vote), qui met à disposition d
 militant·es **toutes les données que la présentation « Analyse électorale » de l'Institut
 La Boétie recommande de regarder** : recomposition en blocs, participation, **réservoirs
 de voix** (reports, différentiels, abstention mobilisable), revenu médian, taux de
-pauvreté et **dispersion des revenus** (quartiles, déciles, interdécile, Gini) par IRIS.
+pauvreté et **dispersion des revenus** (quartiles, déciles, interdécile, Gini) par IRIS,
+**prix du logement au m²** et **effort d'accession** par commune (DVF).
 Les cartes par **bureau de vote** sont nationales et le scrutin affiché est sélectionnable
 (LFI Europ. 2024, Munic. 2026, Présid. 2022…), comme dans la présentation.
 
@@ -31,6 +32,7 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 | `streamlit_app.py` | wrapper plein écran : sert `assemble_map(BASE)` |
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
 | `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
+| `prep_immo.py` | prix au m² (DVF) et effort d'accession par commune + références France/région |
 | `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
 | `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |
 | `nuances.py` | mapping nuances Min. Intérieur → blocs (recomposition / tripartition) |
@@ -43,7 +45,8 @@ navigateur, en pleine résolution.
 
 Tout provient du dépôt **hexagonal** : résultats Ministère de l'Intérieur (2012→2026, par
 bureau de vote), INSEE FILOSOFI 2021 (revenu/pauvreté par IRIS), COG 2025, contours IGN /
-INSEE / france-geojson.
+INSEE / france-geojson. Seule exception, téléchargée directement par le pipeline : la base
+**DVF** agrégée par commune (prix au m², data.gouv.fr, ODbL).
 
 ## Déploiement
 

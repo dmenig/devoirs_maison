@@ -9,6 +9,11 @@ const STAT=new Set(["lfi","part","rn","gauche"]);
 // rev/pauv : FILOSOFI, dispo seulement à la maille IRIS (absents aux échelons agrégés
 // région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
 const SOCIO=new Set(["rev","pauv"]);
+// Prix du logement / effort d'accession : publiés à la COMMUNE seulement (base DVF, cf.
+// prep_immo.py). Les quartiers d'une commune en héritent — même valeur pour tous —, d'où
+// des pastilles réservées à la carte des communes (vue département) : à l'IRIS, la
+// choroplèthe serait uniforme. Comme le socio, ces clés ne sont JAMAIS estimées.
+const IMMO=new Set(["pxm2","effort"]);
 // L'IRIS n'est PAS une maille électorale : le ministère n'y publie rien. Les résultats
 // affichés par quartier sont ESTIMÉS (cf. prep_iris_bv.py) en répartissant les voix de
 // chaque bureau de vote entre les quartiers que son contour recoupe, au prorata de la
@@ -17,7 +22,8 @@ const SOCIO=new Set(["rev","pauv"]);
 // ne recouvrent pas quasi intégralement n'est pas estimé du tout : il n'a aucune clé
 // électorale et la carte le laisse gris — pas de chiffre plutôt qu'un chiffre faux.
 // Le drapeau `est` marque les valeurs estimées ; tout ce qui les affiche doit le dire.
-const estime=(o,k)=>!!(o&&o.est)&&!SOCIO.has(k||indicKey);
+const estime=(o,k)=>{ const kk=k||indicKey;
+  return !!(o&&o.est)&&!SOCIO.has(kk)&&!IMMO.has(kk); };
 const EST_NOTE=`≈ <b>Résultats estimés</b> — le vote se compte par <b>bureau de vote</b>, pas par `+
   `quartier. Ces chiffres répartissent les voix des bureaux qui recoupent ce quartier, au prorata `+
   `de sa population, puis sont recalés sur le résultat réel de la commune.`;
@@ -33,7 +39,34 @@ const PAST=[["conquerir","Voix à conquérir"," voix"],
             ["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
             ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
-            ["abst","Abstention (nb de voix)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"]];
+            ["abst","Abstention (nb de voix)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"],
+            ["pxm2","Prix au m²","€"],["effort","Effort logement","%"]];
+// Hypothèses du prix / de l'effort d'accession — MIROIR de prep_immo.py (à garder
+// synchronisé avec ce fichier). Elles ne sont pas décoratives : un taux d'effort ne veut
+// rien dire si l'on ne dit pas pour quel logement, quel crédit et quel ménage il est calculé.
+const IMMO_HYP={annees:"2022-2024",surface:70,apport:10,taux:3.5,duree:25,uc:1.55,vmin:5,hcsf:35};
+const IMMO_METHODO=()=>
+  `<p><b>Prix moyen au m²</b> des logements — maisons et appartements confondus — réellement <b>vendus</b> `+
+  `dans la commune sur ${IMMO_HYP.annees}. Source : base <b>DVF</b> (Demandes de valeurs foncières, DGFiP), `+
+  `agrégée par commune et par année sur data.gouv.fr. Les millésimes sont mis en commun, pondérés par le `+
+  `nombre de ventes ; sous ${IMMO_HYP.vmin} ventes sur la période, aucun prix n'est affiché — une moyenne `+
+  `tirée de deux mutations ne dit rien du marché local.</p>`+
+  `<p><b>Effort d'accession</b> : part du revenu d'un ménage médian qu'absorberait la mensualité du crédit `+
+  `pour acheter <b>${IMMO_HYP.surface} m²</b> ici. C'est ce qui traduit un prix en <b>capacité réelle à se `+
+  `loger</b> : ${IMMO_HYP.surface} m² à Paris et ${IMMO_HYP.surface} m² dans la Creuse, ce n'est pas le même `+
+  `effort pour le même salaire. Hypothèses : apport de <b>${IMMO_HYP.apport} %</b>, crédit sur `+
+  `<b>${IMMO_HYP.duree} ans</b> à <b>${String(IMMO_HYP.taux).replace(".",",")} %</b> (hors assurance), revenu `+
+  `médian local rapporté au ménage (${String(IMMO_HYP.uc).replace(".",",")} unité de consommation, INSEE). `+
+  `Au-delà de <b>${IMMO_HYP.hcsf} %</b>, la règle du HCSF conduit les banques à refuser le prêt : la propriété `+
+  `est alors hors d'atteinte pour la moitié des habitant·es.</p>`+
+  `<p>Publié à l'échelle de la <b>commune</b> : les quartiers d'une même commune portent la même valeur. `+
+  `Deux territoires sont absents de la source — l'<b>Alsace-Moselle</b> (57, 67, 68), régie par le livre `+
+  `foncier et hors champ DVF, et l'<b>outre-mer</b>. Le prix est enfin un indicateur de <b>transaction</b> : `+
+  `il décrit ce qui s'est vendu, pas la valeur du parc existant.</p>`;
+const TIP_PXM2="Prix moyen au m² des logements vendus dans la commune (maisons et appartements), "+
+  "base DVF 2022-2024. Cliquez pour la méthode et les limites.";
+const TIP_EFFORT="Part du revenu d'un ménage médian qu'absorberait le crédit pour acheter 70 m² ici "+
+  "(apport 10 %, 25 ans à 3,5 %). Au-delà de 35 %, les banques refusent en général le prêt.";
 // Chiffre de tête de la fiche = INDICATEUR ACTIF (pastille sélectionnée) : cliquer un
 // bureau de vote après avoir choisi « Vote RN » doit afficher le vote RN de ce bureau, et
 // non un score LFI figé — la fiche répond à la question que pose la carte. Le vote LFI
@@ -80,6 +113,8 @@ const HEAD_INFO={
     `résultats électoraux, qui n'y sont qu'<b>estimés</b> depuis les bureaux de vote.`,"Revenu médian"],
   pauv:["2021","de la population",()=>
     `Part de la population vivant sous <b>60 % du revenu médian national</b>. Source : INSEE FILOSOFI 2021.`],
+  pxm2:[IMMO_HYP.annees,"le m² vendu dans la commune",IMMO_METHODO,"Prix du logement"],
+  effort:[IMMO_HYP.annees,`du revenu du ménage pour ${IMMO_HYP.surface} m²`,IMMO_METHODO,"Effort d'accession"],
 };
 // intitulé du chiffre de tête : scrutins écrits en toutes lettres (la pastille, elle, est
 // à l'étroit et se contente des codes P22/E24…).
@@ -223,6 +258,10 @@ const expBlock=(body,det)=>{ if(!det)return `<div class="exp">${body}</div>`;
 const spoiler=(titre,corps,open=false)=> !corps?"":
   `<div class="spoiler${open?" open":""}"><div class="sph">${titre}<span class="spcaret">›</span></div>`+
   `<div class="spbody">${corps}</div></div>`;
+// Petit « i » d'explication accolé à un libellé : au SURVOL, une définition courte
+// (infobulle CSS, cf. map.css) ; au CLIC, le volet méthodo de la section — le clic remonte
+// jusqu'à l'entête .exph qui l'ouvre. C'est aussi le repli tactile, où le survol n'existe pas.
+const hint=t=>`<span class="hint" data-tip="${t.replace(/"/g,"&quot;")}">i</span>`;
 const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 

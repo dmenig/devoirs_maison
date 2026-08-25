@@ -216,12 +216,15 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // ne dit rien). Refs : parts exactes par région, revenu/pauvreté pondérés par la pop.
   const refFr=window.__socioFr||{}, refRg=(window.__socioReg||{})[o.reg]||{};
   const fmtv=(v,u)=> u==="€"?Math.round(v).toLocaleString('fr')+" €":v+(u||"");
-  const srow=(lab,k,u)=>{ const v=o[k]; if(v==null)return "";
+  // 4e élément facultatif d'une ligne : le texte du « i » d'explication (survol = définition
+  // courte, clic = volet méthodo de la section). Réservé aux indicateurs qu'un libellé seul
+  // ne suffit pas à comprendre — un taux d'effort, par exemple, n'est rien sans ses hypothèses.
+  const srow=(lab,k,u,tip)=>{ const v=o[k]; if(v==null)return "";
     const fr=refFr[k], rg=refRg[k], r=[];
     if(fr!=null)r.push("France "+fmtv(fr,u)); if(rg!=null)r.push("région "+fmtv(rg,u));
-    return `<div class="srow"><span class="sl">${lab}</span><span class="sv"><b>${fmtv(v,u)}</b>`+
+    return `<div class="srow"><span class="sl">${lab}${tip?hint(tip):""}</span><span class="sv"><b>${fmtv(v,u)}</b>`+
       (r.length?`<span class="ref">${r.join(" · ")}</span>`:"")+`</span></div>`; };
-  const rows=arr=>arr.map(x=>srow(x[0],x[1],x[2])).join("");
+  const rows=arr=>arr.map(x=>srow(x[0],x[1],x[2],x[3])).join("");
 
   const soc=rows([["Revenu médian (après impôts et aides)","rev","€"],
     ["Taux de pauvreté","pauv","%"],["Les 25 % les plus modestes en dessous de","q1","€"],
@@ -233,6 +236,16 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     `comparée à la <b>moyenne France</b> et à la <b>moyenne de la région</b>. La barre montre la `+
     `répartition des revenus (barre épaisse = moitié des foyers autour de la médiane). Source : INSEE `+
     `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`);
+  // Prix du logement (DVF) et effort d'accession — cf. prep_immo.py. Publiés à la COMMUNE :
+  // les quartiers d'une même commune portent la même valeur, d'où le « · commune » dans
+  // l'intitulé, à toutes les échelles. Un prix brut ne dit rien : il est comparé à la France
+  // et à la région, et doublé de l'effort qu'il représente pour le revenu local.
+  const immo=rows([["Prix moyen au m²","pxm2","€",TIP_PXM2],
+    ["Effort d'accession","effort","%",TIP_EFFORT]]);
+  if(immo)socio+=exp(sec(`Prix du logement · commune · ${IMMO_HYP.annees}`)+immo+
+    (o.nvte!=null?`<div class="hypnote">Moyenne sur ${o.nvte.toLocaleString('fr')} vente${o.nvte>1?"s":""} `+
+      `enregistrée${o.nvte>1?"s":""} dans la commune sur ${IMMO_HYP.annees}.</div>`:""),
+    IMMO_METHODO());
   const age=rows([["0-14 ans","a014","%"],["15-29 ans","a1529","%"],["30-44 ans","a3044","%"],
     ["45-59 ans","a4559","%"],["60-74 ans","a6074","%"],["75 ans et +","a75","%"]]);
   if(age)socio+=exp(sec("Âge de la population · 2021")+age,

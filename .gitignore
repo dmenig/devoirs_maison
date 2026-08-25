@@ -7,3 +7,5 @@ data_app/geo/_*.geojson
 data_app/geo/_circo_src/
 # Cache des fichiers sources INSEE bruts (recensement, RNE) — gros, re-téléchargeables
 data_app/_insee_cache/
+# Cache des millésimes DVF (prix immobiliers par commune) — re-téléchargeables
+data_app/_immo_cache/

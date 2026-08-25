@@ -50,8 +50,8 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **France** | blocs + participation, tous scrutins ; tableau de recomposition | différentiels nationaux présidentielle→européenne→municipale, taux de perte | — |
 | **Région** | idem, agrégé région | différentiels et reports entre scrutins | — |
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
-| **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
-| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) |
+| **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **prix moyen au m²** et **effort d'accession** (DVF) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
+| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) ; **prix au m²** et **effort d'accession** hérités de la commune (dits comme tels) |
 | **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
@@ -120,6 +120,29 @@ conservé dans `data_app/iris_bv_couverture.parquet`.
 > la commune forme un seul IRIS. Le revenu médian communal est ici la moyenne de ses IRIS
 > (approximation), à confronter au terrain.
 
+### Prix du logement et effort d'accession (DVF 2022-2024)
+
+Le revenu ne dit qu'une moitié de la condition matérielle : l'autre est ce que coûte le
+fait de se loger. Deux indicateurs, à l'échelle de la **commune** :
+
+- **Prix moyen au m²** des logements — maisons et appartements confondus — réellement
+  **vendus** dans la commune. Les trois millésimes sont mis en commun et pondérés par le
+  nombre de ventes ; sous **5 ventes** cumulées, aucun prix n'est affiché (une moyenne
+  tirée de deux mutations ne dit rien d'un marché local).
+- **Effort d'accession** : part du revenu d'un ménage médian qu'absorberait la mensualité
+  du crédit pour acheter **70 m²** dans la commune. C'est ce qui traduit un prix en
+  *capacité réelle à se loger* — 70 m² à Paris et 70 m² dans la Creuse, ce n'est pas le
+  même effort pour le même salaire. Hypothèses (`prep_immo.py`, reflétées dans
+  `IMMO_HYP` côté client) : apport **10 %**, crédit sur **25 ans** à **3,5 %** hors
+  assurance, revenu médian local rapporté au ménage (**1,55** unité de consommation,
+  INSEE). Au-delà de **35 %**, la règle du HCSF conduit les banques à refuser le prêt.
+
+Les deux valeurs sont comparées à la **France** et à la **région** (moyennes pondérées par
+la population communale, même convention que le revenu et la pauvreté). Les pastilles de
+carte correspondantes ne s'affichent que sur une **carte de communes** (vue département) :
+à l'IRIS, tous les quartiers d'une commune porteraient la même couleur. La fiche d'un
+quartier, elle, affiche le prix en précisant qu'il vaut « à l'échelle de la commune ».
+
 ### Profil administratif de la commune (recensement INSEE 2021)
 
 Reprend la **fiche circonscription INSEE** de la prez (slides 22, 25-28), ramenée à la
@@ -142,6 +165,9 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 - **Résultats électoraux** : Ministère de l'Intérieur / data.gouv (par bureau de vote,
   commune, circonscription) — scrutins 2012 → 2026.
 - **Socio-économique** : INSEE **FILOSOFI 2021** (revenu disponible par IRIS).
+- **Prix du logement** : base **DVF** (Demandes de valeurs foncières, DGFiP), millésimes
+  2022-2024, via le jeu « Indicateurs Immobiliers par commune et par année » (data.gouv.fr,
+  ODbL). L'effort d'accession en est dérivé, croisé au revenu FILOSOFI.
 - **Administratif (commune)** : **recensement INSEE 2021** — bases infracommunales (âges,
   logement, activité/déplacements) et fichier détail « individus localisés » (renouvellement) ;
   **Répertoire national des élus** (data.gouv) pour le maire en exercice.
@@ -180,3 +206,12 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   INSEE) n'ont pas de fiche « profil INSEE » à la commune.
 - Le **renouvellement de population** est calculé au grain canton-ou-ville (maille la plus fine
   publiée pour la variable IRAN) puis rabattu sur la commune via son canton COG.
+- Le **prix au m²** est un indicateur de **transaction** : il décrit ce qui s'est vendu, pas la
+  valeur du parc existant, et il est d'autant plus bruité que les ventes sont rares (d'où le
+  seuil de 5 ventes et la mise en commun de trois millésimes). C'est une **moyenne**, pas une
+  médiane, et elle mêle maisons et appartements — dans une commune qui vend les deux, elle
+  reflète leur mélange. Deux territoires sont **absents de la source** : l'**Alsace-Moselle**
+  (57, 67, 68), régie par le livre foncier et hors champ DVF, et l'**outre-mer** ; 27 834
+  communes sur ~34 900 portent un prix. L'**effort d'accession** dépend en outre de ses
+  hypothèses de crédit (apport, durée, taux) : c'est un ordre de grandeur comparable d'une
+  commune à l'autre, pas une simulation bancaire.

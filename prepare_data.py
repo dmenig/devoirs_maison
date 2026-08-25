@@ -15,6 +15,7 @@ import pandas as pd
 
 import prep_admin
 import prep_geo
+import prep_immo
 import prep_iris_bv
 from prep_elections import construire_resultats
 from prep_socio import construire_references, construire_socio
@@ -102,9 +103,21 @@ def main() -> None:
         )
         iris.to_parquet(OUT / "socio_iris.parquet", index=False)
         commune_socio.to_parquet(OUT / "socio_commune.parquet", index=False)
+        print("→ Logement (prix au m² DVF + effort d'accession)")
+        immo = prep_immo.construire_immo(OUT / "_immo_cache", commune_socio)
+        immo.to_parquet(OUT / "immo_commune.parquet", index=False)
+        print(f"   communes avec un prix au m² : {len(immo)}")
         rp = CLEAN / "recensement" / "iris.csv"
         if rp.exists():
             refs = construire_references(commune_socio, rp, communes)
+            pop_commune = (
+                pd.read_csv(
+                    rp, dtype={"code_commune": str}, usecols=["code_commune", "pop"]
+                )
+                .groupby("code_commune")["pop"]
+                .sum()
+            )
+            prep_immo.references_immo(immo, communes, refs, pop_commune)
             (OUT / "socio_reference.json").write_text(json.dumps(refs))
             # population par IRIS : sert à répartir les électeurs d'un bureau de vote
             # entre les quartiers qu'il recoupe, au prorata du peuplement et non de la
@@ -155,6 +168,7 @@ def main() -> None:
         "niveaux": sorted(resultats.keys()),
         "iris_contours": (GEO / "iris").exists(),
         "admin_commune": (OUT / "admin_commune.parquet").exists(),
+        "immo_commune": (OUT / "immo_commune.parquet").exists(),
         "iris_electoral_estime": (OUT / "resultats_iris.parquet").exists(),
     }
     (OUT / "manifest.json").write_text(
