@@ -216,9 +216,16 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   if(sousMode==="iris"){
     const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON(`values/iris/${dep}.json`)]);
     if(!geo){$("loading").textContent="quartiers indisponibles ici";return;}
-    const fc={type:"FeatureCollection",features:geo.features.filter(f=>irisInCommune(String(f.properties.code_iris),code))};
+    // Un quartier SANS AUCUNE valeur n'est pas tracé : les contours IRIS de l'IGN sont
+    // d'un millésime plus récent que le recensement, 30 d'entre eux (Oullins, Neufchâteau,
+    // Saint-Denis, et 7 communes fusionnées) n'ont ni socio ni électoral. Les peindre en
+    // gris ouvrait une fiche vide sans rien en dire. Un quartier qui n'a « que » du socio
+    // reste tracé : il est gris sur une pastille électorale, mais sa fiche a du contenu.
+    const vals=val||{};
+    const fc={type:"FeatureCollection",features:geo.features.filter(f=>{
+      const ci=String(f.properties.code_iris); return irisInCommune(ci,code)&&vals[ci]; })};
     if(!fc.features.length){$("loading").textContent="pas de données par quartier";return;}
-    dessiner(fc,val||{},"code_iris","nom_iris",null,"iris"); return; }
+    dessiner(fc,vals,"code_iris","nom_iris",null,"iris"); return; }
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
   if(!geo){$("loading").textContent="contours BV indisponibles";return;}
   const tous=geo.features.filter(f=>String(f.properties.code_commune)===code);

@@ -66,6 +66,23 @@ def _canon_suffix(s: pd.Series) -> pd.Series:
     return s.where(~s.str.fullmatch(r"\d+"), s.str.zfill(4))
 
 
+def _canon_commune(s: pd.Series) -> pd.Series:
+    """Code commune canonique (INSEE, 5 caractères).
+
+    Le fichier des européennes 2014 — et lui seul — code l'outre-mer sur SIX chiffres :
+    département actuel (3) + chiffre du département d'alors (1) + numéro de commune (2),
+    d'où « 974411 » pour Saint-Denis de La Réunion (97411) ou « 976501 » pour Acoua
+    (97601, Mayotte étant encore le 985 en 2014). Aucun de ces codes ne rejoignait quoi
+    que ce soit : ni contour, ni COG, ni les autres scrutins de la même commune. Les DOM
+    disparaissaient donc de ce scrutin à TOUTES les échelles (1,37 M d'inscrits, 129
+    communes, 2 308 bureaux), tandis que 215 entrées fantômes portaient seules leur
+    résultat. Retirer le 4e caractère rétablit le code INSEE, sans jamais entrer en
+    collision avec un code à 5 déjà présent."""
+    s = s.astype(str)
+    outremer = s.str.fullmatch(r"9[78]\d{4}")
+    return s.where(~outremer, s.str[:3] + s.str[4:])
+
+
 def construire_crosswalk_plm(dossier_clean: Path, geo_dir: Path) -> dict[str, str]:
     """Crosswalk {code_bv continu → code_bv local} pour Paris/Lyon/Marseille.
 
@@ -164,6 +181,7 @@ def _bureau_depuis_df(
             raise ValueError(f"{scrutin.cle}: ni code_commune ni code_secteur")
         # Paris/Lyon/Marseille : on rattache le secteur à sa commune principale.
         df["code_commune"] = df["code_secteur"].astype(str).str[:5]
+    df["code_commune"] = _canon_commune(df["code_commune"])
     df["bureau_de_vote"] = df.get("bureau_de_vote", "")
     base_bv = df["code_secteur"] if "code_secteur" in df.columns else df["code_commune"]
     df["code_bv"] = base_bv.astype(str) + "_" + _canon_suffix(df["bureau_de_vote"])
@@ -257,17 +275,26 @@ def _indicateurs(g: pd.DataFrame) -> dict:
     abstention), `inscrits_nuances` — les inscrits dont la ventilation par liste
     existe — pour les blocs et les voix LFI/gauche. Les deux coïncident sauf aux
     municipales plurinominales (cf. _neutraliser_plurinominal), où les blocs valent
-    None au lieu de zéro : « non mesuré » n'est pas « zéro voix »."""
+    None au lieu de zéro : « non mesuré » n'est pas « zéro voix ».
+
+    Participation et abstention exigent en plus des comptages qui se tiennent
+    (exprimés ≤ votants ≤ inscrits). Deux bureaux du fichier des municipales 2026 les
+    contredisent — 212 votants pour 209 inscrits au Mesnil-sur-Bulles, 79 exprimés pour
+    0 votant à Saint-Cyr-du-Gault : on préfère ne rien afficher à une participation de
+    101 %."""
     inscrits = g["inscrits"]
     nuances_base = g["inscrits_nuances"]
+    coherent = 0 <= g["exprimes"] <= g["votants"] <= inscrits
     res: dict = {
         "inscrits": int(inscrits),
         "votants": int(g["votants"]),
         "exprimes": int(g["exprimes"]),
         "inscrits_nuances": int(nuances_base),
-        "participation": round(100 * g["votants"] / inscrits, 2) if inscrits else None,
+        "participation": round(100 * g["votants"] / inscrits, 2)
+        if inscrits and coherent
+        else None,
         "abstention": round(100 * (1 - g["votants"] / inscrits), 2)
-        if inscrits
+        if inscrits and coherent
         else None,
     }
     fam_voix = {fam: g.get(fam, 0) for fam in FAMILLES}

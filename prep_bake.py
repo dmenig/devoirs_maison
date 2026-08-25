@@ -56,7 +56,7 @@ COLS = {  # clé courte -> colonne
 }
 # tableau de recomposition (slide 23) : tous les scrutins disponibles, 6 blocs + abstention
 BLOCS_RECOMPO = [f"b6_{b}" for b in nuances.BLOC6_ORDRE] + ["abstention"]
-ORDRE_TYPE = {  # ordre de lecture dans une même année
+ORDRE_TYPE = {  # repli quand la date du scrutin n'est pas connue (cf. DATE_1ER_TOUR)
     "presidentielle": 0,
     "legislatives": 1,
     "europeenne": 2,
@@ -65,6 +65,29 @@ ORDRE_TYPE = {  # ordre de lecture dans une même année
     "departementales": 4,
     "regionales": 5,
     "referendum": 6,
+}
+# La frise de recomposition se lit comme une CHRONOLOGIE : un rang par type ne suffit
+# pas. Il plaçait les européennes 2024 (9 juin) après les législatives (30 juin) et les
+# municipales 2014 (23 mars) après les européennes (25 mai) — soit l'évolution politique
+# lue à l'envers à deux endroits. On date donc le 1er tour de chaque scrutin ; les deux
+# tours d'un même scrutin restent côte à côte (on trie sur la date du 1er tour, pas sur
+# celle du tour affiché), et un scrutin non listé retombe sur ORDRE_TYPE.
+DATE_1ER_TOUR = {  # (année, type) -> mois-jour du 1er tour
+    (2012, "presidentielle"): "04-22",
+    (2014, "municipales"): "03-23",
+    (2014, "europeenne"): "05-25",
+    (2017, "presidentielle"): "04-23",
+    (2017, "legislatives"): "06-11",
+    (2019, "europeenne"): "05-26",
+    (2020, "municipales"): "03-15",
+    (2021, "departementales"): "06-20",
+    (2021, "regionales"): "06-20",
+    (2022, "presidentielle"): "04-10",
+    (2022, "legislatives"): "06-12",
+    (2024, "europeenne"): "06-09",
+    (2024, "legislatives"): "06-30",
+    (2026, "municipales"): "03-15",
+    (2026, "conseils"): "03-15",
 }
 TYPE_COURT = {
     "presidentielle": "Prés",
@@ -116,7 +139,11 @@ def ordre_scrutins(df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
         .copy()
     )
     m["o"] = m["type"].map(ORDRE_TYPE).fillna(9)
-    m = m.sort_values(["annee", "o", "tour"])
+    m["jour"] = [
+        DATE_1ER_TOUR.get((int(a), t), f"{int(o):02d}-99")
+        for a, t, o in zip(m["annee"], m["type"], m["o"])
+    ]
+    m = m.sort_values(["annee", "jour", "o", "tour"])
     ordre, meta = [], []
     for _, r in m.iterrows():
         tour = r["tour"]
@@ -185,19 +212,35 @@ def _valeurs_niveau(
     return out
 
 
-def _bureaux_avec_contour(geo_bv: Path, dep: str) -> set[str]:
-    """Codes des bureaux de vote qui ont un contour dans ce département.
+def _codes_avec_contour(geo_dir: Path, dep: str, cle: str) -> set[str]:
+    """Codes qui ont un contour dans ce département, pour les mailles infra-communales.
 
     La carte joint les valeurs aux polygones PAR CE CODE : tout ce qui n'a pas de
-    contour est du poids mort intégral. On en bakait 12 820 (16 % des entrées) —
-    numérotations abandonnées que seuls les vieux scrutins connaissent (Tours traînait
-    79 clés d'avant 2017, sans un seul indicateur courant), bureaux créés après le
-    millésime des contours, et 15 départements sans contours du tout (outre-mer,
-    Français de l'étranger) dont le fichier de valeurs n'était jamais demandé."""
-    f = geo_bv / f"{dep}.geojson"
+    contour est du poids mort intégral, jamais affichable. Bureaux de vote : 12 820
+    entrées sur 81 431 (16 %) — numérotations abandonnées que seuls les vieux scrutins
+    connaissent (Tours traînait 79 clés d'avant 2017, sans un seul indicateur courant),
+    bureaux créés après le millésime des contours, et 15 départements sans contours du
+    tout (outre-mer, Français de l'étranger). Quartiers : 1 960 entrées sur 50 442
+    (3,9 %), dont les quatre départements d'outre-mer, que les contours IRIS de l'IGN
+    ne couvrent pas."""
+    f = geo_dir / f"{dep}.geojson"
     if not f.exists():
         return set()
-    return set(gpd.read_file(f, ignore_geometry=True)["bureau"].astype(str))
+    return set(gpd.read_file(f, ignore_geometry=True)[cle].astype(str))
+
+
+def _filtrer_sur_contours(
+    vals: dict[str, dict], geo_dir: Path, cle: str
+) -> dict[str, dict]:
+    contours: dict[str, set[str]] = {}
+    garde: dict[str, dict] = {}
+    for code, v in vals.items():
+        dep = _dep(code)
+        if dep not in contours:
+            contours[dep] = _codes_avec_contour(geo_dir, dep, cle)
+        if code in contours[dep]:
+            garde[code] = v
+    return garde
 
 
 def _ecrire(nom: str, data: dict) -> None:
@@ -497,6 +540,9 @@ def main() -> None:
         for cle, val in _socio_champs(r._asdict()).items():
             cur.setdefault(cle, val)
     _baker_iris_elec(iris_vals, DA, ordre, fiables)
+    iris_vals = _filtrer_sur_contours(iris_vals, DA / "geo" / "iris", "code_iris")
+    for obsolete in (OUT / "iris").glob("*.json"):
+        obsolete.unlink()  # un département qui perd ses contours ne doit pas survivre
     print(f"  ✓ values iris (par département, {_ecrire_par_dep('iris', iris_vals)})")
 
     bv = pd.read_parquet(DA / "resultats_bureau.parquet")
@@ -509,7 +555,8 @@ def main() -> None:
         obsolete.unlink()  # un département qui perd ses contours ne doit pas survivre
     ecrits = 0
     for dep, sous in bv.groupby("dep"):
-        sous = sous[sous["code"].isin(_bureaux_avec_contour(DA / "geo" / "bv", dep))]
+        contour = _codes_avec_contour(DA / "geo" / "bv", dep, "bureau")
+        sous = sous[sous["code"].isin(contour)]
         if sous.empty:
             continue
         (dossier / f"{dep}.json").write_text(
