@@ -194,6 +194,43 @@ def _bureau_depuis_df(
     for fam in FAMILLES:
         if fam not in out.columns:
             out[fam] = 0
+    return _neutraliser_plurinominal(out)
+
+
+# Une commune dont les voix dépassent de 10 % ses exprimés vote au scrutin plurinominal.
+# La séparation est franche — les communes de liste bouclent à 1,00 exactement, les
+# communes à panachage sont entre 5 et 15 (autant que de sièges) : seules 8 communes sur
+# 35 000 tombent entre les deux. Un seuil lâche (> exprimés tout court) ferait basculer
+# des communes entières sur un bureau au dénombrement d'exprimés bancal — Tours en a un.
+RATIO_PLURINOMINAL = 1.10
+
+
+def _neutraliser_plurinominal(out: pd.DataFrame) -> pd.DataFrame:
+    """Marque les communes où la ventilation par liste n'est pas mesurable.
+
+    Municipales des communes de moins de 1 000 habitants : scrutin plurinominal avec
+    panachage. Le ministère y publie une ligne par CANDIDAT (un numéro de panneau
+    chacun, pas de liste), et chaque électeur vote pour autant de noms qu'il y a de
+    sièges — sommer ces voix par famille donnait 184 % des inscrits en 2014 et 135 %
+    en 2020, contre 60 % et 43 % d'exprimés réels. Aucun score de liste n'existe dans
+    ces communes : on déclare la ventilation INCONNUE (NaN) plutôt que de la fabriquer,
+    et `inscrits_nuances` (0 ici) sert de dénominateur aux blocs — participation et
+    abstention, elles, restent mesurées et intactes. Le test porte sur les totaux de la
+    COMMUNE, le panachage étant un régime de vote communal, pas un accident de bureau."""
+    total = out[FAMILLES].sum(axis=1)
+    par_commune = (
+        pd.DataFrame(
+            {"code_commune": out["code_commune"], "voix": total, "exp": out["exprimes"]}
+        )
+        .groupby("code_commune")[["voix", "exp"]]
+        .sum()
+    )
+    plurinominales = set(
+        par_commune.index[par_commune["voix"] > RATIO_PLURINOMINAL * par_commune["exp"]]
+    )
+    connu = ~out["code_commune"].isin(plurinominales)
+    out.loc[~connu, FAMILLES] = float("nan")
+    out["inscrits_nuances"] = out["inscrits"].where(connu, 0)
     return out
 
 
@@ -214,12 +251,20 @@ def _par_bureau(
 
 
 def _indicateurs(g: pd.DataFrame) -> dict:
-    """Calcule les indicateurs d'un groupe (déjà agrégé en sommes)."""
+    """Calcule les indicateurs d'un groupe (déjà agrégé en sommes).
+
+    Deux dénominateurs : `inscrits` pour ce qui est mesuré partout (participation,
+    abstention), `inscrits_nuances` — les inscrits dont la ventilation par liste
+    existe — pour les blocs et les voix LFI/gauche. Les deux coïncident sauf aux
+    municipales plurinominales (cf. _neutraliser_plurinominal), où les blocs valent
+    None au lieu de zéro : « non mesuré » n'est pas « zéro voix »."""
     inscrits = g["inscrits"]
+    nuances_base = g["inscrits_nuances"]
     res: dict = {
         "inscrits": int(inscrits),
         "votants": int(g["votants"]),
         "exprimes": int(g["exprimes"]),
+        "inscrits_nuances": int(nuances_base),
         "participation": round(100 * g["votants"] / inscrits, 2) if inscrits else None,
         "abstention": round(100 * (1 - g["votants"] / inscrits), 2)
         if inscrits
@@ -228,23 +273,23 @@ def _indicateurs(g: pd.DataFrame) -> dict:
     fam_voix = {fam: g.get(fam, 0) for fam in FAMILLES}
     for bloc in BLOC6_ORDRE:
         v = sum(fam_voix[f] for f in FAMILLES if FAMILLE_BLOC6.get(f) == bloc)
-        res[f"b6_{bloc}"] = round(100 * v / inscrits, 2) if inscrits else None
+        res[f"b6_{bloc}"] = round(100 * v / nuances_base, 2) if nuances_base else None
     for bloc in TRIPARTITION_ORDRE:
         v = sum(fam_voix[f] for f in FAMILLES if FAMILLE_TRIPARTITION.get(f) == bloc)
-        res[f"tri_{bloc}"] = round(100 * v / inscrits, 2) if inscrits else None
+        res[f"tri_{bloc}"] = round(100 * v / nuances_base, 2) if nuances_base else None
     lfi = sum(fam_voix[f] for f in FAMILLES_LFI)
     gauche = sum(fam_voix[f] for f in FAMILLES_GAUCHE)
-    res["lfi_voix"] = int(lfi)
-    res["gauche_voix"] = int(gauche)
-    res["lfi_pct"] = round(100 * lfi / inscrits, 2) if inscrits else None
-    res["gauche_pct"] = round(100 * gauche / inscrits, 2) if inscrits else None
+    res["lfi_voix"] = int(lfi) if nuances_base else None
+    res["gauche_voix"] = int(gauche) if nuances_base else None
+    res["lfi_pct"] = round(100 * lfi / nuances_base, 2) if nuances_base else None
+    res["gauche_pct"] = round(100 * gauche / nuances_base, 2) if nuances_base else None
     return res
 
 
 def _agreger(
     bv: pd.DataFrame, cle_groupe: str, niveau: str, scrutin: Scrutin
 ) -> pd.DataFrame:
-    cols_somme = ["inscrits", "votants", "exprimes", *FAMILLES]
+    cols_somme = ["inscrits", "votants", "exprimes", "inscrits_nuances", *FAMILLES]
     grp = bv.groupby(cle_groupe, as_index=False)[cols_somme].sum()
     lignes = [
         {

@@ -13,6 +13,7 @@ import math
 import re
 from pathlib import Path
 
+import geopandas as gpd
 import pandas as pd
 
 import indicators as ind
@@ -182,6 +183,21 @@ def _valeurs_niveau(
     for code, rec in _recompo_par_code(df, ordre, fiables).items():
         out.setdefault(code, {})["rec"] = rec
     return out
+
+
+def _bureaux_avec_contour(geo_bv: Path, dep: str) -> set[str]:
+    """Codes des bureaux de vote qui ont un contour dans ce département.
+
+    La carte joint les valeurs aux polygones PAR CE CODE : tout ce qui n'a pas de
+    contour est du poids mort intégral. On en bakait 12 820 (16 % des entrées) —
+    numérotations abandonnées que seuls les vieux scrutins connaissent (Tours traînait
+    79 clés d'avant 2017, sans un seul indicateur courant), bureaux créés après le
+    millésime des contours, et 15 départements sans contours du tout (outre-mer,
+    Français de l'étranger) dont le fichier de valeurs n'était jamais demandé."""
+    f = geo_bv / f"{dep}.geojson"
+    if not f.exists():
+        return set()
+    return set(gpd.read_file(f, ignore_geometry=True)["bureau"].astype(str))
 
 
 def _ecrire(nom: str, data: dict) -> None:
@@ -487,12 +503,20 @@ def main() -> None:
     bv["dep"] = (
         bv["code"].str[:3].where(bv["code"].str.startswith("97"), bv["code"].str[:2])
     )
-    (OUT / "bv").mkdir(exist_ok=True)
+    dossier = OUT / "bv"
+    dossier.mkdir(exist_ok=True)
+    for obsolete in dossier.glob("*.json"):
+        obsolete.unlink()  # un département qui perd ses contours ne doit pas survivre
+    ecrits = 0
     for dep, sous in bv.groupby("dep"):
-        (OUT / "bv" / f"{dep}.json").write_text(
+        sous = sous[sous["code"].isin(_bureaux_avec_contour(DA / "geo" / "bv", dep))]
+        if sous.empty:
+            continue
+        (dossier / f"{dep}.json").write_text(
             _dumps(_valeurs_niveau(sous, ordre, fiables))
         )
-    print("  ✓ values bv (par département)")
+        ecrits += 1
+    print(f"  ✓ values bv (par département, {ecrits})")
 
     _ecrire("_catalogue", {"indicateurs": catalogue()})
     print("✓ prep_bake terminé")
