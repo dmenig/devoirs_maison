@@ -31,15 +31,21 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 | `build_map.py` | `assemble_map(base)` : recolle squelette + CSS + JS en une string et injecte `__BASE__` |
 | `streamlit_app.py` | wrapper plein écran : sert `assemble_map(BASE)` |
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
+| `regen_elections.py` | régénère les seules tables électorales après un correctif du pipeline — enchaîner `prep_bake.py`, qui écrit aussi `manifest.json` |
 | `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
 | `prep_immo.py` | prix au m² (DVF) et effort d'accession par commune + références France/région |
 | `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
 | `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |
-| `nuances.py` | mapping nuances Min. Intérieur → blocs (recomposition / tripartition) |
+| `nuances.py` | mapping nuances Min. Intérieur → blocs (recomposition / tripartition) : nuance simple, nuance de liste `L…`, nuance de binôme `BC-…`, et listes européennes 2019 (seul fichier sans nuance) |
 | `panels.py`, `viz.py`, `dataio.py` | **legacy** : prototype Streamlit natif (folium), non utilisé par la carte servie |
 
 Les contours sont chargés **paresseusement par zone** (un département à la fois) par le
 navigateur, en pleine résolution.
+
+Toutes les échelles bouclent les unes sur les autres : `France = Σ communes = Σ bureaux`,
+et `France = Σ départements` + les Français·es de l'étranger et les collectivités du
+Pacifique, qui ne relèvent d'aucun département. Dans la fiche, `blocs + abstention +
+non ventilé + blancs/nuls = 100 %` des inscrits.
 
 ## Données
 

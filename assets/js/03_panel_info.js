@@ -116,7 +116,8 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   } else if(lfi!=null){
     headline=exp(`<div class="lead">Vote LFI · Europ. 2024${est?" · estimé":""}</div>`+
            `<div class="head">${lfi} %<small> des inscrits</small></div>`,
-      `Part des inscrits ayant voté pour la liste LFI / Union de la gauche aux <b>européennes de juin 2024</b>. `+
+      `Part des inscrits ayant voté pour la <b>liste LFI</b> aux <b>européennes de juin 2024</b> (la liste `+
+      `d'union Glucksmann/Place publique compte dans le bloc de gauche, pas ici). `+
       `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
       `Source : Ministère de l'Intérieur.`+(est?EST_METHODO:""));
   } else if(o.rev!=null){
@@ -169,15 +170,26 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
       `<b>Droite</b> = LR + divers droite. <b>RN</b> = RN + Reconquête + extrême droite.`); }
 
   // recomposition (slide 23) : essentiel = barre du dernier scrutin ; détail (clic) = tableau complet
+  // Chaque ligne vaut [6 blocs, abstention, non ventilé], en % des inscrits. Le dernier
+  // segment est la part des inscrits dont le ministère ne publie AUCUNE ventilation par
+  // liste (municipales des communes de moins de 1 000 habitants, où l'on vote pour des
+  // noms et non des listes). Sans lui, la barre ne bouclait pas et les blocs manquants
+  // se lisaient comme des zéros : « LFI 0 % » là où la question n'a simplement pas été posée.
   if(window.__scr&&o.rec){
-    const heads=["FI","PS","EM","LR","RN","Div","Abs"],
+    const heads=["FI","PS","EM","LR","RN","Div","Abs","NV"],
       full=["LFI-PCF","PS-EELV","Macron","LR-DVD","RN-ED","Autres"],
-      cols=["#cf2e5b","#c2348b","#e6902e",C.lr,C.rn,"#8a8a8a"], gris="rgba(140,140,150,.45)";
-    let li=-1; window.__scr.forEach((s,i)=>{ if(o.rec[i])li=i; }); // dernier scrutin disponible
-    if(li>=0){ const r=o.rec[li];
+      cols=["#cf2e5b","#c2348b","#e6902e",C.lr,C.rn,"#8a8a8a"], gris="rgba(140,140,150,.45)",
+      hachure="repeating-linear-gradient(135deg,rgba(140,140,150,.30) 0 5px,rgba(140,140,150,.10) 5px 10px)";
+    // dernier scrutin RÉELLEMENT ventilé : une barre entièrement « non ventilé » (le cas
+    // des municipales dans une petite commune) n'apprendrait rien en tête de fiche.
+    let li=-1; window.__scr.forEach((s,i)=>{
+      const rr=o.rec[i]; if(rr&&rr.slice(0,6).some(v=>v!=null))li=i; });
+    if(li>=0){ const r=o.rec[li], nv=r[7];
       const seg=r.slice(0,6).map((v,j)=> v?`<i style="width:${v}%;background:${cols[j]}" title="${full[j]} ${v}%"></i>`:"").join("")+
+        (nv?`<i style="width:${nv}%;background:${hachure}" title="Ventilation non publiée ${nv}%"></i>`:"")+
         (r[6]?`<i style="width:${r[6]}%;background:${gris}" title="Abstention ${r[6]}%"></i>`:"");
       const lg=full.map((n,j)=> r[j]?`<span><i style="background:${cols[j]}"></i>${n} ${r[j]}%</span>`:"").filter(Boolean).join("")+
+        (nv?`<span><i style="background:${hachure}"></i>Non ventilé ${nv}%</span>`:"")+
         (r[6]?`<span><i style="background:${gris}"></i>Abst. ${r[6]}%</span>`:"");
       let rows="";
       window.__scr.forEach((s,i)=>{ const rr=o.rec[i]; if(!rr)return;
@@ -187,7 +199,13 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
         `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`,
         `Poids de chaque <b>bloc en % des inscrits</b>. Historique scrutin par scrutin (2012→2026) : `+
         `<b>FI</b>=LFI-PCF-EXG · <b>PS</b>=PS-EELV · <b>EM</b>=MoDem-Renaissance · <b>LR</b>=LR-DVD · `+
-        `<b>RN</b>=RN-EXD · <b>Div</b>=autres · <b>Abs</b>=abstention. « · » = indisponible.`+
+        `<b>RN</b>=RN-EXD · <b>Div</b>=autres · <b>Abs</b>=abstention · <b>NV</b>=non ventilé. `+
+        `« · » = indisponible.`+
+        `<p><b>Non ventilé</b> : part des inscrits dont le ministère ne publie pas la répartition `+
+        `par liste. Aux municipales, les communes de moins de 1 000 habitants votent pour des `+
+        `<b>noms</b>, pas pour des listes : aucun score de bloc n'y existe. Ces voix sont comptées `+
+        `dans la participation, jamais dans un bloc — un « · » sur la ligne veut dire `+
+        `<b>non mesuré</b>, pas « zéro voix ».</p>`+
         `<div class="rwrap"><table class="recompo"><thead><tr><th></th>`+
         heads.map((x,j)=>`<th style="color:${cols[j]||'#999'}">${x}</th>`).join("")+
         `</tr></thead><tbody>${rows}</tbody></table></div>`); } }
@@ -230,6 +248,15 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     ["Taux de pauvreté","pauv","%"],["Les 25 % les plus modestes en dessous de","q1","€"],
     ["Les 25 % les plus aisés au-dessus de","q3","€"],["Écart riches / pauvres","ridec"," ×"],
     ["Indice d'inégalité (Gini)","gini",""]]);
+  // Absence de revenu : ne rien afficher laissait croire que la rubrique n'existe pas.
+  // FILOSOFI ne descend à l'IRIS que dans les communes de 5 000 habitants et plus, et
+  // le secret statistique retire le reste : 7 quartiers sur 10 n'ont aucun revenu.
+  if(!soc&&(niveau==="iris"||niveau==="commune"))socio+=exp(sec("Contexte social · 2021")+
+    `<div class="hypnote">Revenus et taux de pauvreté non publiés pour ce territoire.</div>`,
+    `L'INSEE (FILOSOFI 2021) ne publie le niveau de vie au <b>quartier</b> que dans les communes `+
+    `de <b>5 000 habitants et plus</b>, et retire les valeurs trop peu nombreuses pour rester `+
+    `anonymes : <b>70 % des quartiers</b> et le taux de pauvreté de <b>87 % des communes</b> `+
+    `n'existent pas dans la source. Aucune estimation n'est fabriquée à la place.`);
   if(soc)socio+=exp(sec("Contexte social · 2021")+distBand(o)+soc,
     `<b>Revenu médian</b> (après impôts et aides) par personne, corrigé de la taille du foyer, et `+
     `<b>taux de pauvreté</b> (part vivant sous 60 % du revenu médian national). Chaque valeur est `+
@@ -242,6 +269,11 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // et à la région, et doublé de l'effort qu'il représente pour le revenu local.
   const immo=rows([["Prix moyen au m²","pxm2","€",TIP_PXM2],
     ["Effort d'accession","effort","%",TIP_EFFORT]]);
+  // DVF n'agrège un prix au m² que là où il y a eu assez de ventes : 7 147 communes
+  // (20,5 %) n'en ont aucun. On le dit plutôt que d'escamoter la rubrique.
+  if(!immo)socio+=exp(sec(`Prix du logement · commune · ${IMMO_HYP.annees}`)+
+    `<div class="hypnote">Trop peu de ventes enregistrées dans la commune pour un prix au m² fiable.</div>`,
+    IMMO_METHODO());
   if(immo)socio+=exp(sec(`Prix du logement · commune · ${IMMO_HYP.annees}`)+immo+
     (o.nvte!=null?`<div class="hypnote">Moyenne sur ${o.nvte.toLocaleString('fr')} vente${o.nvte>1?"s":""} `+
       `enregistrée${o.nvte>1?"s":""} dans la commune sur ${IMMO_HYP.annees}.</div>`:""),
@@ -274,10 +306,15 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   if(dip)socio+=exp(sec("Diplômes · 2021")+dip,
     `Part des 15 ans et plus non scolarisés sans diplôme (ou brevet seul) et diplômés du supérieur `+
     `(INSEE 2021), comparée à la France et à la région.`);
-  const log=rows([["Propriétaires","logprop","%"],["Locataires","logloc","%"],["Logement social (HLM)","loghlm","%"]]);
+  // « dont » et non une quatrième part : le recensement compte les HLM DANS les
+  // locataires (prop + loc + logé gratuitement = 100 %). Les empiler faisait dépasser
+  // les 100 % dans 45 % des communes, jusqu'à 167 %.
+  const log=rows([["Propriétaires","logprop","%"],["Locataires","logloc","%"],["dont logement social (HLM)","loghlm","%"]]);
   if(log)socio+=exp(sec("Logement · 2021")+log,
     `Statut d'occupation des résidences principales (INSEE 2021), comparé à la France et à la région. `+
-    `Le mode d'habitat est un déterminant du vote.`);
+    `Le mode d'habitat est un déterminant du vote. <b>Propriétaires + locataires + logé·es à titre `+
+    `gratuit = 100 %</b> ; le <b>logement social est un sous-ensemble des locataires</b>, pas une `+
+    `part supplémentaire.`);
   socio+=adminPanel(o);
 
   // Assemblage : seul le Carnet est ouvert d'office. Toute l'analyse est repliée dans des

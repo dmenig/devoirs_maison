@@ -54,14 +54,19 @@ COLS = {  # clé courte -> colonne
     "em": ("b6_MoDem-EM", "Bloc MoDem-EM"),
     "lr": ("b6_LR-DVD", "Bloc LR-DVD"),
 }
-# tableau de recomposition (slide 23) : tous les scrutins disponibles, 6 blocs + abstention
-BLOCS_RECOMPO = [f"b6_{b}" for b in nuances.BLOC6_ORDRE] + ["abstention"]
+# Tableau de recomposition (slide 23) : tous les scrutins disponibles, 6 blocs +
+# abstention + les suffrages que le ministère ne ventile par aucune liste. Cette dernière
+# colonne est ce qui manquait pour que la barre boucle — 19,1 points en France aux
+# municipales 2026 — et sans elle un lecteur ne pouvait pas distinguer « ce bloc ne fait
+# rien ici » de « ce bloc n'est pas mesuré ici ». Tout est en % des INSCRITS, si bien que
+# blocs + abstention + non ventilé + blancs/nuls = 100 % à toutes les échelles.
+BLOCS_RECOMPO = [f"b6_{b}" for b in nuances.BLOC6_ORDRE] + ["abstention", "non_ventile"]
 ORDRE_TYPE = {  # repli quand la date du scrutin n'est pas connue (cf. DATE_1ER_TOUR)
     "presidentielle": 0,
     "legislatives": 1,
     "europeenne": 2,
     "municipales": 3,
-    "conseils": 3,
+    "conseils-PLM": 3,
     "departementales": 4,
     "regionales": 5,
     "referendum": 6,
@@ -87,14 +92,14 @@ DATE_1ER_TOUR = {  # (année, type) -> mois-jour du 1er tour
     (2024, "europeenne"): "06-09",
     (2024, "legislatives"): "06-30",
     (2026, "municipales"): "03-15",
-    (2026, "conseils"): "03-15",
+    (2026, "conseils-PLM"): "03-15",
 }
 TYPE_COURT = {
     "presidentielle": "Prés",
     "legislatives": "Lég",
     "europeenne": "Eur",
     "municipales": "Mun",
-    "conseils": "PLM",
+    "conseils-PLM": "PLM",
     "departementales": "Dép",
     "regionales": "Rég",
     "referendum": "Réf",
@@ -161,9 +166,10 @@ def ordre_scrutins(df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
 
 
 def scrutins_fiables(df: pd.DataFrame) -> list[str]:
-    """Garde-fou : ne garde que les scrutins dont blocs + abstention bouclent ~100 %.
-    Les fichiers multi-tours sont désormais scindés par tour en amont (prep_elections),
-    donc plus aucun ne double-compte ; ce filtre reste un filet de sécurité."""
+    """Garde-fou : ne garde que les scrutins dont blocs + abstention + non ventilé
+    bouclent ~100 % (le reste étant les bulletins blancs et nuls). Les fichiers
+    multi-tours sont désormais scindés par tour en amont (prep_elections), donc plus
+    aucun ne double-compte ; ce filtre reste un filet de sécurité."""
     sommes = df.groupby("scrutin")[BLOCS_RECOMPO].first().sum(axis=1)
     return sommes[(sommes >= 50) & (sommes <= 105)].index.tolist()
 
@@ -171,7 +177,8 @@ def scrutins_fiables(df: pd.DataFrame) -> list[str]:
 def _recompo_par_code(
     df: pd.DataFrame, ordre: list[str], fiables: set[str]
 ) -> dict[str, dict[str, list]]:
-    """Par code : {position scrutin -> [6 blocs + abstention]} (dict creux, % inscrits)."""
+    """Par code : {position scrutin -> [6 blocs, abstention, non ventilé]} (dict creux,
+    % inscrits). Un bloc à None se lit « non mesuré ici », jamais « zéro voix »."""
     pos = {cle: i for i, cle in enumerate(ordre) if cle in fiables}
     sub = df[df["scrutin"].isin(pos)][["code", "scrutin", *BLOCS_RECOMPO]]
     out: dict[str, dict[str, list]] = {}
@@ -485,6 +492,66 @@ def _conquerir(o: dict) -> int | None:
     return max(0, round(exprimes * QUALIF_1T - min(socle)))
 
 
+def _rattachement_region(da: Path):
+    """Renvoie `code commune → code région`, ou None si la commune ne relève d'aucune
+    région (Français·es de l'étranger, collectivités du Pacifique et des Îles du Nord).
+
+    Deux replis, pour les mêmes raisons que `prep_elections.rattachement_communal` : le
+    COG liste les communes fusionnées deux fois — la seconde ligne, celle du nom d'avant
+    fusion, sans région — et `to_dict()` retenait cette case vide ; et les scrutins
+    anciens portent des codes de communes disparues, absents du COG. Sans les deux,
+    2 362 communes étaient servies sans région : ni comparaison régionale dans leur
+    fiche, ni participation aux « voix à conquérir » de leur région."""
+    rc = pd.read_parquet(da / "ref_communes.parquet")
+    direct = (
+        rc.dropna(subset=["code_region"])
+        .drop_duplicates("code_commune")
+        .set_index("code_commune")["code_region"]
+        .astype(str)
+        .to_dict()
+    )
+    dep2reg = (
+        pd.read_parquet(da / "ref_departement.parquet")
+        .set_index("code_departement")["code_region"]
+        .astype(str)
+        .to_dict()
+    )
+    return lambda code: direct.get(str(code)) or dep2reg.get(_dep(str(code)))
+
+
+def ecrire_manifest(da: Path) -> None:
+    """Inventaire de `data_app/`, relu depuis les fichiers eux-mêmes.
+
+    Il était écrit par prepare_data seul : une régénération électorale (regen_elections
+    + prep_bake) le laissait donc en place, et il a dérivé — il annonçait 25 scrutins
+    pour 27, dont deux clés (« 2012-presidentielle », « 2014-municipales ») que le
+    découpage par tour avait fait disparaître. prep_bake terminant les deux chaînes,
+    c'est ici qu'il doit être écrit."""
+    scrutins = sorted(
+        pd.read_parquet(da / "resultats_commune.parquet", columns=["scrutin"])[
+            "scrutin"
+        ].unique()
+    )
+    niveaux = sorted(
+        f.stem.removeprefix("resultats_") for f in da.glob("resultats_*.parquet")
+    )
+    (da / "manifest.json").write_text(
+        json.dumps(
+            {
+                "scrutins": scrutins,
+                "niveaux": niveaux,
+                "iris_contours": (da / "geo" / "iris").exists(),
+                "admin_commune": (da / "admin_commune.parquet").exists(),
+                "immo_commune": (da / "immo_commune.parquet").exists(),
+                "iris_electoral_estime": (da / "resultats_iris.parquet").exists(),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    print(f"  ✓ manifest ({len(scrutins)} scrutins, {len(niveaux)} niveaux)")
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     DA = Path(__file__).parent / "data_app"
@@ -519,19 +586,14 @@ def main() -> None:
         com.setdefault(code, {}).update(v)
     _baker_admin(com, DA)
     _baker_carnet(com, rc_commune, DA)
-    regmap = (
-        pd.read_parquet(DA / "ref_communes.parquet")
-        .set_index("code_commune")["code_region"]
-        .astype(str)
-        .to_dict()
-    )
+    region_de = _rattachement_region(DA)
     conq_reg: dict[str, int] = collections.defaultdict(int)
     conq_dep: dict[str, int] = collections.defaultdict(int)
     for code, vals in com.items():
-        reg = regmap.get(code)
-        valide = reg == reg and str(reg) not in ("nan", "None", "")  # écarte NaN/absent
+        reg = region_de(code)
+        valide = reg is not None
         if valide:
-            vals["reg"] = str(reg)
+            vals["reg"] = reg
         c = _conquerir(vals)
         if c is None:
             continue
@@ -560,8 +622,9 @@ def main() -> None:
     iris_vals = {}
     for r in iris.itertuples(index=False):
         v = _socio_champs(r._asdict())
-        if regmap.get(str(r.code_iris)[:5]):
-            v["reg"] = regmap[str(r.code_iris)[:5]]
+        reg = region_de(_commune_de_iris(str(r.code_iris)))
+        if reg:
+            v["reg"] = reg
         # prix/effort : publiés à la commune, hérités tels quels par ses quartiers (la
         # fiche dit « à l'échelle de la commune » ; aucune pastille de carte à l'IRIS,
         # qui serait uniforme sur toute la commune).
@@ -572,8 +635,8 @@ def main() -> None:
     # communaux manquants (sans écraser les champs IRIS) pour ne pas afficher « — » (ex. Mortery).
     for r in sc.itertuples(index=False):
         cur = iris_vals.setdefault(f"{r.code_commune}0000", {})
-        if "reg" not in cur and regmap.get(str(r.code_commune)):
-            cur["reg"] = regmap[str(r.code_commune)]
+        if "reg" not in cur and region_de(str(r.code_commune)):
+            cur["reg"] = region_de(str(r.code_commune))
         for cle, val in _socio_champs(r._asdict()).items():
             cur.setdefault(cle, val)
         for cle, val in immo.get(str(r.code_commune), {}).items():
@@ -605,6 +668,7 @@ def main() -> None:
     print(f"  ✓ values bv (par département, {ecrits})")
 
     _ecrire("_catalogue", {"indicateurs": catalogue()})
+    ecrire_manifest(DA)
     print("✓ prep_bake terminé")
 
 

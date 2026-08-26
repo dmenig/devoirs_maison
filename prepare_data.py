@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 import prep_admin
+import prep_bake
 import prep_geo
 import prep_immo
 import prep_iris_bv
@@ -167,18 +168,10 @@ def main() -> None:
     else:
         print("   contours IRIS ou BV absents — étape ignorée")
 
-    manifest = {
-        "scrutins": sorted(resultats["commune"]["scrutin"].unique().tolist()),
-        "niveaux": sorted(resultats.keys()),
-        "iris_contours": (GEO / "iris").exists(),
-        "admin_commune": (OUT / "admin_commune.parquet").exists(),
-        "immo_commune": (OUT / "immo_commune.parquet").exists(),
-        "iris_electoral_estime": (OUT / "resultats_iris.parquet").exists(),
-    }
-    (OUT / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2)
-    )
-    print("✓ prepare_data terminé")
+    # Le manifeste est écrit par prep_bake, qui termine aussi bien cette chaîne que
+    # celle de regen_elections : écrit ici, il dérivait à chaque régénération partielle.
+    prep_bake.ecrire_manifest(OUT)
+    print("✓ prepare_data terminé — enchaîner prep_bake.py")
 
 
 if __name__ == "__main__":

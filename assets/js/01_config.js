@@ -82,9 +82,11 @@ const HEAD_INFO={
     `et Légis. 2024). <b>0</b> = objectif déjà atteint. Aux échelles agrégées (région, département), somme `+
     `des déficits commune par commune.`],
   lfi:[null,"des inscrits",()=>
-    `Part des inscrits ayant voté pour la liste <b>LFI / Union de la gauche</b> au scrutin choisi dans le `+
-    `sélecteur ⚖️ (<b>${scLab(selB)}</b>). On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer `+
-    `le poids réel sur le corps électoral. Source : Ministère de l'Intérieur.`],
+    `Part des inscrits ayant voté <b>LFI</b> au scrutin choisi dans le sélecteur ⚖️ `+
+    `(<b>${scLab(selB)}</b>) : bulletin LFI, ou candidature d'union que LFI CONDUIT et où elle n'a pas de `+
+    `bulletin séparé (NUPES 2022, NFP 2024). Les listes d'union de la gauche que LFI soutient sans les `+
+    `mener comptent dans le bloc de gauche, pas ici. On rapporte aux <b>inscrits</b> (et non aux votants) `+
+    `pour mesurer le poids réel sur le corps électoral. Source : Ministère de l'Intérieur.`],
   part:[null,"des inscrits",()=>
     `<b>Participation</b> = votants ÷ inscrits au scrutin choisi ⚖️ (<b>${scLab(selB)}</b>). `+
     `L'abstention en est le complément (100 − participation).`],

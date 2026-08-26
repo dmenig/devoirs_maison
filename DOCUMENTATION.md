@@ -44,6 +44,13 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 - **Tripartition sociale** : bloc social-écologique / libéral-progressiste /
   national-patriote
 - **Voix LFI et voix de gauche** (en valeur absolue, pour les réservoirs)
+- **Part non ventilée** : les suffrages exprimés que le ministère ne répartit pas par
+  liste (municipales des petites communes), rapportés aux inscrits — voir « Limites connues »
+
+> **Un seul dénominateur** : tous ces pourcentages sont rapportés aux **inscrits** du
+> territoire, jamais à un sous-ensemble. C'est ce qui permet d'additionner les blocs, de
+> les empiler avec l'abstention jusqu'à 100 %, et de comparer deux territoires entre eux.
+> Un bloc « non mesuré » s'affiche « · » et pèse dans la part **non ventilée**, pas zéro.
 
 | Échelle | Données électorales | Réservoirs de voix | Socio-éco / administratif |
 | --- | --- | --- | --- |
@@ -57,7 +64,7 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
 
 Calculés dynamiquement entre deux scrutins choisis, à **chaque échelle** disposant des voix
-réelles (région, département, circonscription, commune, bureau de vote) :
+réelles (région, département, commune, bureau de vote) :
 
 - **Taux de perte** de la gauche entre deux scrutins (`(voix_A − voix_B) / voix_A`)
 - **Report LFI** entre deux scrutins (`voix_LFI_B / voix_LFI_A`)
@@ -82,9 +89,14 @@ Méthode (`prep_iris_bv.py`) :
    sans quoi un bureau qui déborde sur un parc ou une zone industrielle y enverrait des
    électeurs.
 3. **Recalage sur la commune** : chaque colonne est remise à l'échelle pour que la somme
-   des quartiers d'une commune redonne **exactement** son résultat réel. C'est ce qui
-   rattrape les bureaux dépourvus de contour (leurs électeurs sont redistribués au
-   prorata) et garantit qu'on ne lit pas deux totaux différents selon l'échelle.
+   des quartiers d'une commune redonne son résultat réel. C'est ce qui rattrape les bureaux
+   dépourvus de contour (leurs électeurs sont redistribués au prorata) et évite qu'on lise
+   deux totaux différents selon l'échelle.
+   Le recalage porte sur les quartiers **servis** : quand `COUV_MIN` en écarte un, sa part
+   n'est pas redistribuée sur les autres et la somme des quartiers reste alors **inférieure**
+   au total communal. 76 communes sont concernées à plus de 1 % (au plus −8 700 inscrits) ;
+   partout ailleurs l'égalité est exacte à l'arrondi près (au plus 8 électeurs, chaque
+   quartier étant arrondi à l'unité).
 
 **Deux garde-fous**, l'un géométrique, l'autre électoral. Dans les deux cas la zone
 écartée n'a **aucune donnée électorale** : la fiche reste purement socio-économique et la
@@ -92,7 +104,7 @@ carte la laisse grise — pas de chiffre plutôt qu'un chiffre faux.
 
 | Garde-fou | Ce qu'il mesure | Seuil | Écarté |
 | --- | --- | --- | --- |
-| `COUV_MIN` | part de l'aire de l'IRIS effectivement recouverte par des contours de bureaux | 99 % | **392 quartiers sur 48 512** (0,8 %) |
+| `COUV_MIN` | part de l'aire de l'IRIS effectivement recouverte par des contours de bureaux | 99 % | **410 quartiers sur 49 343** (0,8 %) |
 | `ELEC_MIN` | part de l'électorat de la commune portée par des bureaux localisables (le reste étant ce que le recalage extrapole) | 90 % | la commune entière, **scrutin par scrutin** |
 
 Le second garde-fou existe parce que le recalage communal est un rattrapage tant que les
@@ -103,9 +115,9 @@ intersection » n'y serait rien d'autre que le résultat communal étalé sur la
 Le filtre est appliqué **par scrutin** : Bordeaux garde donc ses estimations 2017-2022 et
 perd 2024-2026, plutôt que tout ou rien.
 
-Au total, **47 308 quartiers sur 48 512** sont estimés sur les européennes 2024, soit
-**96 % de l'électorat métropolitain contouré**. Le rapport de couverture par IRIS est
-conservé dans `data_app/iris_bv_couverture.parquet`.
+Au total, **48 072 quartiers sur 49 343** sont estimés sur les européennes 2024, soit
+**98,7 % de l'électorat métropolitain**. Le rapport de couverture par IRIS est conservé
+dans `data_app/iris_bv_couverture.parquet`.
 
 ### Détail socio-économique (FILOSOFI 2021)
 
@@ -116,8 +128,14 @@ conservé dans `data_app/iris_bv_couverture.parquet`.
   distribution dans la fiche (slide « niveau de vie des ménages »). À la commune : médiane, pauvreté et
   quartiles (moyenne des IRIS) ; déciles et Gini restent au seul niveau IRIS.
 
-> Note : FILOSOFI à l'IRIS n'existe que pour les communes de ≥ 5 000 habitants ; ailleurs
-> la commune forme un seul IRIS. Le revenu médian communal est ici la moyenne de ses IRIS
+> **Couverture réelle** : FILOSOFI à l'IRIS n'existe que pour les communes de ≥ 5 000
+> habitants, et le secret statistique retire le reste — **70 % des quartiers** n'ont ni
+> revenu, ni pauvreté, ni quartiles, ni Gini (1 886 communes seulement portent au moins un
+> quartier renseigné), et le **taux de pauvreté manque pour 87 % des communes**, les
+> quartiles pour 95 %. Le prix au m² manque pour **20,5 % des communes** (DVF, seuil de
+> 5 ventes). La fiche le **dit** au lieu d'escamoter la rubrique ; aucune valeur n'est
+> fabriquée à la place. Là où FILOSOFI ne descend pas à l'IRIS, la commune forme un seul
+> quartier. Le revenu médian communal est ici la moyenne de ses IRIS
 > (approximation), à confronter au terrain.
 
 ### Prix du logement et effort d'accession (DVF 2022-2024)
@@ -149,7 +167,10 @@ Reprend la **fiche circonscription INSEE** de la prez (slides 22, 25-28), ramen�
 commune et comparée à la moyenne France :
 
 - **Pyramide des âges** par sexe et tranche d'âge (slide 26)
-- **Statut d'occupation** des résidences principales : propriétaires / locataires / HLM (slide 27)
+- **Statut d'occupation** des résidences principales : propriétaires / locataires / logé·es
+  à titre gratuit — ces trois parts font 100 %. Le **logement social (HLM)** est affiché
+  ensuite comme un **sous-ensemble des locataires** (« dont »), pas comme une quatrième
+  part : l'empiler faisait dépasser 100 % dans 45 % des communes (slide 27)
 - **Déplacements domicile-travail** par mode (voiture, transports en commun, marche, vélo…) (slide 28)
 - **Renouvellement de population** : lieu de résidence un an auparavant, 5 catégories (slide 25)
 - **Maire en exercice** (nom, catégorie socio-professionnelle, **âge**), amorce de l'histoire
@@ -162,8 +183,9 @@ commune et comparée à la moyenne France :
 
 Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 
-- **Résultats électoraux** : Ministère de l'Intérieur / data.gouv (par bureau de vote,
-  commune, circonscription) — scrutins 2012 → 2026.
+- **Résultats électoraux** : Ministère de l'Intérieur / data.gouv, publiés **par bureau de
+  vote** — scrutins 2012 → 2026. Toutes les autres échelles (commune, département, région,
+  France) en sont **agrégées**, et bouclent donc exactement les unes sur les autres.
 - **Socio-économique** : INSEE **FILOSOFI 2021** (revenu disponible par IRIS).
 - **Prix du logement** : base **DVF** (Demandes de valeurs foncières, DGFiP), millésimes
   2022-2024, via le jeu « Indicateurs Immobiliers par commune et par année » (data.gouv.fr,
@@ -174,8 +196,8 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 - **Électoral par quartier (IRIS)** : **estimé** — croisement des résultats par bureau de
   vote et des contours IRIS, recalé sur les résultats communaux (voir plus haut).
 - **Découpage administratif** : INSEE **COG 2025** (communes, départements, régions).
-- **Fonds de carte** : régions/départements/communes (france-geojson), circonscriptions
-  législatives (INSEE), contours IRIS 2025 (IGN, quand disponibles).
+- **Fonds de carte** : régions/départements/communes (france-geojson), contours de bureaux
+  de vote (Voronoï data.gouv), contours IRIS 2025 (IGN, quand disponibles).
 
 ## Limites connues
 
@@ -191,17 +213,48 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   travail (la maille de lecture pertinente pour un GA est plutôt la commune / le grand quartier).
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
+- Le total **France est supérieur à la somme des régions**, d'environ **2 millions
+  d'inscrits** aux européennes 2024 (4 %). Ce n'est pas une perte : les **Français·es de
+  l'étranger** (codes `Z…`) et les **collectivités du Pacifique**, de Saint-Pierre-et-Miquelon
+  et des Îles du Nord ne relèvent d'aucun département ni d'aucune région. Ils comptent dans
+  le total national et n'apparaissent à aucune échelle intermédiaire. Toutes les autres
+  échelles bouclent **exactement** : France = Σ communes = Σ bureaux, et
+  France = Σ départements + ces territoires.
 - Les **résultats électoraux à l'IRIS sont estimés**, jamais mesurés (le vote se compte par
   bureau de vote). Ils héritent donc de l'approximation des contours Voronoï **et** de
   l'hypothèse que les électeurs d'un bureau se répartissent comme sa population résidente
   — ce qui est faux là où la structure d'âge ou la part de non-inscrits varie fortement
   d'un côté à l'autre d'un bureau. Un quartier mal recouvert n'est pas estimé du tout.
-- Le **tableau de recomposition** écarte les **municipales** (2014, 2020) : le scrutin
-  plurinominal (panachage, listes) y gonfle les voix bien au-delà des inscrits, rendant les
-  blocs en % d'inscrits non comparables. Un garde-fou (`scrutins_fiables`) ne retient que les
-  scrutins dont blocs + abstention bouclent ≤ 105 %. Les fichiers regroupant deux tours
-  (présidentielle 2012, municipales 2014) sont désormais **scindés par tour en amont** : ils
-  ne double-comptent plus, et la présidentielle 2012 est de nouveau affichée.
+- Le **tableau de recomposition** affiche une colonne **« non ventilé » (NV)** : la part des
+  **suffrages exprimés** que le ministère ne répartit par aucune liste, rapportée aux inscrits
+  comme le reste de la barre. Aux **municipales**, les communes de moins de 1 000 habitants
+  votent au scrutin **plurinominal** : on y vote pour des **noms**, pas pour des listes, et
+  aucun score de bloc n'existe. Ces voix comptent dans la participation, jamais dans un bloc,
+  et la ligne affiche « · » (non mesuré), pas « 0 ». La colonne pèse **19,1 points** en France
+  aux municipales 2026 (17,5 en 2020, 12,0 en 2014) et bien plus dans un département rural.
+  Sans elle la barre ne bouclait pas et les blocs manquants se lisaient comme des zéros :
+  **blocs + abstention + non ventilé + blancs/nuls = 100 %** à toutes les échelles et pour
+  les 27 scrutins. Les fichiers regroupant deux tours
+  (présidentielle 2012, municipales 2014) sont **scindés par tour en amont** : ils ne
+  double-comptent plus. Un garde-fou (`scrutins_fiables`) reste en filet de sécurité.
+- Le **régime de publication des nuances change d'un scrutin à l'autre**, et le mapping
+  (`nuances.py`) doit suivre trois formats : la nuance simple (`FI`, `RN`), la nuance de
+  **liste** préfixée `L` (`LFI`, `LUD`), et la nuance de **binôme** des départementales
+  préfixée `BC-` (`BC-UG`, `BC-RN`). Les **européennes 2019** sont le seul scrutin du corpus
+  dont le fichier ne porte **ni nuance ni nom de candidat** : les familles y sont dérivées du
+  **numéro de panneau** (table `LISTE_EUROPEENNE_2019`). Les **unions** sont rattachées
+  symétriquement : `LUG`/`UGE` (union de la gauche, avec ou sans les écologistes) au bloc
+  `LFI-PCF-EXG` mais **hors** voix LFI, `LUD`/`UCD` (union de la droite, du centre et de la
+  droite) au bloc `LR-DVD`, `UDR` (union des droites, alliée du RN depuis 2024) au bloc
+  `RN-EXD`. Le bloc **« Autres »** ne contient plus que des listes réellement *divers*
+  (animalistes, régionalistes, citoyennes…) : 0,1 % à 6 % des voix selon le scrutin.
+- Un **compte de voix négatif** du fichier amont est réparé s'il s'explique par un
+  débordement d'entier 16 bits ET que le compte rétabli redonne exactement les exprimés
+  publiés du bureau ; sinon les voix du bureau sont déclarées non ventilables. Un seul cas
+  dans le corpus : au 2e tour de la présidentielle 2012, le bureau des Français·es de
+  l'étranger `ZZ006_0001` (107 077 inscrits) affichait **−32 541** voix pour Sarkozy
+  (32 995 tronqué sur 16 bits), qui se soustrayaient du bloc LR-DVD national. C'est un
+  défaut de la source (dépôt `hexagonal`), à corriger en amont.
 - **Paris, Lyon et Marseille** (codés par secteur/arrondissement dans les bases infracommunales
   INSEE) n'ont pas de fiche « profil INSEE » à la commune.
 - Le **renouvellement de population** est calculé au grain canton-ou-ville (maille la plus fine

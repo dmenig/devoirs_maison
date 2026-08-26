@@ -224,6 +224,13 @@ def resultats_iris(
         out[c] = (100 * g[c] / ins).round(2)
     out["lfi_pct"] = (100 * g["lfi_voix"] / ins).round(2)
     out["gauche_pct"] = (100 * g["gauche_voix"] / ins).round(2)
+    # Un quartier hérite du régime de sa commune : là où le ministère ne publie pas les
+    # nuances (municipales des communes de moins de 1 000 habitants), les blocs restent
+    # NaN de bout en bout et ce sont les EXPRIMÉS qui sont non ventilés — l'abstention de
+    # ces quartiers, elle, est déjà comptée par `abstention`.
+    out["non_ventile"] = np.where(
+        out[PCT[0]].isna(), (100 * g["exprimes"] / ins).round(2), 0.0
+    )
     meta = bvres[["scrutin", *META]].drop_duplicates("scrutin")
     return out.merge(meta, on="scrutin", how="left")
 

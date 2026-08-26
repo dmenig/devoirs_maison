@@ -24,11 +24,16 @@ from nuances import (
     FAMILLE_TRIPARTITION,
     FAMILLES_GAUCHE,
     FAMILLES_LFI,
+    SANS_NUANCE,
     TRIPARTITION_ORDRE,
+    famille_de_liste,
     nuance_vers_famille,
 )
 
 FAMILLES = sorted(set(FAMILLE_BLOC6) | {"UDI"})
+# colonnes pivotées : les familles ventilables + le fourre-tout « aucune nuance publiée »,
+# qui sert à détecter les communes non ventilées et n'entre dans AUCUN bloc.
+COLONNES_VOIX = [*FAMILLES, SANS_NUANCE]
 
 
 PLM_COMMUNES = ("75056", "69123", "13055")
@@ -144,6 +149,7 @@ class Scrutin:
             "departementales": "Départementales",
             "regionales": "Régionales",
             "referendum": "Référendum",
+            "conseils-PLM": "Conseils de secteur (PLM)",
         }
         base = f"{noms.get(self.type, self.type.title())} {self.annee}"
         tours = {1: "1er tour", 2: "2e tour"}
@@ -159,11 +165,54 @@ def lister_scrutins(dossier_clean: Path) -> list[Scrutin]:
     for f in sorted(dossier_clean.glob("*-bureau_de_vote.parquet")):
         parts = f.stem.replace("-bureau_de_vote", "").split("-")
         annee = int(parts[0])
-        type_ = parts[1]
-        tour = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+        # Le tour est le DERNIER segment s'il est numérique, et le type tout ce qui reste :
+        # « 2026-conseils-PLM-1 » a un type en deux mots. En lisant `parts[1:3]` on prenait
+        # « PLM » pour un tour, donc pas de tour du tout — et les deux tours des conseils
+        # PLM se retrouvaient avec le même libellé dans le sélecteur de scrutins.
+        tour = int(parts[-1]) if len(parts) > 2 and parts[-1].isdigit() else None
+        type_ = "-".join(parts[1:-1] if tour is not None else parts[1:])
         cle = "-".join(parts)
         scrutins.append(Scrutin(cle, annee, type_, tour, f))
     return scrutins
+
+
+# Les fichiers du ministère repris par hexagonal stockent parfois les voix sur un entier
+# 16 bits signé : au-delà de 32 767 le compte « déborde » et ressort négatif.
+DEBORDEMENT_INT16 = 65536
+
+
+def _reparer_voix_negatives(
+    df: pd.DataFrame, scrutin: Scrutin
+) -> tuple[pd.DataFrame, pd.Series]:
+    """Répare les comptes de voix négatifs, impossibles par construction.
+
+    Le fichier de la présidentielle 2012 en contient un : au 2e tour, le bureau
+    ZZ006_0001 (Français·es de l'étranger, 107 077 inscrits) donne **−32 541** voix à
+    Sarkozy — 32 995 tronqué sur 16 bits. Non corrigé, ce compte se SOUSTRAYAIT du bloc
+    LR-DVD national et laissait 65 536 suffrages hors de tout bloc : c'était le seul
+    scrutin dont la barre ne bouclait pas (99,87 % au lieu de 100 %).
+
+    On ne rétablit le compte que s'il redonne EXACTEMENT les exprimés publiés du bureau
+    (ici 32 995 + 19 978 = 52 973 ✓). Sinon on ne devine pas : les voix du bureau sont
+    déclarées non ventilables, et sa commune bascule en « non mesuré ».
+
+    Renvoie le tableau corrigé et le masque des lignes à ne pas ventiler."""
+    negatif = df["voix"] < 0
+    if not negatif.any():
+        return df, negatif
+    df = df.copy()
+    df["voix"] = df["voix"] + negatif * DEBORDEMENT_INT16
+    touche = df["code_bv"].isin(df.loc[negatif, "code_bv"])
+    somme = df.groupby("code_bv")["voix"].transform("sum")
+    exprimes = df.groupby("code_bv")["exprimes"].transform("max")
+    echec = touche & (somme != exprimes)
+    retablis = df.loc[touche & ~echec, "code_bv"].nunique()
+    print(
+        f"  ⚠ {scrutin.cle}: {int(negatif.sum())} compte(s) de voix négatif(s) "
+        f"(débordement 16 bits) — {retablis} bureau(x) rétabli(s), "
+        f"{df.loc[echec, 'code_bv'].nunique()} laissé(s) non ventilé(s)"
+    )
+    return df, echec
 
 
 def _bureau_depuis_df(
@@ -187,10 +236,23 @@ def _bureau_depuis_df(
     df["code_bv"] = base_bv.astype(str) + "_" + _canon_suffix(df["bureau_de_vote"])
     if crosswalk:
         df["code_bv"] = df["code_bv"].map(lambda c: crosswalk.get(c, c))
+    df, voix_perdues = _reparer_voix_negatives(df, scrutin)
 
     nuance = df["nuance"] if "nuance" in df.columns else pd.Series([None] * len(df))
     nom = df["nom"] if "nom" in df.columns else pd.Series([None] * len(df))
     df["famille"] = [nuance_vers_famille(n, m) for n, m in zip(nuance, nom)]
+    df.loc[voix_perdues, "famille"] = SANS_NUANCE
+    # Européennes 2019 : le fichier ne porte ni nuance ni nom de candidat, seulement le
+    # numéro de panneau et l'intitulé de la liste. Sans ce repli, tout le scrutin était
+    # « non ventilé » (et, avant correction du mapping, entièrement versé dans « Autres »).
+    if "numero_panneau" in df.columns:
+        manque = df["famille"] == SANS_NUANCE
+        if manque.any():
+            depuis_liste = [
+                famille_de_liste(scrutin.cle, p)
+                for p in df.loc[manque, "numero_panneau"]
+            ]
+            df.loc[manque, "famille"] = [f or SANS_NUANCE for f in depuis_liste]
     if listes_lfi and scrutin.cle in SCRUTINS_LISTES_LFI and "numero_panneau" in df:
         est_lfi = [
             pd.notna(p) and (str(c), int(p)) in listes_lfi
@@ -209,10 +271,10 @@ def _bureau_depuis_df(
         index="code_bv", columns="famille", values="voix", aggfunc="sum", fill_value=0
     ).reset_index()
     out = base.merge(voix, on="code_bv", how="left")
-    for fam in FAMILLES:
+    for fam in COLONNES_VOIX:
         if fam not in out.columns:
             out[fam] = 0
-    return _neutraliser_plurinominal(out)
+    return _neutraliser_non_ventile(out)
 
 
 # Une commune dont les voix dépassent de 10 % ses exprimés vote au scrutin plurinominal.
@@ -221,34 +283,58 @@ def _bureau_depuis_df(
 # 35 000 tombent entre les deux. Un seuil lâche (> exprimés tout court) ferait basculer
 # des communes entières sur un bureau au dénombrement d'exprimés bancal — Tours en a un.
 RATIO_PLURINOMINAL = 1.10
+# Part des voix d'une commune sans aucune nuance publiée au-delà de laquelle la
+# ventilation est déclarée inconnue. La distribution est franchement bimodale (le
+# ministère publie les nuances de TOUTE la commune ou d'AUCUNE : 31 554 communes à 100 %
+# et 3 282 à 0 % aux municipales 2026, 3 communes entre les deux sur tout le corpus), le
+# seuil est donc au milieu du vide.
+SEUIL_SANS_NUANCE = 0.50
 
 
-def _neutraliser_plurinominal(out: pd.DataFrame) -> pd.DataFrame:
+def _neutraliser_non_ventile(out: pd.DataFrame) -> pd.DataFrame:
     """Marque les communes où la ventilation par liste n'est pas mesurable.
 
-    Municipales des communes de moins de 1 000 habitants : scrutin plurinominal avec
-    panachage. Le ministère y publie une ligne par CANDIDAT (un numéro de panneau
-    chacun, pas de liste), et chaque électeur vote pour autant de noms qu'il y a de
-    sièges — sommer ces voix par famille donnait 184 % des inscrits en 2014 et 135 %
-    en 2020, contre 60 % et 43 % d'exprimés réels. Aucun score de liste n'existe dans
-    ces communes : on déclare la ventilation INCONNUE (NaN) plutôt que de la fabriquer,
-    et `inscrits_nuances` (0 ici) sert de dénominateur aux blocs — participation et
-    abstention, elles, restent mesurées et intactes. Le test porte sur les totaux de la
-    COMMUNE, le panachage étant un régime de vote communal, pas un accident de bureau."""
-    total = out[FAMILLES].sum(axis=1)
+    Deux régimes, un même verdict — la ventilation est INCONNUE (NaN), pas nulle :
+
+    1. **Panachage** (municipales des communes de moins de 1 000 habitants). Le ministère
+       y publie une ligne par CANDIDAT (un numéro de panneau chacun, pas de liste), et
+       chaque électeur vote pour autant de noms qu'il y a de sièges — sommer ces voix par
+       famille donnait 184 % des inscrits en 2014 et 135 % en 2020, contre 60 % et 43 %
+       d'exprimés réels.
+    2. **Nuance non publiée**. Le fichier des municipales 2026 ne gonfle plus les voix :
+       le test de panachage ne se déclenchait donc plus, alors que la colonne `nuance` y
+       est vide pour toutes les communes de moins de 1 000 habitants. Résultat, 24 816
+       communes étaient servies avec « LFI 0 % · PS 0 % · RN 0 % » et 100 % du bloc
+       « Autres » — des zéros affichés comme des mesures, là où 2020 disait « · ».
+
+    `inscrits_nuances` (0 dans ces communes) sert de dénominateur aux blocs ; la
+    participation et l'abstention, elles, restent mesurées et intactes. Les deux tests
+    portent sur les totaux de la COMMUNE : la publication des nuances comme le panachage
+    sont des régimes communaux, pas des accidents de bureau."""
     par_commune = (
         pd.DataFrame(
-            {"code_commune": out["code_commune"], "voix": total, "exp": out["exprimes"]}
+            {
+                "code_commune": out["code_commune"],
+                "voix": out[COLONNES_VOIX].sum(axis=1),
+                "sans": out[SANS_NUANCE],
+                "exp": out["exprimes"],
+            }
         )
-        .groupby("code_commune")[["voix", "exp"]]
+        .groupby("code_commune")[["voix", "sans", "exp"]]
         .sum()
     )
-    plurinominales = set(
-        par_commune.index[par_commune["voix"] > RATIO_PLURINOMINAL * par_commune["exp"]]
+    panachage = par_commune["voix"] > RATIO_PLURINOMINAL * par_commune["exp"]
+    sans_nuance = par_commune["sans"] > SEUIL_SANS_NUANCE * par_commune["voix"].clip(
+        lower=1
     )
-    connu = ~out["code_commune"].isin(plurinominales)
+    inconnu = set(par_commune.index[panachage | sans_nuance])
+    connu = ~out["code_commune"].isin(inconnu)
     out.loc[~connu, FAMILLES] = float("nan")
     out["inscrits_nuances"] = out["inscrits"].where(connu, 0)
+    # Les EXPRIMÉS ventilables, à distinguer des inscrits ventilables : c'est le suffrage
+    # qui manque à la barre de recomposition, pas le corps électoral. L'abstention de ces
+    # communes est déjà comptée dans l'abstention générale.
+    out["exprimes_nuances"] = out["exprimes"].where(connu, 0)
     return out
 
 
@@ -271,11 +357,19 @@ def _par_bureau(
 def _indicateurs(g: pd.DataFrame) -> dict:
     """Calcule les indicateurs d'un groupe (déjà agrégé en sommes).
 
-    Deux dénominateurs : `inscrits` pour ce qui est mesuré partout (participation,
-    abstention), `inscrits_nuances` — les inscrits dont la ventilation par liste
-    existe — pour les blocs et les voix LFI/gauche. Les deux coïncident sauf aux
-    municipales plurinominales (cf. _neutraliser_plurinominal), où les blocs valent
-    None au lieu de zéro : « non mesuré » n'est pas « zéro voix ».
+    UN SEUL dénominateur, `inscrits`, pour tout ce qui est exprimé en pourcentage :
+    participation, abstention, blocs, voix LFI/gauche. `inscrits_nuances` — les inscrits
+    dont la ventilation par liste existe — ne sert qu'à décider si les blocs sont
+    MESURÉS (cf. _neutraliser_non_ventile) : à 0, ils valent None et non zéro.
+
+    Les blocs étaient auparavant rapportés à `inscrits_nuances`. À la commune les deux
+    coïncident (une commune est ventilée ou ne l'est pas), mais dès qu'on agrège les
+    deux populations divergent et les pourcentages cessaient d'être additionnables :
+    la barre de recomposition des municipales 2026 totalisait 133 % en France. Le poids
+    d'un bloc se lit désormais sur le corps électoral ENTIER, `non_ventile` portant les
+    EXPRIMÉS que le ministère ne ventile pas (rapportés aux inscrits) — barre bouclée à
+    100 % avec l'abstention et les blancs/nuls, échelles comparables entre elles, et pas
+    de dénominateur qui change avec le territoire.
 
     Participation et abstention exigent en plus des comptages qui se tiennent
     (exprimés ≤ votants ≤ inscrits). Deux bureaux du fichier des municipales 2026 les
@@ -296,27 +390,40 @@ def _indicateurs(g: pd.DataFrame) -> dict:
         "abstention": round(100 * (1 - g["votants"] / inscrits), 2)
         if inscrits and coherent
         else None,
+        "non_ventile": round(
+            100 * (g["exprimes"] - g["exprimes_nuances"]) / inscrits, 2
+        )
+        if inscrits
+        else None,
     }
     fam_voix = {fam: g.get(fam, 0) for fam in FAMILLES}
+    mesure = bool(nuances_base) and bool(inscrits)
     for bloc in BLOC6_ORDRE:
         v = sum(fam_voix[f] for f in FAMILLES if FAMILLE_BLOC6.get(f) == bloc)
-        res[f"b6_{bloc}"] = round(100 * v / nuances_base, 2) if nuances_base else None
+        res[f"b6_{bloc}"] = round(100 * v / inscrits, 2) if mesure else None
     for bloc in TRIPARTITION_ORDRE:
         v = sum(fam_voix[f] for f in FAMILLES if FAMILLE_TRIPARTITION.get(f) == bloc)
-        res[f"tri_{bloc}"] = round(100 * v / nuances_base, 2) if nuances_base else None
+        res[f"tri_{bloc}"] = round(100 * v / inscrits, 2) if mesure else None
     lfi = sum(fam_voix[f] for f in FAMILLES_LFI)
     gauche = sum(fam_voix[f] for f in FAMILLES_GAUCHE)
-    res["lfi_voix"] = int(lfi) if nuances_base else None
-    res["gauche_voix"] = int(gauche) if nuances_base else None
-    res["lfi_pct"] = round(100 * lfi / nuances_base, 2) if nuances_base else None
-    res["gauche_pct"] = round(100 * gauche / nuances_base, 2) if nuances_base else None
+    res["lfi_voix"] = int(lfi) if mesure else None
+    res["gauche_voix"] = int(gauche) if mesure else None
+    res["lfi_pct"] = round(100 * lfi / inscrits, 2) if mesure else None
+    res["gauche_pct"] = round(100 * gauche / inscrits, 2) if mesure else None
     return res
 
 
 def _agreger(
     bv: pd.DataFrame, cle_groupe: str, niveau: str, scrutin: Scrutin
 ) -> pd.DataFrame:
-    cols_somme = ["inscrits", "votants", "exprimes", "inscrits_nuances", *FAMILLES]
+    cols_somme = [
+        "inscrits",
+        "votants",
+        "exprimes",
+        "inscrits_nuances",
+        "exprimes_nuances",
+        *FAMILLES,
+    ]
     grp = bv.groupby(cle_groupe, as_index=False)[cols_somme].sum()
     lignes = [
         {
@@ -334,6 +441,52 @@ def _agreger(
     return pd.DataFrame(lignes)
 
 
+def _departement_du_code(code: str) -> str:
+    """Le code INSEE d'une commune PORTE son département (2 caractères, 3 en outre-mer)."""
+    code = str(code)
+    return code[:3] if code.startswith("97") else code[:2]
+
+
+def rattachement_communal(
+    communes: pd.DataFrame,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """{commune → département} et {département → région}, résistants au COG.
+
+    Deux pièges, qui coûtaient 3 569 708 inscrits (7,2 % du corps électoral) aux niveaux
+    département et région des européennes 2024 — le Maine-et-Loire y perdait 39 % de ses
+    électeurs, la Seine-Saint-Denis toute la commune de Saint-Denis :
+
+    1. Le COG liste une commune fusionnée DEUX fois : sous son nom actuel (avec son
+       département) et sous son nom d'avant fusion (sans département, pour la recherche).
+       `set_index(...).to_dict()` garde la DERNIÈRE ligne, donc la case vide. On ne garde
+       donc que les lignes rattachées.
+    2. Les scrutins anciens portent des codes de communes disparues, absents du COG. Le
+       code INSEE porte son département : on le dérive, à condition qu'il désigne un
+       département réel (sinon les codes « ZZ » des Français de l'étranger et « 98 » du
+       Pacifique fabriqueraient des départements fantômes)."""
+    rattachees = communes.dropna(subset=["code_departement"])
+    com2dep = (
+        rattachees.drop_duplicates("code_commune")
+        .set_index("code_commune")["code_departement"]
+        .to_dict()
+    )
+    dep2reg = (
+        rattachees.dropna(subset=["code_region"])
+        .drop_duplicates("code_departement")
+        .set_index("code_departement")["code_region"]
+        .to_dict()
+    )
+    return com2dep, dep2reg
+
+
+def departements_de(
+    codes: pd.Series, com2dep: dict[str, str], dep2reg: dict[str, str]
+) -> pd.Series:
+    """Département de chaque code commune : le COG d'abord, le préfixe du code ensuite."""
+    depuis_code = codes.map(_departement_du_code)
+    return codes.map(com2dep).fillna(depuis_code.where(depuis_code.isin(dep2reg)))
+
+
 def construire_resultats(
     dossier_clean: Path,
     communes: pd.DataFrame,
@@ -343,12 +496,7 @@ def construire_resultats(
     """Construit un dict {niveau: DataFrame} agrégeant tous les scrutins."""
     crosswalk = construire_crosswalk_plm(dossier_clean, geo_dir) if geo_dir else {}
     listes_lfi = charger_listes_lfi(listes_lfi_fichier) if listes_lfi_fichier else set()
-    com2dep = communes.set_index("code_commune")["code_departement"].to_dict()
-    dep2reg = (
-        communes.drop_duplicates("code_departement")
-        .set_index("code_departement")["code_region"]
-        .to_dict()
-    )
+    com2dep, dep2reg = rattachement_communal(communes)
     accum: dict[str, list[pd.DataFrame]] = {
         n: [] for n in ("bureau", "commune", "departement", "region", "france")
     }
@@ -359,7 +507,9 @@ def construire_resultats(
             print(f"  ⚠ {scrutin.cle} ignoré : {e}")
             continue
         for sc, bv in bureaux:
-            bv["code_departement"] = bv["code_commune"].map(com2dep)
+            bv["code_departement"] = departements_de(
+                bv["code_commune"], com2dep, dep2reg
+            )
             bv["code_region"] = bv["code_departement"].map(dep2reg)
             bv["france"] = "FR"
             accum["bureau"].append(_agreger(bv, "code_bv", "bureau", sc))

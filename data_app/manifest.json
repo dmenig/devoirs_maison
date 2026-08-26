@@ -1,8 +1,10 @@
 {
   "scrutins": [
-    "2012-presidentielle",
+    "2012-presidentielle-1",
+    "2012-presidentielle-2",
     "2014-europeenne",
-    "2014-municipales",
+    "2014-municipales-1",
+    "2014-municipales-2",
     "2017-legislatives-1",
     "2017-legislatives-2",
     "2017-presidentielle-1",
@@ -28,11 +30,14 @@
   ],
   "niveaux": [
     "bureau",
-    "circonscription",
     "commune",
     "departement",
     "france",
+    "iris",
     "region"
   ],
-  "iris_contours": true
+  "iris_contours": true,
+  "admin_commune": true,
+  "immo_commune": true,
+  "iris_electoral_estime": true
 }
