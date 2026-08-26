@@ -36,6 +36,7 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 | `prep_immo.py` | prix au m² (DVF) et effort d'accession par commune + références France/région |
 | `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
 | `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |
+| `prep_index.py` | hiérarchie + index de recherche ; redirige les anciens noms de communes fusionnées vers la commune nouvelle (`code_commune_parent` du COG) |
 | `nuances.py` | mapping nuances Min. Intérieur → blocs (recomposition / tripartition) : nuance simple, nuance de liste `L…`, nuance de binôme `BC-…`, et listes européennes 2019 (seul fichier sans nuance) |
 | `panels.py`, `viz.py`, `dataio.py` | **legacy** : prototype Streamlit natif (folium), non utilisé par la carte servie |
 

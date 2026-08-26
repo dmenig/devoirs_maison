@@ -13,14 +13,24 @@ function lever(n, titre, fenetre, res, corps){
 
 function actionPanel(o){ if(!o)return "";
   const items=[];
+  // La non-inscription s'estime par « population majeure recensée − inscrits ». Dans une
+  // commune sur deux cette différence est NÉGATIVE (résidences secondaires, inscription au
+  // village d'origine : le recensement et la liste électorale ne comptent pas les mêmes
+  // gens) : le champ est alors absent, et non ramené à zéro. Afficher « ≈ 0 non-inscrit·es »
+  // sous « le plus gros réservoir » donnait un chiffre là où l'estimateur est muet.
   const noninsc=o.noninsc, malinsc=o.malinsc;
   const inscRes=(noninsc!=null||malinsc!=null)?(noninsc||0)+(malinsc||0):null;
   const detail=[];
   if(noninsc!=null)detail.push(`≈ <b>${noninsc.toLocaleString('fr')}</b> non-inscrit·es`);
   if(malinsc!=null)detail.push(`≈ <b>${malinsc.toLocaleString('fr')}</b> mal-inscrit·es`);
+  const nonEstimable=noninsc==null
+    ?`<div class="inv">Non-inscription <b>non estimable ici</b> : la population majeure recensée `+
+     `n'excède pas le nombre d'inscrit·es. Le réservoir affiché ne couvre donc que les `+
+     `mal-inscrit·es — le terrain reste seul juge du reste.</div>`:"";
   items.push(lever("1","Inscription des non- et mal-inscrit·es","sept.→déc.",inscRes,
     `<b>Priorité n°1.</b> ${detail.length?detail.join(" · ")+". ":""}Campagne d'inscription sur les listes `+
-    `et de procuration : c'est le plus gros réservoir et le plus rentable. Porte-à-porte d'inscription + permanences.`));
+    `et de procuration : c'est le plus gros réservoir et le plus rentable. Porte-à-porte d'inscription + permanences.`+
+    nonEstimable));
 
   const remob=(o.lfiv_P22!=null&&o.lfiv_E24!=null)?Math.max(0,o.lfiv_P22-o.lfiv_E24):null;
   items.push(lever("2","Remobiliser les électeur·ices LFI 2022","sept.→avr.",remob,

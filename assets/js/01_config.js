@@ -67,6 +67,10 @@ const TIP_PXM2="Prix moyen au m² des logements vendus dans la commune (maisons 
   "base DVF 2022-2024. Cliquez pour la méthode et les limites.";
 const TIP_EFFORT="Part du revenu d'un ménage médian qu'absorberait le crédit pour acheter 70 m² ici "+
   "(apport 10 %, 25 ans à 3,5 %). Au-delà de 35 %, les banques refusent en général le prêt.";
+// Le repère « France » de ce taux ne porte que sur les communes où l'INSEE le publie :
+// il sort au-dessus du taux national. Cliquer ouvre le détail (cf. refCouverture).
+const TIP_PAUV="Part de la population vivant sous 60 % du revenu médian national. Le repère France "+
+  "ne couvre que les communes où l'INSEE publie un taux — cliquez pour la portée exacte.";
 // Chiffre de tête de la fiche = INDICATEUR ACTIF (pastille sélectionnée) : cliquer un
 // bureau de vote après avoir choisi « Vote RN » doit afficher le vote RN de ce bureau, et
 // non un score LFI figé — la fiche répond à la question que pose la carte. Le vote LFI

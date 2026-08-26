@@ -114,8 +114,12 @@ def references_immo(
     par le recensement mais agrégés dans DVF) ne pèsent pas dans la moyenne."""
     if immo.empty:
         return
+    # dropna d'abord : le COG liste une commune fusionnée deux fois, la seconde sans
+    # région (cf. prep_elections.rattachement_communal) — garder la ligne vide selon
+    # l'ordre du fichier serait un hasard, pas une règle.
     reg = (
-        communes.drop_duplicates("code_commune")
+        communes.dropna(subset=["code_region"])
+        .drop_duplicates("code_commune")
         .set_index("code_commune")["code_region"]
         .astype(str)
     )

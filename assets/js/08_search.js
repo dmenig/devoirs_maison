@@ -16,16 +16,22 @@ async function initSearch(){
   // l'échelle circonscription est retirée (présidentielle) : on l'écarte de l'index même
   // si search_index.json (servi depuis master) la contient encore avant régénération.
   const zones=idx.filter(e=>e.niveau!=="circonscription");
-  zones.forEach(e=>{e.__nom=norm(e.nom);e.__n=e.__nom+" "+e.code.toLowerCase();});
+  // `anc` = nom d'avant fusion, conservé cherchable alors que l'entrée pointe désormais
+  // sur la commune NOUVELLE (cf. prep_index) : on cherche « Bellegarde-sur-Valserine »
+  // bien plus souvent que « Valserhône », mais c'est Valserhône qu'il faut ouvrir.
+  zones.forEach(e=>{e.__nom=norm(e.nom);
+    e.__n=e.__nom+" "+(e.anc?norm(e.anc)+" ":"")+e.code.toLowerCase();});
   const sb=$("search"),dl=$("zones"); sb.__byval={};
   const fill=q=>{ dl.innerHTML="";
     const toks=norm(q.trim()).split(/\s+/).filter(Boolean); if(!toks.length)return;
     const hits=[];
     for(const e of zones){ if(!toks.every(t=>e.__n.includes(t)))continue;
-      hits.push([e,e.__nom.startsWith(toks[0])?0:1,LVRANK[e.niveau],e.__n.indexOf(toks[0]),e.nom.length]);
+      const tete=e.__nom.startsWith(toks[0])||(e.anc&&norm(e.anc).startsWith(toks[0]));
+      hits.push([e,tete?0:1,LVRANK[e.niveau],e.__n.indexOf(toks[0]),e.nom.length]);
       if(hits.length>600)break; }
     hits.sort((a,b)=>a[1]-b[1]||a[2]-b[2]||a[3]-b[3]||a[4]-b[4]);
-    for(const [e] of hits.slice(0,50)){ const val=`${e.nom} · ${LVLAB[e.niveau]} ${e.code}`;
+    for(const [e] of hits.slice(0,50)){
+      const val=`${e.nom}${e.anc?` (anc. ${e.anc})`:""} · ${LVLAB[e.niveau]} ${e.code}`;
       sb.__byval[val]=e; const o=document.createElement("option"); o.value=val; dl.appendChild(o); } };
   // Un clic sur une suggestion du datalist ne fait pas remonter `change` partout (Firefox
   // attend le blur ou Entrée) : on part de `input`, qui porte DÉJÀ l'intitulé complet de

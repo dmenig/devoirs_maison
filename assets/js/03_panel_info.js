@@ -65,6 +65,25 @@ function omBanner(niveau,code){
     `Nouvelle-Calédonie, en Polynésie…). Estimations et recommandations à prendre avec précaution.</div>`;
 }
 
+// Le repère « France » du revenu et du taux de pauvreté est une moyenne pondérée des
+// communes où l'INSEE publie la valeur — 12,6 % des communes pour la pauvreté, soit ~73 %
+// de la population, mais les plus grandes, donc les plus pauvres. Il ressort ~3 points
+// au-dessus du taux national. On sert la couverture avec la valeur pour pouvoir le dire.
+function refCouverture(){ const f=window.__socioFr||{};
+  if(f.pauvcouv==null)return "";
+  return `<p><b>Sur le repère « France »</b> : l'INSEE ne publie le taux de pauvreté que là où il `+
+    `reste statistiquement fiable. La moyenne affichée porte donc sur <b>${f.pauvcouv} %</b> de la `+
+    `population${f.revcouv!=null?` (${f.revcouv} % pour le revenu)`:""} — les communes les plus `+
+    `peuplées, donc les plus pauvres. Elle sort <b>au-dessus du taux national</b> (≈ 14,5 % en 2021) : `+
+    `à lire comme « par rapport aux communes comparables », pas comme la France entière.</p>`; }
+
+// Une région sans bloc de référence (Mayotte : le recensement n'y descend pas à l'IRIS)
+// n'affichait aucune ligne « région » — silencieusement. On le dit.
+function regManquante(o){
+  return o&&o.reg&&window.__socioReg&&!window.__socioReg[o.reg]
+    ?`<div class="hypnote">Aucune moyenne régionale disponible pour ce territoire : les valeurs `+
+     `ne sont comparées qu'à la France.</div>`:""; }
+
 // Bandeau d'estimation (quartiers IRIS) : aucun résultat électoral n'est publié à cette
 // maille, tout ce qui suit est reconstitué depuis les bureaux de vote qui la recoupent.
 // Un quartier mal recouvert par les contours de bureaux n'a AUCUNE clé électorale (filtré
@@ -244,9 +263,16 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
       (r.length?`<span class="ref">${r.join(" · ")}</span>`:"")+`</span></div>`; };
   const rows=arr=>arr.map(x=>srow(x[0],x[1],x[2],x[3])).join("");
 
+  // À la commune, Q1/Q3 sont la MOYENNE des quartiles de ses quartiers, pas les quartiles
+  // de la commune (l'INSEE ne les publie qu'à l'IRIS) : on le dit sur la ligne, pas
+  // seulement dans le volet méthodo.
+  const moyQ=niveau==="commune"||niveau==="multi"
+    ?"Moyenne des quartiers de la commune : l'INSEE ne publie les quartiles qu'au quartier."
+    :null;
   const soc=rows([["Revenu médian (après impôts et aides)","rev","€"],
-    ["Taux de pauvreté","pauv","%"],["Les 25 % les plus modestes en dessous de","q1","€"],
-    ["Les 25 % les plus aisés au-dessus de","q3","€"],["Écart riches / pauvres","ridec"," ×"],
+    ["Taux de pauvreté","pauv","%",TIP_PAUV],
+    ["Les 25 % les plus modestes en dessous de","q1","€",moyQ],
+    ["Les 25 % les plus aisés au-dessus de","q3","€",moyQ],["Écart riches / pauvres","ridec"," ×"],
     ["Indice d'inégalité (Gini)","gini",""]]);
   // Absence de revenu : ne rien afficher laissait croire que la rubrique n'existe pas.
   // FILOSOFI ne descend à l'IRIS que dans les communes de 5 000 habitants et plus, et
@@ -257,12 +283,13 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     `de <b>5 000 habitants et plus</b>, et retire les valeurs trop peu nombreuses pour rester `+
     `anonymes : <b>70 % des quartiers</b> et le taux de pauvreté de <b>87 % des communes</b> `+
     `n'existent pas dans la source. Aucune estimation n'est fabriquée à la place.`);
-  if(soc)socio+=exp(sec("Contexte social · 2021")+distBand(o)+soc,
+  if(soc)socio+=exp(sec("Contexte social · 2021")+distBand(o)+soc+regManquante(o),
     `<b>Revenu médian</b> (après impôts et aides) par personne, corrigé de la taille du foyer, et `+
     `<b>taux de pauvreté</b> (part vivant sous 60 % du revenu médian national). Chaque valeur est `+
     `comparée à la <b>moyenne France</b> et à la <b>moyenne de la région</b>. La barre montre la `+
     `répartition des revenus (barre épaisse = moitié des foyers autour de la médiane). Source : INSEE `+
-    `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`);
+    `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`+
+    refCouverture());
   // Prix du logement (DVF) et effort d'accession — cf. prep_immo.py. Publiés à la COMMUNE :
   // les quartiers d'une même commune portent la même valeur, d'où le « · commune » dans
   // l'intitulé, à toutes les échelles. Un prix brut ne dit rien : il est comparé à la France

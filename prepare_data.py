@@ -137,9 +137,18 @@ def main() -> None:
         print("   admin indisponible (téléchargements INSEE échoués)")
 
     print("→ Référentiels (noms)")
-    communes[["code_commune", "nom", "code_departement", "code_region"]].to_parquet(
-        OUT / "ref_communes.parquet", index=False
-    )
+    # `code_commune_parent` : la commune NOUVELLE qui a absorbé une commune déléguée.
+    # C'est ce qui permet à la recherche de mener « Corcelles » à Champdor-Corcelles au
+    # lieu d'une fiche morte sans contour (cf. prep_index).
+    communes[
+        [
+            "code_commune",
+            "nom",
+            "code_departement",
+            "code_region",
+            "code_commune_parent",
+        ]
+    ].to_parquet(OUT / "ref_communes.parquet", index=False)
     for k, d in admin.items():
         d.to_parquet(OUT / f"ref_{k}.parquet", index=False)
 

@@ -132,7 +132,14 @@ dans `data_app/iris_bv_couverture.parquet`.
 > habitants, et le secret statistique retire le reste — **70 % des quartiers** n'ont ni
 > revenu, ni pauvreté, ni quartiles, ni Gini (1 886 communes seulement portent au moins un
 > quartier renseigné), et le **taux de pauvreté manque pour 87 % des communes**, les
-> quartiles pour 95 %. Le prix au m² manque pour **20,5 % des communes** (DVF, seuil de
+> quartiles pour 95 %. Conséquence sur le **repère « France »** : il est une moyenne
+> pondérée des seules communes où la valeur existe — **72,7 % de la population** pour le
+> taux de pauvreté (98,6 % pour le revenu), et les plus peuplées, donc les plus pauvres.
+> Il ressort à **17,5 %** quand le taux national INSEE est de **≈ 14,5 %**. La donnée
+> manquante n'existe nulle part : on publie donc la couverture avec la valeur, et la fiche
+> dit que le repère se lit « par rapport aux communes comparables », pas « la France ».
+> À la **commune**, Q1/Q3 sont la moyenne des quartiles de ses quartiers, pas les quartiles
+> de la commune (l'INSEE ne les publie qu'à l'IRIS) : la ligne le dit désormais. Le prix au m² manque pour **20,5 % des communes** (DVF, seuil de
 > 5 ventes). La fiche le **dit** au lieu d'escamoter la rubrique ; aucune valeur n'est
 > fabriquée à la place. Là où FILOSOFI ne descend pas à l'IRIS, la commune forme un seul
 > quartier. Le revenu médian communal est ici la moyenne de ses IRIS
@@ -255,6 +262,23 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   l'étranger `ZZ006_0001` (107 077 inscrits) affichait **−32 541** voix pour Sarkozy
   (32 995 tronqué sur 16 bits), qui se soustrayaient du bloc LR-DVD national. C'est un
   défaut de la source (dépôt `hexagonal`), à corriger en amont.
+- La **non-inscription** (population majeure recensée − inscrits) n'est **pas servie**
+  quand la différence est négative : c'est le cas dans **une commune sur deux** (17 539 sur
+  34 906), parce que le recensement et la liste électorale ne comptent pas les mêmes gens
+  (résidences secondaires, inscription au village d'origine) ; l'écart dépasse 20 % des
+  inscrits dans 1 345 communes. Un plancher à zéro affichait « ≈ 0 non-inscrit·es » sous
+  « Priorité n°1 · le plus gros réservoir » — un chiffre là où l'estimateur est muet. Là
+  où elle est servie, elle reste une **borne haute** (elle inclut les résident·es non
+  éligibles). Le plan d'action le dit sur la fiche.
+- **Chercher une commune fusionnée** ouvre désormais la commune **nouvelle**, pas le code
+  mort : « Bellegarde-sur-Valserine » mène à Valserhône, « Corcelles » à
+  Champdor-Corcelles. **2 166 anciens noms** restent cherchables comme alias (affichés
+  « anc. … » dans la suggestion), dont **1 644** pointent vers un autre code. Auparavant
+  ces 1 091 entrées ouvraient une fiche quasi vide — 3,6 % portaient un revenu, 0,2 % un
+  chiffre électoral courant — sur une carte qui ne bougeait pas, faute de contour. Il
+  reste 26 entrées sans contour, sans commune nouvelle exploitable.
+- **Mayotte** n'a aucune moyenne régionale de référence (le recensement infracommunal ne
+  la couvre pas) : ses fiches ne se comparent qu'à la France, et le disent.
 - **Paris, Lyon et Marseille** (codés par secteur/arrondissement dans les bases infracommunales
   INSEE) n'ont pas de fiche « profil INSEE » à la commune.
 - Le **renouvellement de population** est calculé au grain canton-ou-ville (maille la plus fine

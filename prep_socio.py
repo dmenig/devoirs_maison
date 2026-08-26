@@ -106,14 +106,24 @@ def construire_references(
 ) -> dict[str, dict]:
     """Valeurs de référence (nationale + par région) pour situer une zone : un % de
     cadres ou un revenu n'a de sens que comparé à la moyenne. Parts RP exactes (somme des
-    comptages) ; revenu/pauvreté en moyenne pondérée par la population communale."""
+    comptages) ; revenu/pauvreté en moyenne pondérée par la population communale.
+
+    Les parts du recensement sont calculées sur la somme des comptages : elles couvrent
+    tout le monde. Le revenu et surtout le TAUX DE PAUVRETÉ, eux, ne peuvent porter que
+    sur les communes où l'INSEE les publie — 12,6 % des communes pour la pauvreté, soit
+    73 % de la population mais les plus grandes, donc les plus pauvres. La référence
+    « France » ressort à 17,5 % quand le taux national est de ≈ 14,5 % : un repère 3
+    points trop haut, qui fait lire « sous la moyenne » une commune qui est au-dessus.
+    On ne peut pas combler le trou (la donnée n'existe pas), alors on publie la
+    couverture avec la valeur pour que la fiche puisse le dire."""
     counts = (
         pd.read_csv(rp_iris_csv, dtype={"code_commune": str})
         .groupby("code_commune", as_index=True)
         .sum(numeric_only=True)
     )
     reg = (
-        communes.drop_duplicates("code_commune")
+        communes.dropna(subset=["code_region"])
+        .drop_duplicates("code_commune")
         .set_index("code_commune")["code_region"]
         .astype(str)
     )
@@ -128,10 +138,15 @@ def construire_references(
         }
         sub = rs.index.intersection(idx)
         v, w = rs.loc[sub], pop.reindex(sub)
+        habitants = w[w.notna() & (w > 0)].sum()
         for col in ("revenu_median", "taux_pauvrete"):
             m = v[col].notna() & w.notna() & (w > 0)
             tot = w[m].sum()
             out[col] = round((v.loc[m, col] * w[m]).sum() / tot, 1) if tot else None
+            # part de la population de la zone effectivement couverte par la moyenne
+            out[f"{col}_couverture"] = (
+                round(100 * tot / habitants, 1) if habitants else None
+            )
         return out
 
     refs = {"FR": bloc(counts.index)}

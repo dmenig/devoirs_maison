@@ -32,6 +32,7 @@ _ORDRE_TYPE = {
     "legislatives": 1,
     "europeenne": 2,
     "municipales": 3,
+    "conseils-PLM": 3,
     "departementales": 4,
     "regionales": 5,
     "referendum": 6,

@@ -6,8 +6,18 @@ bien plus souvent que « Valserhône ». Mais la recherche construisait alors le
 d'Ariane avec ces cases vides, et ouvrir une de ces communes affichait
 « 🇫🇷 France › null › null › Béon ». Or le code INSEE PORTE son département (les deux
 ou trois premiers caractères), et le département donne sa région : on complète donc
-plutôt que d'afficher du vide. On écarte en revanche les 537 entrées qui ne mènent à
-rien du tout — ni résultat électoral, ni contour : de vraies impasses de recherche.
+plutôt que d'afficher du vide. On écarte en revanche les entrées qui ne mènent à rien
+du tout — ni résultat électoral, ni contour : de vraies impasses de recherche.
+
+Garder l'ancien nom cherchable ne suffisait pas : le chercher OUVRAIT l'ancien code, et
+donc une fiche morte. Sur les 1 091 entrées sans contour, 3,6 % portaient un revenu et
+0,2 % un chiffre électoral courant — « Corcelles » (01119) ne contenait que son
+historique de recomposition, sur une carte qui ne bougeait pas faute de polygone à
+cadrer. Le COG donne pourtant la sortie : `code_commune_parent` désigne la commune
+NOUVELLE. On redirige donc ces 1 065 entrées vers elle en conservant l'ancien nom
+comme alias de recherche (`anc`), affiché dans la suggestion pour que l'on comprenne
+où l'on atterrit. Les 26 restantes (parent inconnu ou lui-même sans contour) sont
+laissées telles quelles.
 """
 
 import json
@@ -27,16 +37,22 @@ def _dep_du_code(code: str) -> str:
     return code[:3] if code.startswith("97") else code[:2]
 
 
-def _communes_atteignables() -> set[str]:
+def _contours() -> set[str]:
+    """Communes qui ont un polygone : les seules que la carte sait cadrer et peindre."""
+    codes: set[str] = set()
+    for f in (DA / "geo" / "communes").glob("*.geojson"):
+        codes |= set(gpd.read_file(f, ignore_geometry=True)["code"].astype(str))
+    return codes
+
+
+def _communes_atteignables(contours: set[str]) -> set[str]:
     """Communes qui ont quelque chose à montrer : un résultat électoral ou un contour."""
     codes = set(
         pd.read_parquet(DA / "resultats_commune.parquet", columns=["code"])["code"]
         .astype(str)
         .unique()
     )
-    for f in (DA / "geo" / "communes").glob("*.geojson"):
-        codes |= set(gpd.read_file(f, ignore_geometry=True)["code"].astype(str))
-    return codes
+    return codes | contours
 
 
 hier = {
@@ -53,23 +69,59 @@ dep_region = {
     str(c): (r if pd.notna(r) else None)
     for c, r in zip(rd["code_departement"], rd["code_region"])
 }
-atteignables = _communes_atteignables()
+contours = _contours()
+atteignables = _communes_atteignables(contours)
+noms = {
+    str(c): n
+    for c, n, d in zip(rc["code_commune"], rc["nom"], rc["code_departement"])
+    if pd.notna(d)
+}
+parents = (
+    {
+        str(c): str(p)
+        for c, p in zip(rc["code_commune"], rc["code_commune_parent"])
+        if pd.notna(p)
+    }
+    if "code_commune_parent" in rc.columns
+    else {}
+)
 idx = []
+vus: set[tuple[str, str, str | None]] = set()
+redirigees = alias = 0
 for c, n, d, r in zip(
     rc["code_commune"], rc["nom"], rc["code_departement"], rc["code_region"]
 ):
-    if str(c) not in atteignables:
+    code = str(c)
+    if code not in contours:
+        cible = parents.get(code)
+        if cible and cible != code and cible in contours:
+            code = cible
+            redirigees += 1
+    # Nom AFFICHÉ = celui de la commune réellement ouverte ; le nom porté par la ligne
+    # devient un alias quand il en diffère. Cela couvre les deux formes de fusion : celle
+    # qui change le code (Corcelles → Champdor-Corcelles) et celle qui garde le code en
+    # renommant la commune (Bellegarde-sur-Valserine → Valserhône, tous deux en 01033).
+    nom = noms.get(code, n)
+    ancien = n if n != nom else None
+    if code not in atteignables or (code, nom, ancien) in vus:
         continue
-    dep = str(d) if pd.notna(d) else _dep_du_code(str(c))
-    idx.append(
-        {
-            "code": c,
-            "nom": n,
-            "dep": dep,
-            "region": str(r) if pd.notna(r) else dep_region.get(dep),
-        }
-    )
-print(f"index : {len(rc) - len(idx)} entrées écartées (aucun résultat, aucun contour)")
+    vus.add((code, nom, ancien))
+    alias += ancien is not None
+    dep = str(d) if pd.notna(d) else _dep_du_code(code)
+    entree = {
+        "code": code,
+        "nom": nom,
+        "dep": dep,
+        "region": str(r) if pd.notna(r) else dep_region.get(dep),
+    }
+    if ancien:
+        entree["anc"] = ancien
+    idx.append(entree)
+print(
+    f"index : {len(rc) - len(idx)} entrées écartées (doublon, ou aucun résultat et aucun "
+    f"contour) ; {alias} anciens noms conservés cherchables, dont {redirigees} redirigés "
+    f"vers le code de leur commune nouvelle"
+)
 (OUT / "communes_index.json").write_text(
     json.dumps(idx, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 )

@@ -278,6 +278,11 @@ def _ecrire_par_dep(nom: str, vals: dict[str, dict]) -> int:
 _SOCIO_KEYS = {
     "revenu_median": ("rev", 0),
     "taux_pauvrete": ("pauv", 1),
+    # part de la population que la moyenne de référence couvre réellement (cf.
+    # prep_socio.construire_references) : sans elle, la fiche présentait « France 17,5 % »
+    # de pauvreté comme le taux national, alors qu'il est de ≈ 14,5 %.
+    "revenu_median_couverture": ("revcouv", 1),
+    "taux_pauvrete_couverture": ("pauvcouv", 1),
     "q1": ("q1", 0),
     "q3": ("q3", 0),
     "d1": ("d1", 0),
@@ -371,7 +376,15 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
     - non-inscription ≈ population majeure (recensement) − inscrits (borne haute : inclut
       les résident·es non éligibles) ;
     - mal-inscription ≈ population majeure × part des résident·es arrivé·es d'une autre
-      commune depuis < 1 an (proxy IRAN : récemment installé·es donc souvent mal-inscrit·es)."""
+      commune depuis < 1 an (proxy IRAN : récemment installé·es donc souvent mal-inscrit·es).
+
+    La non-inscription n'est PAS servie quand la population majeure estimée est inférieure
+    aux inscrits : la soustraction n'y mesure plus rien. C'est le cas dans une commune sur
+    deux (17 539 sur 34 906) — le recensement et la liste électorale ne comptent pas les
+    mêmes gens (résidences secondaires, inscription au village d'origine), et l'écart
+    dépasse 20 % des inscrits dans 1 345 communes. Un plancher à zéro affichait alors
+    « ≈ 0 non-inscrit·es » sous « Priorité n°1 · le plus gros réservoir » : un chiffre
+    présenté comme mesuré là où l'estimateur est muet. Absent = « on ne sait pas »."""
     insc = rc[rc["scrutin"] == SCRUTIN_REGISTRE].groupby("code")["inscrits"].first()
     for code, v in insc.items():
         if pd.notna(v):
@@ -398,7 +411,12 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
         pop_majeur = pop * (part_15p - 0.2 * part_1529) / 100
         ins = o.get("insc")
         if ins is not None:
-            o["noninsc"] = max(0, round(pop_majeur - ins))
+            # `pop_majeur > ins` ne suffit pas : un excédent de quelques dixièmes de
+            # personne s'arrondit à 0 et réaffiche « ≈ 0 non-inscrit·es ». On exige au
+            # moins une personne entière.
+            manquants = round(pop_majeur - ins)
+            if manquants >= 1:
+                o["noninsc"] = manquants
         if pd.notna(row.get("mig_2")):
             taux = sum(num(f"mig_{i}") for i in (2, 3, 4)) / 100
             o["malinsc"] = round(pop_majeur * taux)
@@ -587,6 +605,13 @@ def main() -> None:
     _baker_admin(com, DA)
     _baker_carnet(com, rc_commune, DA)
     region_de = _rattachement_region(DA)
+    # `_dep()` découpe un préfixe, pas un département : appliqué aux Français·es de
+    # l'étranger et aux collectivités du Pacifique il fabriquait les clés « ZZ », « 98 »,
+    # « 975 »… que departement.json servait ensuite avec un seul champ `conq` et qu'aucun
+    # contour ne pouvait joindre — 100 826 « voix à conquérir » garées dans le vide.
+    departements = set(
+        pd.read_parquet(DA / "ref_departement.parquet")["code_departement"].astype(str)
+    )
     conq_reg: dict[str, int] = collections.defaultdict(int)
     conq_dep: dict[str, int] = collections.defaultdict(int)
     for code, vals in com.items():
@@ -600,7 +625,8 @@ def main() -> None:
         vals["conq"] = c
         if valide:
             conq_reg[str(reg)] += c
-        conq_dep[_dep(code)] += c
+        if _dep(code) in departements:
+            conq_dep[_dep(code)] += c
     for reg, v in conq_reg.items():
         niveaux_agr["region"].setdefault(reg, {})["conq"] = v
     for dep, v in conq_dep.items():
