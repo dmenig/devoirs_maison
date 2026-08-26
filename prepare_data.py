@@ -152,11 +152,14 @@ def main() -> None:
         IRIS_IGN_URL, RAW / "ign" / "iris-metropole.7z", gpkg
     ):
         prep_geo.contours_iris(gpkg, GEO)
-        print("   IRIS contours OK")
+        print("   IRIS contours métropole OK")
     else:
         print(
             "   IRIS contours indisponibles (IGN throttling) — tables IRIS quand même servies"
         )
+    # les paquets d'outre-mer sont indépendants : un throttling sur la métropole ne doit
+    # pas les emporter avec lui.
+    prep_geo.contours_iris_drom(RAW / "ign", GEO)
 
     print("→ Électoral estimé par quartier (intersection IRIS × bureaux de vote)")
     if (GEO / "iris").exists() and (GEO / "bv").exists():

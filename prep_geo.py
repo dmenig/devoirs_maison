@@ -29,6 +29,19 @@ DROM = {"971": "01", "972": "02", "973": "03", "974": "04", "976": "06"}
 # surface au pire, et ~55 m d'erreur, soit moins d'un pixel jusqu'au zoom 11. Les contours
 # COMMUNAUX, eux, restent au trait exact : ce sont eux qu'on colore et qu'on clique.
 TOL_DROM = 0.0005
+# CONTOURS-IRIS est publié par TERRITOIRE, chacun dans sa projection locale ; le paquet
+# métropolitain (FXX) est le seul qu'on téléchargeait.
+IRIS_DROM = {
+    "971": "RGAF09UTM20_GLP",
+    "972": "RGAF09UTM20_MTQ",
+    "973": "UTM22RGFG95_GUF",
+    "974": "RGR92UTM40S_REU",
+    "976": "RGM04UTM38S_MYT",
+}
+IRIS_URL = (
+    "https://data.geopf.fr/telechargement/download/CONTOURS-IRIS/"
+    "CONTOURS-IRIS_3-0__GPKG_{p}_2025-01-01/CONTOURS-IRIS_3-0__GPKG_{p}_2025-01-01.7z"
+)
 
 
 def _telecharger(url: str, dest: Path, essais: int = 4) -> bool:
@@ -124,23 +137,54 @@ def contours_drom(geo_dir: Path) -> None:
             print(f"   {fond} : {_ajouter_contours(dest, features)} DROM ajoutés")
 
 
-def contours_iris(iris_gpkg: Path, geo_dir: Path) -> None:
-    """Découpe les contours IRIS de l'IGN par département (si disponibles)."""
-    iris_dir = geo_dir / "iris"
-    if not iris_gpkg.exists() or any(iris_dir.glob("*.geojson")):
-        return
-    iris_dir.mkdir(parents=True, exist_ok=True)
+def _normaliser_iris(iris_gpkg: Path) -> gpd.GeoDataFrame:
     gdf = gpd.read_file(iris_gpkg).to_crs(4326)
     cols = {c.upper(): c for c in gdf.columns}
     code_iris = gdf[cols.get("CODE_IRIS", list(gdf.columns)[0])].astype(str)
     nom = cols.get("NOM_IRIS")
     gdf["code_iris"] = code_iris
     gdf["nom_iris"] = gdf[nom] if nom else code_iris
+    return gdf
+
+
+def contours_iris(iris_gpkg: Path, geo_dir: Path) -> None:
+    """Découpe les contours IRIS métropolitains de l'IGN par département."""
+    iris_dir = geo_dir / "iris"
+    if not iris_gpkg.exists() or any(iris_dir.glob("*.geojson")):
+        return
+    iris_dir.mkdir(parents=True, exist_ok=True)
+    gdf = _normaliser_iris(iris_gpkg)
     gdf["dep"] = gdf["code_iris"].str[:2]
     for dep, sous in gdf.groupby("dep"):
         sous[["code_iris", "nom_iris", "geometry"]].to_file(
             iris_dir / f"{dep}.geojson", driver="GeoJSON"
         )
+
+
+def contours_iris_drom(raw_ign: Path, geo_dir: Path) -> None:
+    """Ajoute les contours IRIS d'outre-mer, publiés à part par l'IGN.
+
+    CONTOURS-IRIS est livré PAR TERRITOIRE, chacun dans sa projection locale, et on ne
+    téléchargeait que le paquet métropolitain (FXX). D'où l'absence totale de quartiers
+    outre-mer — alors que l'INSEE y publie bien le recensement à l'IRIS : 703 quartiers
+    en Guadeloupe, Martinique, Guyane et à La Réunion, peuplés de 1,9 million
+    d'habitant·es. Il ne manquait donc que le tracé. Un fichier par département, jamais
+    par préfixe : `str[:2]` rabattrait les cinq territoires sur un seul « 97 »."""
+    iris_dir = geo_dir / "iris"
+    iris_dir.mkdir(parents=True, exist_ok=True)
+    for dep, paquet in IRIS_DROM.items():
+        dest = iris_dir / f"{dep}.geojson"
+        if dest.exists():
+            continue
+        gpkg = raw_ign / f"iris-{dep}.gpkg"
+        if not telecharger_iris_ign(
+            IRIS_URL.format(p=paquet), raw_ign / f"iris-{dep}.7z", gpkg
+        ):
+            print(f"   IRIS {dep} : paquet IGN indisponible — ignoré")
+            continue
+        gdf = _normaliser_iris(gpkg)
+        gdf[["code_iris", "nom_iris", "geometry"]].to_file(dest, driver="GeoJSON")
+        print(f"   IRIS {dep} : {len(gdf)} quartiers")
 
 
 def telecharger_iris_ign(url: str, sept_z: Path, gpkg: Path, essais: int = 6) -> bool:
