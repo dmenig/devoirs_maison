@@ -27,7 +27,15 @@ async function initSearch(){
     hits.sort((a,b)=>a[1]-b[1]||a[2]-b[2]||a[3]-b[3]||a[4]-b[4]);
     for(const [e] of hits.slice(0,50)){ const val=`${e.nom} · ${LVLAB[e.niveau]} ${e.code}`;
       sb.__byval[val]=e; const o=document.createElement("option"); o.value=val; dl.appendChild(o); } };
-  sb.addEventListener("input",()=>fill(sb.value)); }
+  // Un clic sur une suggestion du datalist ne fait pas remonter `change` partout (Firefox
+  // attend le blur ou Entrée) : on part de `input`, qui porte DÉJÀ l'intitulé complet de
+  // l'option choisie. `__done` retient la valeur déjà partie pour que le `change` qui suit
+  // (Chrome émet les deux) ne relance pas la même navigation ; toute frappe le remet à zéro,
+  // donc retaper la même zone après en avoir changé fonctionne encore.
+  const submit=()=>{ const e=sb.__byval[sb.value];
+    if(!e||sb.__done===sb.value)return; sb.__done=sb.value; sb.blur(); gotoZone(e); };
+  sb.addEventListener("input",()=>{ sb.__done=null; fill(sb.value); submit(); });
+  sb.addEventListener("change",submit); }
 // Atteindre n'importe quelle zone : on reconstruit le fil d'Ariane (avec les vrais noms
 // des parents) puis on dessine et on cadre la zone — quel que soit son niveau.
 async function gotoZone(e){ infoPanel(null);
@@ -48,9 +56,6 @@ async function gotoZone(e){ infoPanel(null);
   setFil();
   const b=layer&&layer.getBounds&&layer.getBounds();
   if(b&&b.isValid())flyTo(b,e.niveau==="commune"?15:11); }
-$("search").addEventListener("change",()=>{ const sb=$("search"),e=sb.__byval&&sb.__byval[sb.value];
-  if(e)gotoZone(e); });
-
 // LA CARTE D'ABORD. Rien de ce qui suit n'est nécessaire pour DESSINER, et tout était
 // attendu EN SÉRIE avant le premier polygone : quatre allers-retours pour les références de
 // fiche, puis l'index de recherche (3 Mo, ~38 000 zones à normaliser sur le fil principal).
