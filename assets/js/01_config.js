@@ -277,8 +277,13 @@ const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')
 // concurrents sur le même fichier (préchargement au survol + clic) lançaient deux
 // téléchargements du même mégaoctet.
 const inflight={}; let loadPending=0;
+// « … » n'est qu'un remplissage : il ne doit pas écraser un message que la navigation a
+// à dire (« pas de quartiers ici — vue par bureaux de vote » disparaissait dès qu'une
+// requête de plus partait derrière lui). Chaque render repart d'une case vide, donc un
+// message présent est forcément celui de la vue en cours.
 function loadTick(d){ loadPending+=d; const e=$("loading");
-  if(loadPending>0)e.textContent="…"; else if(e.textContent==="…")e.textContent=""; }
+  if(loadPending>0){ if(!e.textContent)e.textContent="…"; }
+  else if(e.textContent==="…")e.textContent=""; }
 function getJSON(p){ if(p in cache)return Promise.resolve(cache[p]);
   if(p in inflight)return inflight[p];
   loadTick(1);

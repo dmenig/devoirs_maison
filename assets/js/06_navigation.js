@@ -23,7 +23,14 @@ const FLY_S=0.24, FADE_IN_S=0.13, FADE_OUT_S=0.09;
 // ses enfants. Plus long que le simple fondu d'apparition, parce qu'ici rien ne manque à
 // l'écran pendant ce temps — la couleur du parent tient la place jusqu'au bout, on lit une
 // zone qui se subdivise, pas une attente.
-const CROSS_S=0.20, GHOST_MAX_MS=3000;
+// GHOST_MAX_MS n'est qu'un FILET pour une descente qui échoue — chaque sortie en échec
+// efface désormais le fantôme elle-même. Il valait 3 s, soit moins que le téléchargement
+// des contours de bureaux d'un gros département sur un réseau lent : la commune cliquée
+// s'effaçait et la carte restait vide une dizaine de secondes, un « ça s'affiche puis ça
+// disparaît » observé en Guadeloupe (3,2 Mo, sans préchargement possible). Le fantôme
+// tient maintenant le temps qu'il faut : c'est une copie peinte de la zone cliquée, la
+// garder pendant le chargement est exactement ce qu'on veut.
+const CROSS_S=0.20, GHOST_MAX_MS=20000;
 // Filet de sécurité si moveend n'arrive pas (ex. flyToBounds sans déplacement à
 // l'amorçage). Il doit rester FRANCHEMENT au-dessus de la durée réelle du vol : s'il se
 // déclenche avant moveend, on peint pendant l'animation et les bandes partielles
@@ -75,13 +82,23 @@ function flushDraw(){ clearTimeout(pendingTimer);
 // en vol), un survol répété ou le survol de deux communes du même département ne coûtent
 // qu'une requête. On ne précharge QUE ce qu'un clic demanderait de toute façon : rien
 // n'est téléchargé « au cas où » sans geste de l'utilisateur.
+// Départements sans contours IRIS : tout l'outre-mer (le produit IGN s'arrête à la
+// métropole). Sans cette mémoire, le survol préchargeait consciencieusement deux fichiers
+// qui n'existent pas, et le seul qui compte — les contours de bureaux, 3,2 Mo en
+// Guadeloupe — n'était demandé qu'APRÈS le clic, et après deux 404 en série.
+const irisAbsent=new Set();
+const sousMaille=dep=>(sousMode==="iris"&&!irisAbsent.has(dep))?"iris":"bv";
+function prefetchBV(d){ getJSON(`geo/bv/${d}.geojson`); getJSON(`values/bv/${d}.json`); }
 function prefetchEnfants(niveau,code){
   if(niveau==="region"){ getJSON("geo/departements.geojson"); getJSON("values/departement.json");
     getJSON("values/_hierarchie.json"); return; }
   if(niveau==="departement"){ getJSON(`geo/communes/${code}.geojson`); getJSON(`values/commune/${code}.json`); return; }
   if(niveau==="commune"){ const d=depOf(code);
-    if(sousMode==="iris"){ getJSON(`geo/iris/${d}.geojson`); getJSON(`values/iris/${d}.json`); }
-    else { getJSON(`geo/bv/${d}.geojson`); getJSON(`values/bv/${d}.json`); } }
+    if(sousMaille(d)!=="iris")return prefetchBV(d);
+    getJSON(`values/iris/${d}.json`);
+    // le survol découvre lui-même l'absence de quartiers et enchaîne sur les bureaux :
+    // le premier survol d'une commune ultramarine lance déjà le bon téléchargement.
+    getJSON(`geo/iris/${d}.geojson`).then(g=>{ if(!g){ irisAbsent.add(d); prefetchBV(d); } }); }
 }
 
 // Fabrique de style, séparée de la construction de la couche : changer d'indicateur ne
@@ -203,7 +220,7 @@ async function vueRegion(code){ subToggle(false);
 // sur deux circos (cf. EVOLUTIONS.md, chantier 1).
 async function vueDepartement(code){ subToggle(false);
   const [geo,val]=await Promise.all([getJSON(`geo/communes/${code}.geojson`),getJSON(`values/commune/${code}.json`)]);
-  if(!geo){$("loading").textContent="Contours des communes indisponibles pour ce département "+
+  if(!geo){fadeGhost();$("loading").textContent="Contours des communes indisponibles pour ce département "+
     "(non générés pour l'outre-mer) — utilisez la recherche pour ouvrir une commune.";return;}
   dessiner(geo,val||{},"code","nom",(f,ly,o,fly)=>entrer("commune",f.properties.__code,f.properties.__nom,ly.getBounds(),o,fly),"commune"); }
 function majSousMode(m){ sousMode=m;
@@ -215,8 +232,9 @@ const subToggle=show=>{ const adv=document.body.classList.contains("adv");
   if(!show)majSousMode(SOUS_DEFAUT); else syncSocioChips(); };
 async function vueCommune(code){ const dep=depOf(code); subToggle(true);
   let repli="";
-  if(sousMode==="iris"){
+  if(sousMaille(dep)==="iris"){
     const [geo,val]=await Promise.all([getJSON(`geo/iris/${dep}.geojson`),getJSON(`values/iris/${dep}.json`)]);
+    if(!geo)irisAbsent.add(dep);
     // Un quartier SANS AUCUNE valeur n'est pas tracé : les contours IRIS de l'IGN sont
     // d'un millésime plus récent que le recensement, 30 d'entre eux (Oullins, Neufchâteau,
     // Saint-Denis, et 7 communes fusionnées) n'ont ni socio ni électoral. Les peindre en
@@ -234,9 +252,9 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
     majSousMode("bv");
     repli="pas de quartiers ici — vue par bureaux de vote"; }
   const [geo,val]=await Promise.all([getJSON(`geo/bv/${dep}.geojson`),getJSON(`values/bv/${dep}.json`)]);
-  if(!geo){$("loading").textContent="contours BV indisponibles";return;}
+  if(!geo){fadeGhost();$("loading").textContent="contours BV indisponibles";return;}
   const tous=geo.features.filter(f=>String(f.properties.code_commune)===code);
-  if(!tous.length){$("loading").textContent="pas de bureaux";return;}
+  if(!tous.length){fadeGhost();$("loading").textContent="pas de bureaux";return;}
   // chantier 4 — filtre de fiabilité géométrique DÉSACTIVÉ pour l'instant : la métrique
   // (compte de polygones disjoints) confond le bruit de tessellation Voronoï avec une vraie
   // fragmentation et masquait à tort ~25-40 % de bureaux nets. On affiche tous les bureaux ;
@@ -249,7 +267,8 @@ async function vueCommune(code){ const dep=depOf(code); subToggle(true);
     f.properties.__bvlab=`Bureau ${n||b}`; });
   dessiner({type:"FeatureCollection",features:tous},val||{},"bureau","__bvlab",null,"bv"); }
 
-function render(n,c){ if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
+function render(n,c){ $("loading").textContent="";  // chaque vue repart d'une case vide
+  if(n==="region")vueRegion(c);else if(n==="departement")vueDepartement(c);
   else if(n==="commune")vueCommune(c); }
 // Le clic vole vers la zone ; `fly=false` (hook de test / navigation programmatique) échange
 // la couche sans recadrer la caméra.
