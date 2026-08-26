@@ -295,7 +295,29 @@ _SOCIO_KEYS = {
     "part_proprietaires": ("logprop", 1),
     "part_locataires": ("logloc", 1),
     "part_hlm": ("loghlm", 1),
+    # logement : prix de marché (DVF) et effort d'accession — cf. prep_immo.py. Publiés à
+    # la COMMUNE seulement ; les quartiers en héritent (valeur communale, dite comme telle).
+    "pxm2": ("pxm2", 0),
+    "effort": ("effort", 1),
+    "ventes": ("nvte", 0),
 }
+
+
+# Paris/Lyon/Marseille : le recensement (admin_commune) est ventilé par arrondissement
+# (751xx / 6938x / 132xx) alors que l'électoral (inscrits) porte sur le code INSEE agrégé
+# (75056 / 69123 / 13055). Sans réagrégation, ces trois villes — les plus densément
+# militantes — n'auraient ni population ni estimation de non-/mal-inscription dans le Carnet.
+PLM_AGG = {"75056": "751", "69123": "6938", "13055": "132"}
+
+
+def _commune_de_iris(code_iris: str) -> str:
+    """Commune d'un IRIS. À Paris/Lyon/Marseille les IRIS portent le code de
+    l'arrondissement (751xx / 6938x / 132xx) : on remonte au code INSEE de la ville, seul
+    présent dans les jeux communaux."""
+    for agg, prefixe in PLM_AGG.items():
+        if code_iris.startswith(prefixe):
+            return agg
+    return code_iris[:5]
 
 
 def _socio_champs(row: dict) -> dict:
@@ -310,12 +332,6 @@ def _socio_champs(row: dict) -> dict:
 SCRUTIN_REGISTRE = (
     "2024-europeenne"  # registre de référence (taille du corps électoral)
 )
-
-# Paris/Lyon/Marseille : le recensement (admin_commune) est ventilé par arrondissement
-# (751xx / 6938x / 132xx) alors que l'électoral (inscrits) porte sur le code INSEE agrégé
-# (75056 / 69123 / 13055). Sans réagrégation, ces trois villes — les plus densément
-# militantes — n'auraient ni population ni estimation de non-/mal-inscription dans le Carnet.
-PLM_AGG = {"75056": "751", "69123": "6938", "13055": "132"}
 
 
 def _agreger_plm(adm: pd.DataFrame) -> pd.DataFrame:
@@ -415,6 +431,20 @@ def _baker_iris_elec(
     )
 
 
+def _immo(da: Path) -> dict[str, dict]:
+    """Prix au m² / effort d'accession par commune (cf. prep_immo.py)."""
+    f = da / "immo_commune.parquet"
+    if not f.exists():
+        return {}
+    df = pd.read_parquet(f)
+    out = {
+        str(r.code_commune): _socio_champs(r._asdict())
+        for r in df.itertuples(index=False)
+    }
+    print(f"  ✓ logement : prix au m² sur {len(out)} communes")
+    return out
+
+
 def _baker_admin(com: dict[str, dict], da: Path) -> None:
     """Fusionne admin_commune dans les valeurs communales + écrit la référence France."""
     f = da / "admin_commune.parquet"
@@ -484,6 +514,9 @@ def main() -> None:
     sc = pd.read_parquet(DA / "socio_commune.parquet")
     for r in sc.itertuples(index=False):
         com.setdefault(str(r.code_commune), {}).update(_socio_champs(r._asdict()))
+    immo = _immo(DA)
+    for code, v in immo.items():
+        com.setdefault(code, {}).update(v)
     _baker_admin(com, DA)
     _baker_carnet(com, rc_commune, DA)
     regmap = (
@@ -529,6 +562,10 @@ def main() -> None:
         v = _socio_champs(r._asdict())
         if regmap.get(str(r.code_iris)[:5]):
             v["reg"] = regmap[str(r.code_iris)[:5]]
+        # prix/effort : publiés à la commune, hérités tels quels par ses quartiers (la
+        # fiche dit « à l'échelle de la commune » ; aucune pastille de carte à l'IRIS,
+        # qui serait uniforme sur toute la commune).
+        v.update(immo.get(_commune_de_iris(str(r.code_iris)), {}))
         iris_vals[str(r.code_iris)] = v
     # Communes sans FILOSOFI infra-communal : leur unique contour {commune}0000 a bien une
     # ligne socio_iris (recensement) mais sans revenu/pauvreté. On rabat les champs FILOSOFI
@@ -538,6 +575,8 @@ def main() -> None:
         if "reg" not in cur and regmap.get(str(r.code_commune)):
             cur["reg"] = regmap[str(r.code_commune)]
         for cle, val in _socio_champs(r._asdict()).items():
+            cur.setdefault(cle, val)
+        for cle, val in immo.get(str(r.code_commune), {}).items():
             cur.setdefault(cle, val)
     _baker_iris_elec(iris_vals, DA, ordre, fiables)
     iris_vals = _filtrer_sur_contours(iris_vals, DA / "geo" / "iris", "code_iris")
