@@ -276,13 +276,24 @@ def famille_de_liste(scrutin: str, panneau) -> str | None:
     return table.get(int(panneau))
 
 
-def nuance_vers_famille(nuance: str | None, nom: str | None = None) -> str:
-    """Renvoie la famille politique pour une nuance MI ; à défaut, tente le nom
-    de candidat (présidentielle).
+def nuance_vers_famille(
+    nuance: str | None, nom: str | None = None, patronymes: bool = False
+) -> str:
+    """Renvoie la famille politique pour une nuance MI ; à défaut, et SEULEMENT à la
+    présidentielle (`patronymes`), tente le nom du candidat.
 
     Les scrutins de liste (européennes, municipales, régionales) préfixent la
     nuance par « L » (LFI, LRN, LUG…) et les départementales par « BC- » (binôme) :
     on retombe sur la nuance nue.
+
+    `patronymes` existe parce que la table des candidat·es de présidentielle ne
+    distingue pas un homonyme d'un candidat national : appliquée aux municipales, où le
+    ministère publie une ligne par nom sans nuance, elle a rangé 285 000 voix dans un
+    bloc sur la seule foi d'un patronyme (ROUSSEL → PCF, LASSALLE → divers, HAMON → PS).
+    Dix-neuf communes basculaient de ce fait du régime « non ventilé » au régime
+    « mesuré » et affichaient un score de bloc entièrement fabriqué — 100 % des voix à
+    Marquillies (59210) et à Vrigne-aux-Bois (08302). Un patronyme n'identifie une
+    famille QU'au scrutin où la table des candidats fait foi.
 
     Renvoie SANS_NUANCE — et non "DIV" — quand rien n'est publié : ni nuance, ni nuance
     « NC » (non communiqué), ni nom de candidat. Une voix non ventilée n'est pas une
@@ -302,7 +313,7 @@ def nuance_vers_famille(nuance: str | None, nom: str | None = None) -> str:
         if fam:
             return fam
     nom = _texte(nom)
-    if nom:
+    if patronymes and nom:
         fam = PRESIDENTIELLE_FAMILLE.get(_sans_accent(nom).strip())
         if fam:
             return fam

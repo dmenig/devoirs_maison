@@ -71,21 +71,39 @@ def _canon_suffix(s: pd.Series) -> pd.Series:
     return s.where(~s.str.fullmatch(r"\d+"), s.str.zfill(4))
 
 
+# Codes départementaux d'avant la départementalisation, encore utilisés par les fichiers
+# de 2012 et 2014 pour les DOM (ZA101 = Les Abymes, ZM514 = Ouangani). La lettre porte le
+# département d'aujourd'hui, le chiffre qui suit celui d'alors.
+DOM_LETTRE_DEP = {"ZA": "971", "ZB": "972", "ZC": "973", "ZD": "974", "ZM": "976"}
+
+
 def _canon_commune(s: pd.Series) -> pd.Series:
     """Code commune canonique (INSEE, 5 caractères).
 
-    Le fichier des européennes 2014 — et lui seul — code l'outre-mer sur SIX chiffres :
-    département actuel (3) + chiffre du département d'alors (1) + numéro de commune (2),
-    d'où « 974411 » pour Saint-Denis de La Réunion (97411) ou « 976501 » pour Acoua
-    (97601, Mayotte étant encore le 985 en 2014). Aucun de ces codes ne rejoignait quoi
-    que ce soit : ni contour, ni COG, ni les autres scrutins de la même commune. Les DOM
-    disparaissaient donc de ce scrutin à TOUTES les échelles (1,37 M d'inscrits, 129
-    communes, 2 308 bureaux), tandis que 215 entrées fantômes portaient seules leur
-    résultat. Retirer le 4e caractère rétablit le code INSEE, sans jamais entrer en
-    collision avec un code à 5 déjà présent."""
+    Deux encodages hérités de l'outre-mer, l'un et l'autre bâtis sur le même principe —
+    département actuel + chiffre du département d'alors + numéro de commune — et corrigés
+    de la même façon : on retire le chiffre du milieu.
+
+    1. Les européennes 2014 codent l'outre-mer sur SIX chiffres, d'où « 974411 » pour
+       Saint-Denis de La Réunion (97411) ou « 976501 » pour Acoua (97601, Mayotte étant
+       encore le 985 en 2014).
+    2. La présidentielle 2012 et les municipales 2014 le codent par une LETTRE :
+       « ZA101 » pour Les Abymes (97101), « ZM514 » pour Ouangani (97614). Ces codes
+       ressemblent à ceux des Français·es de l'étranger (`ZZ…`) et du Pacifique, qui ne
+       relèvent d'aucun département : les 129 communes des DOM tombaient donc hors des
+       agrégats département et région (1,33 M d'inscrits, cinq régions entières absentes
+       de ces quatre scrutins), et leur série s'ouvrait en 2017 faute de rejoindre le
+       code INSEE des scrutins suivants.
+
+    Aucune des deux réécritures n'entre en collision avec un code déjà présent : les
+    fichiers concernés n'utilisent QUE la forme héritée pour l'outre-mer, et les codes
+    dérivés recouvrent exactement les communes du COG (32 en Guadeloupe, 34 en
+    Martinique, 22 en Guyane, 24 à La Réunion, 17 à Mayotte)."""
     s = s.astype(str)
     outremer = s.str.fullmatch(r"9[78]\d{4}")
-    return s.where(~outremer, s.str[:3] + s.str[4:])
+    s = s.where(~outremer, s.str[:3] + s.str[4:])
+    lettre = s.str.fullmatch(r"Z[ABCDM]\d{3}")
+    return s.where(~lettre, s.str[:2].map(DOM_LETTRE_DEP) + s.str[3:])
 
 
 def construire_crosswalk_plm(dossier_clean: Path, geo_dir: Path) -> dict[str, str]:
@@ -240,7 +258,10 @@ def _bureau_depuis_df(
 
     nuance = df["nuance"] if "nuance" in df.columns else pd.Series([None] * len(df))
     nom = df["nom"] if "nom" in df.columns else pd.Series([None] * len(df))
-    df["famille"] = [nuance_vers_famille(n, m) for n, m in zip(nuance, nom)]
+    # Le patronyme ne vaut nuance qu'à la présidentielle, où la table des candidat·es fait
+    # foi ; ailleurs c'est un homonyme (cf. nuance_vers_famille).
+    patronymes = scrutin.type == "presidentielle"
+    df["famille"] = [nuance_vers_famille(n, m, patronymes) for n, m in zip(nuance, nom)]
     df.loc[voix_perdues, "famille"] = SANS_NUANCE
     # Européennes 2019 : le fichier ne porte ni nuance ni nom de candidat, seulement le
     # numéro de panneau et l'intitulé de la liste. Sans ce repli, tout le scrutin était
@@ -284,10 +305,10 @@ def _bureau_depuis_df(
 # des communes entières sur un bureau au dénombrement d'exprimés bancal — Tours en a un.
 RATIO_PLURINOMINAL = 1.10
 # Part des voix d'une commune sans aucune nuance publiée au-delà de laquelle la
-# ventilation est déclarée inconnue. La distribution est franchement bimodale (le
-# ministère publie les nuances de TOUTE la commune ou d'AUCUNE : 31 554 communes à 100 %
-# et 3 282 à 0 % aux municipales 2026, 3 communes entre les deux sur tout le corpus), le
-# seuil est donc au milieu du vide.
+# ventilation est déclarée inconnue. La distribution de cette part est franchement bimodale
+# (le ministère publie les nuances de TOUTE la commune ou d'AUCUNE : aux municipales 2026,
+# 31 554 communes sont à 100 % de voix SANS nuance et 3 282 à 0 % ; 3 communes seulement
+# tombent entre les deux sur tout le corpus), le seuil est donc au milieu du vide.
 SEUIL_SANS_NUANCE = 0.50
 
 
@@ -334,7 +355,17 @@ def _neutraliser_non_ventile(out: pd.DataFrame) -> pd.DataFrame:
     # Les EXPRIMÉS ventilables, à distinguer des inscrits ventilables : c'est le suffrage
     # qui manque à la barre de recomposition, pas le corps électoral. L'abstention de ces
     # communes est déjà comptée dans l'abstention générale.
-    out["exprimes_nuances"] = out["exprimes"].where(connu, 0)
+    #
+    # Ils se COMPTENT (somme des voix rangées dans une famille) au lieu de se déduire du
+    # régime communal. Les deux tests ci-dessus sont communaux et binaires : une commune
+    # est ventilée ou ne l'est pas. Poser alors `exprimes_nuances = exprimes` supposait
+    # que toute voix d'une commune ventilée trouve sa famille — faux dès qu'une nuance
+    # sort du mapping (`LNC` en Nouvelle-Calédonie, `LGJ` des gilets jaunes) ou qu'une
+    # ligne n'en porte aucune : ces voix disparaissaient de la barre SANS entrer dans la
+    # part non ventilée, qui restait à 0. La recomposition s'arrêtait à 62 % à La Foa et
+    # dans 21 autres communes (54 bureaux, jusqu'à −40 points). Comptées, elles bouclent.
+    ventiles = out[FAMILLES].sum(axis=1).where(connu, 0)
+    out["exprimes_nuances"] = ventiles.clip(lower=0, upper=out["exprimes"])
     return out
 
 
@@ -384,6 +415,9 @@ def _indicateurs(g: pd.DataFrame) -> dict:
         "votants": int(g["votants"]),
         "exprimes": int(g["exprimes"]),
         "inscrits_nuances": int(nuances_base),
+        # publié pour que l'estimation par quartier puisse répartir et recaler la part
+        # non ventilée comme n'importe quel comptage (cf. prep_iris_bv)
+        "exprimes_nuances": int(g["exprimes_nuances"]),
         "participation": round(100 * g["votants"] / inscrits, 2)
         if inscrits and coherent
         else None,

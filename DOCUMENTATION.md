@@ -98,7 +98,7 @@ Méthode (`prep_iris_bv.py`) :
    partout ailleurs l'égalité est exacte à l'arrondi près (au plus 8 électeurs, chaque
    quartier étant arrondi à l'unité).
 
-**Deux garde-fous**, l'un géométrique, l'autre électoral. Dans les deux cas la zone
+**Trois garde-fous** : géométrique, électoral, statistique. Dans les trois cas la zone
 écartée n'a **aucune donnée électorale** : la fiche reste purement socio-économique et la
 carte la laisse grise — pas de chiffre plutôt qu'un chiffre faux.
 
@@ -106,6 +106,14 @@ carte la laisse grise — pas de chiffre plutôt qu'un chiffre faux.
 | --- | --- | --- | --- |
 | `COUV_MIN` | part de l'aire de l'IRIS effectivement recouverte par des contours de bureaux | 99 % | **410 quartiers sur 49 343** (0,8 %) |
 | `ELEC_MIN` | part de l'électorat de la commune portée par des bureaux localisables (le reste étant ce que le recalage extrapole) | 90 % | la commune entière, **scrutin par scrutin** |
+| `INSCRITS_MIN` | électorat estimé du quartier | 30 inscrits | **251 quartiers** (0,8 % des lignes) |
+
+Le troisième garde-fou est une affaire d'arrondi : chaque colonne est arrondie à l'unité,
+si bien que sur un quartier de deux inscrits un seul blanc/nul pèse **50 points** et que la
+barre de recomposition y affichait 148 %. Ces quartiers résiduels de la maille IRIS (zones
+d'activité, emprises ferroviaires) n'ont de toute façon aucun usage militant. Le seuil
+ramène les lignes qui manquent le bouclage de plus de 2 points de **1 744 à 153**, et
+l'écart maximal de 48,6 à 12,3 points.
 
 Le second garde-fou existe parce que le recalage communal est un rattrapage tant que les
 bureaux sans contour sont marginaux, mais devient une extrapolation quand ils font
@@ -115,9 +123,16 @@ intersection » n'y serait rien d'autre que le résultat communal étalé sur la
 Le filtre est appliqué **par scrutin** : Bordeaux garde donc ses estimations 2017-2022 et
 perd 2024-2026, plutôt que tout ou rien.
 
-Au total, **48 072 quartiers sur 49 343** sont estimés sur les européennes 2024, soit
-**98,7 % de l'électorat métropolitain**. Le rapport de couverture par IRIS est conservé
-dans `data_app/iris_bv_couverture.parquet`.
+Au total, **47 707 quartiers sur 49 343** sont estimés sur les européennes 2024, soit
+**95,9 % de l'électorat métropolitain** (44,06 M d'inscrits sur 45,95 M). Le rapport de
+couverture par IRIS est conservé dans `data_app/iris_bv_couverture.parquet`.
+
+Enfin, un quartier hérite du **régime de nuances** de sa commune : là où le ministère ne
+ventile rien, ses blocs valent « non mesuré » (`·`) et non zéro, et les suffrages
+concernés se lisent dans la part **non ventilée** — exactement comme aux autres échelles,
+la barre bouclant à 100 %. C'est la même convention de bout en bout : 95 328 lignes
+quartier × scrutin, dont 31 200 quartiers aux municipales 2026, portent un « · » là où
+elles affichaient « LFI 0,00 % · PS 0,00 % · RN 0,00 % ».
 
 ### Détail socio-économique (FILOSOFI 2021)
 
@@ -241,7 +256,12 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   aux municipales 2026 (17,5 en 2020, 12,0 en 2014) et bien plus dans un département rural.
   Sans elle la barre ne bouclait pas et les blocs manquants se lisaient comme des zéros :
   **blocs + abstention + non ventilé + blancs/nuls = 100 %** à toutes les échelles et pour
-  les 27 scrutins. Les fichiers regroupant deux tours
+  les 27 scrutins. La part non ventilée se **compte** (somme des voix effectivement rangées
+  dans une famille, retranchée des exprimés) au lieu de se déduire du régime de la commune :
+  la publication des nuances est un régime communal et binaire, mais une nuance peut sortir
+  du mapping dans une commune par ailleurs ventilée (`LNC` en Nouvelle-Calédonie, `LGJ` des
+  gilets jaunes). Ces voix disparaissaient alors de la barre sans entrer dans le NV, et la
+  recomposition s'arrêtait à 62 % dans 22 communes et 54 bureaux. Les fichiers regroupant deux tours
   (présidentielle 2012, municipales 2014) sont **scindés par tour en amont** : ils ne
   double-comptent plus. Un garde-fou (`scrutins_fiables`) reste en filet de sécurité.
 - Le **régime de publication des nuances change d'un scrutin à l'autre**, et le mapping
@@ -255,6 +275,23 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   droite) au bloc `LR-DVD`, `UDR` (union des droites, alliée du RN depuis 2024) au bloc
   `RN-EXD`. Le bloc **« Autres »** ne contient plus que des listes réellement *divers*
   (animalistes, régionalistes, citoyennes…) : 0,1 % à 6 % des voix selon le scrutin.
+  Le **patronyme** ne vaut nuance qu'à la **présidentielle**, où la table des candidat·es
+  fait foi. Appliqué aux municipales — où le ministère publie une ligne par nom, sans
+  nuance — il rangeait 285 000 voix dans un bloc sur la seule foi d'un homonyme
+  (ROUSSEL → PCF, LASSALLE → divers, HAMON → PS) ; dix-neuf communes basculaient de ce fait
+  du régime « non ventilé » au régime « mesuré » et affichaient un score de bloc entièrement
+  fabriqué, jusqu'à 100 % des voix à Marquillies et à Vrigne-aux-Bois.
+- Les **codes commune hérités de l'outre-mer** sont ramenés au code INSEE. Deux encodages,
+  même principe : les européennes 2014 codent les DOM sur six chiffres (`974411` pour
+  Saint-Denis de La Réunion), la présidentielle 2012 et les municipales 2014 les codent par
+  une lettre (`ZA101` pour Les Abymes, `ZM514` pour Ouangani). Ces derniers ressemblaient
+  aux codes des Français·es de l'étranger et du Pacifique, qui ne relèvent d'aucun
+  département : les **129 communes des DOM** tombaient donc hors des agrégats département et
+  région sur ces quatre scrutins — **1,33 M d'inscrits** et **cinq régions entières**
+  (Guadeloupe, Martinique, Guyane, La Réunion, Mayotte) absentes de la présidentielle 2012
+  et des municipales 2014 — tandis que chaque fiche communale d'outre-mer ouvrait sa série
+  en 2017. Les 18 régions et les 101 départements sont désormais présents à tous les
+  scrutins qui les concernent.
 - Un **compte de voix négatif** du fichier amont est réparé s'il s'explique par un
   débordement d'entier 16 bits ET que le compte rétabli redonne exactement les exprimés
   publiés du bureau ; sinon les voix du bureau sont déclarées non ventilables. Un seul cas
@@ -272,11 +309,26 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   éligibles). Le plan d'action le dit sur la fiche.
 - **Chercher une commune fusionnée** ouvre désormais la commune **nouvelle**, pas le code
   mort : « Bellegarde-sur-Valserine » mène à Valserhône, « Corcelles » à
-  Champdor-Corcelles. **2 166 anciens noms** restent cherchables comme alias (affichés
-  « anc. … » dans la suggestion), dont **1 644** pointent vers un autre code. Auparavant
-  ces 1 091 entrées ouvraient une fiche quasi vide — 3,6 % portaient un revenu, 0,2 % un
-  chiffre électoral courant — sur une carte qui ne bougeait pas, faute de contour. Il
-  reste 26 entrées sans contour, sans commune nouvelle exploitable.
+  Champdor-Corcelles. **2 180 anciens noms** restent cherchables comme alias (affichés
+  « anc. … » dans la suggestion), et **tous** pointent vers un autre code. Auparavant
+  ces entrées ouvraient une fiche quasi vide — 3,6 % portaient un revenu, 0,2 % un
+  chiffre électoral courant — sur une carte qui ne bougeait pas, faute de contour.
+  **Plus aucune** entrée de recherche n'est aujourd'hui dépourvue de contour.
+- Le **fond communal** de france-geojson est un millésime figé : les communes nouvelles
+  postérieures n'y sont pas. Treize communes du COG — Orée d'Anjou et ses 13 041 inscrits,
+  Porte des Pierres Dorées, Conques-en-Rouergue, Aurseulles, Sannerville, Sainte-Florence,
+  L'Oie, quatre communes du Cantal — avaient donc une fiche, des résultats et aucun
+  polygone : la carte ne bougeait pas quand on les ouvrait. Leur contour est désormais
+  complété une par une depuis **geo.api.gouv.fr** (`prep_geo.completer_communes`), la
+  source qui sert déjà les DROM. Seuls les **45 arrondissements** de Paris, Lyon et
+  Marseille restent sans polygone, à dessein : la maille cliquable est la commune INSEE
+  agrégée.
+- **Quatre bureaux** du corpus (sur 1,56 million) publient plus de voix ventilées que
+  d'exprimés — le plus net à Tours, bureau `37261_1562` : 188 exprimés déclarés pour 481
+  voix réparties entre les listes. Leur barre de recomposition dépasse alors 100 % (de 0,6
+  à 31,8 points). Le défaut est dans le décompte amont, pas dans la ventilation, et rien
+  ne permet de trancher lequel des deux chiffres est faux : on ne fabrique donc rien. La
+  commune, elle, boucle.
 - **Mayotte** n'a aucune moyenne régionale de référence (le recensement infracommunal ne
   la couvre pas) : ses fiches ne se comparent qu'à la France, et le disent.
 - **Paris, Lyon et Marseille** (codés par secteur/arrondissement dans les bases infracommunales

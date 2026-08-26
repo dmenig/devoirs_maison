@@ -14,7 +14,7 @@ aussi les bureaux dépourvus de contour (leurs électeurs sont redistribués au 
 Cela reste une estimation : les contours de bureaux sont eux-mêmes approchés, et rien ne
 garantit que les électeurs d'un bureau se répartissent comme sa population résidente.
 
-DEUX GARDE-FOUS, l'un géométrique et l'autre électoral :
+TROIS GARDE-FOUS — géométrique, électoral, statistique :
 
 - `COUV_MIN` — un IRIS n'est estimé que si les contours de bureaux le RECOUVRENT quasi
   intégralement. En dessous, la répartition porterait sur un morceau d'IRIS et donnerait
@@ -24,9 +24,15 @@ DEUX GARDE-FOUS, l'un géométrique et l'autre électoral :
   l'essentiel de la commune (Bordeaux : 12 % seulement de son électorat est localisable),
   le « résultat estimé par intersection » n'est plus qu'un résultat communal étalé sur la
   population. On écarte alors la commune, scrutin par scrutin.
+- `INSCRITS_MIN` — sous une poignée d'électeurs, l'arrondi à l'unité fait le pourcentage :
+  un blanc/nul pèse 50 points sur un quartier de 2 inscrits.
 
-Dans les deux cas la zone écartée n'a AUCUNE donnée électorale : pas de chiffre plutôt
+Dans les trois cas la zone écartée n'a AUCUNE donnée électorale : pas de chiffre plutôt
 qu'un chiffre faux. Le rapport de couverture est conservé à côté des résultats.
+
+Et là où la ventilation par liste n'existe pas (municipales des communes de moins de
+1 000 habitants, nuance hors mapping), les blocs restent NaN de bout en bout — « non
+mesuré », jamais « zéro voix » — et les exprimés concernés se lisent dans `non_ventile`.
 """
 
 from __future__ import annotations
@@ -56,14 +62,32 @@ COUV_MIN = 0.99
 # localisés (contour présent et recoupant ses quartiers) pour que le recalage reste un
 # rattrapage plutôt qu'une extrapolation. Sous ce seuil, la commune n'est pas estimée.
 ELEC_MIN = 0.90
+# Électorat estimé en deçà duquel un quartier ne porte pas de pourcentage. Chaque colonne
+# est arrondie à l'unité : sur un quartier de 2 inscrits, un seul blanc/nul pèse 50 points
+# et la barre de recomposition affichait 148 %. Ces quartiers résiduels de l'IRIS (zones
+# d'activité, emprises ferroviaires) n'ont aucun usage militant ; à 30 inscrits, le seuil
+# écarte 251 quartiers sur 48 871 (0,8 % des lignes) et ramène les lignes qui manquent le
+# bouclage de plus de 2 points de 1 744 à 164 — l'écart maximal de 48,6 à 12,3 points.
+INSCRITS_MIN = 30
 
-CNT = ["inscrits", "votants", "exprimes", "lfi_voix", "gauche_voix"]
+CNT = [
+    "inscrits",
+    "votants",
+    "exprimes",
+    "exprimes_nuances",
+    "lfi_voix",
+    "gauche_voix",
+]
 PCT = [f"b6_{b}" for b in nuances.BLOC6_ORDRE] + [
     "tri_social_ecologique",
     "tri_liberal_progressiste",
     "tri_national_patriote",
     "tri_autres",
 ]
+# Comptages toujours publiés, donc seuls à pouvoir sortir en entier : les blocs, la
+# tripartition et les voix LFI/gauche valent « non mesuré » là où le ministère ne ventile
+# pas, et doivent rester NaN de bout en bout.
+ENTIERS = ["inscrits", "votants", "exprimes", "exprimes_nuances"]
 META = ["scrutin_libelle", "annee", "type", "tour"]
 
 
@@ -200,7 +224,9 @@ def resultats_iris(
     df = _en_comptes(bvres).merge(poids, left_on="code", right_on="bureau")
     cols = CNT + PCT
     df[cols] = df[cols].values * df["w"].values[:, None]
-    g = df.groupby(["code_iris", "scrutin"], as_index=False)[cols].sum()
+    # min_count=1 : un groupe dont la colonne est entièrement NaN reste NaN au lieu de
+    # devenir 0. C'est ce qui distingue « non mesuré » de « zéro voix ».
+    g = df.groupby(["code_iris", "scrutin"], as_index=False)[cols].sum(min_count=1)
     g["com"] = commune_de_liris(g["code_iris"])
     g, part = _recaler(g, comres)
     assez = part >= ELEC_MIN
@@ -210,27 +236,30 @@ def resultats_iris(
             f"  ⚠ électorat localisable < {ELEC_MIN:.0%} : {len(perdues)} communes écartées "
             f"(bureaux sans contour) — ex. {perdues[:5]}"
         )
-    g = g[assez & (g["inscrits"] >= 1) & g["code_iris"].isin(servis)]
+    g = g[assez & (g["inscrits"] >= INSCRITS_MIN) & g["code_iris"].isin(servis)]
 
     ins = g["inscrits"]
     out = pd.DataFrame(
         {"niveau": "iris", "code": g["code_iris"], "scrutin": g["scrutin"]}
     )
-    for c in CNT:
+    for c in ENTIERS:
         out[c] = g[c].round().astype(int)
     out["participation"] = (100 * g["votants"] / ins).round(2)
     out["abstention"] = (100 - out["participation"]).round(2)
     for c in PCT:
         out[c] = (100 * g[c] / ins).round(2)
+    # voix LFI / de gauche : NaN là où rien n'est ventilé, comme aux autres échelles
+    out["lfi_voix"] = g["lfi_voix"].round()
+    out["gauche_voix"] = g["gauche_voix"].round()
     out["lfi_pct"] = (100 * g["lfi_voix"] / ins).round(2)
     out["gauche_pct"] = (100 * g["gauche_voix"] / ins).round(2)
-    # Un quartier hérite du régime de sa commune : là où le ministère ne publie pas les
-    # nuances (municipales des communes de moins de 1 000 habitants), les blocs restent
-    # NaN de bout en bout et ce sont les EXPRIMÉS qui sont non ventilés — l'abstention de
-    # ces quartiers, elle, est déjà comptée par `abstention`.
-    out["non_ventile"] = np.where(
-        out[PCT[0]].isna(), (100 * g["exprimes"] / ins).round(2), 0.0
-    )
+    # Un quartier hérite du régime de sa commune, et de la même définition qu'aux autres
+    # échelles : les EXPRIMÉS que le ministère ne range dans aucune liste, rapportés aux
+    # inscrits. Répartis et recalés comme les autres comptages, ils bouclent la barre là
+    # où les blocs sont muets — municipales des communes de moins de 1 000 habitants,
+    # mais aussi nuance hors mapping dans une commune par ailleurs ventilée. L'abstention
+    # de ces quartiers, elle, est déjà comptée par `abstention`.
+    out["non_ventile"] = (100 * (g["exprimes"] - g["exprimes_nuances"]) / ins).round(2)
     meta = bvres[["scrutin", *META]].drop_duplicates("scrutin")
     return out.merge(meta, on="scrutin", how="left")
 

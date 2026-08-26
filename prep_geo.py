@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import geopandas as gpd
+import pandas as pd
 import shapely
 
 FG = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master"
@@ -99,6 +100,51 @@ def _ajouter_contours(dest: Path, features: list[dict]) -> int:
         fc["features"].extend(neuf)
         dest.write_text(json.dumps(fc, ensure_ascii=False, separators=(",", ":")))
     return len(neuf)
+
+
+def completer_communes(geo_dir: Path, communes: pd.DataFrame) -> None:
+    """Ajoute au fond communal les communes du COG que france-geojson ignore.
+
+    Le fond national est un millésime figé : les communes nouvelles créées depuis lui n'y
+    figurent pas. Treize communes bien vivantes avaient donc une fiche, des résultats et
+    aucun polygone — Orée d'Anjou et ses 13 041 inscrits, Porte des Pierres Dorées,
+    Conques-en-Rouergue, Aurseulles, Sannerville, Sainte-Florence, L'Oie et quatre
+    communes du Cantal : on les ouvrait, la carte ne bougeait pas. On les demande une par
+    une à geo.api.gouv.fr, la source qui sert déjà les DROM.
+
+    Seules les communes de plein exercice (`COM`) sont ajoutées : les arrondissements de
+    Paris, Lyon et Marseille (`ARM`) sont absents du fond à dessein, la maille cliquable
+    étant la commune INSEE agrégée."""
+    com_dir = geo_dir / "communes"
+    if not com_dir.exists():
+        return
+    vivantes = communes[
+        (communes["type_commune"] == "COM") & communes["code_departement"].notna()
+    ]
+    ajouts, introuvables = 0, []
+    for dep, sous in vivantes.groupby("code_departement"):
+        dest = com_dir / f"{dep}.geojson"
+        if not dest.exists():
+            continue
+        presents = {
+            str(f["properties"].get("code"))
+            for f in json.loads(dest.read_text())["features"]
+        }
+        neuves = []
+        for code in sorted(set(sous["code_commune"]) - presents):
+            f = _api_json(
+                f"{API_GEO}/communes/{code}"
+                "?format=geojson&geometry=contour&fields=code,nom"
+            )
+            if f and f.get("geometry"):
+                neuves.append(f)
+            else:
+                introuvables.append(code)
+        if neuves:
+            ajouts += _ajouter_contours(dest, neuves)
+    if introuvables:
+        print(f"   communes sans contour disponible : {introuvables}")
+    print(f"   communes : {ajouts} contour(s) complété(s) depuis geo.api.gouv.fr")
 
 
 def contours_drom(geo_dir: Path) -> None:

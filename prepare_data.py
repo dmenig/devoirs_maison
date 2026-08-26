@@ -156,6 +156,9 @@ def main() -> None:
     prep_geo.contours_de_base(GEO)
     prep_geo.contours_communes(GEO)
     prep_geo.contours_drom(GEO)
+    # le fond national est un millésime figé : les communes nouvelles postérieures n'y
+    # sont pas, et une commune sans polygone est une fiche que la carte ignore.
+    prep_geo.completer_communes(GEO, communes)
     # Échelle circonscription retirée (présidentielle) : plus de contours circo à produire.
     gpkg = RAW / "ign" / "iris-metropole.gpkg"
     if prep_geo.telecharger_iris_ign(
