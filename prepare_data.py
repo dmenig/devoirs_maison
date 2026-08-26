@@ -140,10 +140,14 @@ def main() -> None:
     # `code_commune_parent` : la commune NOUVELLE qui a absorbé une commune déléguée.
     # C'est ce qui permet à la recherche de mener « Corcelles » à Champdor-Corcelles au
     # lieu d'une fiche morte sans contour (cf. prep_index).
+    # `type_commune` distingue l'arrondissement municipal (ARM) de la commune déléguée
+    # (COMD/COMA) : les deux se rattachent à un `code_commune_parent`, mais un
+    # arrondissement n'est pas un ANCIEN nom (cf. prep_index).
     communes[
         [
             "code_commune",
             "nom",
+            "type_commune",
             "code_departement",
             "code_region",
             "code_commune_parent",

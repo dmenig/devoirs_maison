@@ -16,22 +16,32 @@ async function initSearch(){
   // l'échelle circonscription est retirée (présidentielle) : on l'écarte de l'index même
   // si search_index.json (servi depuis master) la contient encore avant régénération.
   const zones=idx.filter(e=>e.niveau!=="circonscription");
-  // `anc` = nom d'avant fusion, conservé cherchable alors que l'entrée pointe désormais
-  // sur la commune NOUVELLE (cf. prep_index) : on cherche « Bellegarde-sur-Valserine »
-  // bien plus souvent que « Valserhône », mais c'est Valserhône qu'il faut ouvrir.
-  zones.forEach(e=>{e.__nom=norm(e.nom);
-    e.__n=e.__nom+" "+(e.anc?norm(e.anc)+" ":"")+e.code.toLowerCase();});
+  // Deux noms alternatifs mènent à la commune agrégée sans être le nom qu'on affiche :
+  // `anc` = nom d'avant fusion (cf. prep_index) — on cherche « Bellegarde-sur-Valserine »
+  // bien plus souvent que « Valserhône », mais c'est Valserhône qu'il faut ouvrir — et
+  // `arr` = arrondissement de Paris, Lyon ou Marseille.
+  zones.forEach(e=>{e.__nom=norm(e.nom); e.__alt=e.anc||e.arr||null;
+    e.__base=e.__nom+" "+e.code.toLowerCase();
+    e.__n=e.__nom+" "+(e.__alt?norm(e.__alt)+" ":"")+e.code.toLowerCase();});
   const sb=$("search"),dl=$("zones"); sb.__byval={};
   const fill=q=>{ dl.innerHTML="";
     const toks=norm(q.trim()).split(/\s+/).filter(Boolean); if(!toks.length)return;
     const hits=[];
     for(const e of zones){ if(!toks.every(t=>e.__n.includes(t)))continue;
-      const tete=e.__nom.startsWith(toks[0])||(e.anc&&norm(e.anc).startsWith(toks[0]));
+      // Une commune porte une entrée par nom cherchable : la sienne, plus une par ancien
+      // nom absorbé. Quand la requête répond déjà sur le nom ACTUEL, les entrées alias
+      // sont des doublons — « Livarot » sortait 23 lignes identiques (Paris 21, dont ses
+      // arrondissements), qui épuisaient le budget de 50 suggestions au détriment des
+      // autres zones. On ne garde l'alias que si c'est LUI qui répond.
+      if(e.__alt&&toks.every(t=>e.__base.includes(t)))continue;
+      const tete=e.__nom.startsWith(toks[0])||(e.__alt&&norm(e.__alt).startsWith(toks[0]));
       hits.push([e,tete?0:1,LVRANK[e.niveau],e.__n.indexOf(toks[0]),e.nom.length]);
       if(hits.length>600)break; }
     hits.sort((a,b)=>a[1]-b[1]||a[2]-b[2]||a[3]-b[3]||a[4]-b[4]);
     for(const [e] of hits.slice(0,50)){
-      const val=`${e.nom}${e.anc?` (anc. ${e.anc})`:""} · ${LVLAB[e.niveau]} ${e.code}`;
+      // `anc` = ancien nom d'une commune fusionnée ; `arr` = arrondissement de Paris,
+      // Lyon ou Marseille, qui mène à la commune agrégée sans être un ancien nom.
+      const val=`${e.nom}${e.anc?` (anc. ${e.anc})`:e.arr?` · ${e.arr}`:""} · ${LVLAB[e.niveau]} ${e.code}`;
       sb.__byval[val]=e; const o=document.createElement("option"); o.value=val; dl.appendChild(o); } };
   // Un clic sur une suggestion du datalist ne fait pas remonter `change` partout (Firefox
   // attend le blur ou Entrée) : on part de `input`, qui porte DÉJÀ l'intitulé complet de

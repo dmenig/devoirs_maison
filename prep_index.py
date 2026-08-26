@@ -16,8 +16,12 @@ historique de recomposition, sur une carte qui ne bougeait pas faute de polygone
 cadrer. Le COG donne pourtant la sortie : `code_commune_parent` désigne la commune
 NOUVELLE. On redirige donc ces 1 065 entrées vers elle en conservant l'ancien nom
 comme alias de recherche (`anc`), affiché dans la suggestion pour que l'on comprenne
-où l'on atterrit. Les 26 restantes (parent inconnu ou lui-même sans contour) sont
-laissées telles quelles.
+où l'on atterrit. Les entrées sans parent exploitable sont laissées telles quelles.
+
+Les **arrondissements** de Paris, Lyon et Marseille passent par le même rattachement
+(`code_commune_parent` → la commune INSEE agrégée) mais ne sont pas d'anciens noms : ils
+sortent sous la clé `arr` et non `anc`, sans quoi la recherche proposait « Paris
+(anc. Paris 11e Arrondissement) ». Le COG les marque `ARM`.
 """
 
 import json
@@ -85,18 +89,24 @@ parents = (
     if "code_commune_parent" in rc.columns
     else {}
 )
+types = (
+    dict(zip(rc["code_commune"].astype(str), rc["type_commune"]))
+    if "type_commune" in rc.columns
+    else {}
+)
 idx = []
 vus: set[tuple[str, str, str | None]] = set()
-redirigees = alias = 0
+redirigees = alias = arrondissements = 0
 for c, n, d, r in zip(
     rc["code_commune"], rc["nom"], rc["code_departement"], rc["code_region"]
 ):
     code = str(c)
+    est_arr = types.get(code) == "ARM"
     if code not in contours:
         cible = parents.get(code)
         if cible and cible != code and cible in contours:
             code = cible
-            redirigees += 1
+            redirigees += not est_arr
     # Nom AFFICHÉ = celui de la commune réellement ouverte ; le nom porté par la ligne
     # devient un alias quand il en diffère. Cela couvre les deux formes de fusion : celle
     # qui change le code (Corcelles → Champdor-Corcelles) et celle qui garde le code en
@@ -106,7 +116,6 @@ for c, n, d, r in zip(
     if code not in atteignables or (code, nom, ancien) in vus:
         continue
     vus.add((code, nom, ancien))
-    alias += ancien is not None
     dep = str(d) if pd.notna(d) else _dep_du_code(code)
     entree = {
         "code": code,
@@ -114,13 +123,20 @@ for c, n, d, r in zip(
         "dep": dep,
         "region": str(r) if pd.notna(r) else dep_region.get(dep),
     }
-    if ancien:
+    if ancien and est_arr:
+        # « Paris 11e Arrondissement » → « 11e Arrondissement » : le nom de la commune est
+        # déjà en tête de la suggestion, le répéter n'apprend rien.
+        arrondissements += 1
+        entree["arr"] = ancien.removeprefix(f"{nom} ")
+    elif ancien:
+        alias += 1
         entree["anc"] = ancien
     idx.append(entree)
 print(
     f"index : {len(rc) - len(idx)} entrées écartées (doublon, ou aucun résultat et aucun "
     f"contour) ; {alias} anciens noms conservés cherchables, dont {redirigees} redirigés "
-    f"vers le code de leur commune nouvelle"
+    f"vers le code de leur commune nouvelle ; {arrondissements} arrondissements PLM "
+    f"cherchables sous leur propre nom"
 )
 (OUT / "communes_index.json").write_text(
     json.dumps(idx, ensure_ascii=False, separators=(",", ":"), allow_nan=False)

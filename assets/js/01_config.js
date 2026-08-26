@@ -268,7 +268,8 @@ const spoiler=(titre,corps,open=false)=> !corps?"":
 // (infobulle CSS, cf. map.css) ; au CLIC, le volet méthodo de la section — le clic remonte
 // jusqu'à l'entête .exph qui l'ouvre. C'est aussi le repli tactile, où le survol n'existe pas.
 const hint=t=>`<span class="hint" data-tip="${t.replace(/"/g,"&quot;")}">i</span>`;
-const fmtVal=(v,u)=> v==null?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
+// `isNaN` autant que `null` : une valeur non mesurable se lit « — », jamais « NaN% ».
+const fmtVal=(v,u)=> (v==null||(typeof v==="number"&&isNaN(v)))?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")));
 
 // values/* : cache:"no-cache" force le navigateur à revalider auprès de GitHub (requête

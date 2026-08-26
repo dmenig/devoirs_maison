@@ -31,9 +31,14 @@ function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>
 function pairMetrics(o){ if(!o)return {};
   const lvA=o[`lfiv_${selA}`], lvB=o[`lfiv_${selB}`], gvA=o[`gv_${selA}`], gvB=o[`gv_${selB}`],
         pA=o[`part_${selA}`], pB=o[`part_${selB}`];
+  // Les DEUX scrutins doivent être ventilés. Garder le seul dénominateur laissait passer
+  // un numérateur ABSENT (municipales des communes de moins de 1 000 habitants : aucune
+  // voix par liste n'y est publiée), et voixB/voixA valait alors NaN — soit « NaN% » dans
+  // l'infobulle et en chiffre de tête sur 31 542 communes dès qu'on choisissait Munic. 2026
+  // comme scrutin B. Un report qui n'est pas mesurable vaut « — », comme partout ailleurs.
   return {
-    report: lvA?Math.round(1000*lvB/lvA)/10:null,
-    perte:  gvA?Math.round(1000*(gvA-gvB)/gvA)/10:null,
+    report: (lvA&&lvB!=null)?Math.round(1000*lvB/lvA)/10:null,
+    perte:  (gvA&&gvB!=null)?Math.round(1000*(gvA-gvB)/gvA)/10:null,
     dpart:  (pA!=null&&pB!=null)?Math.round((pB-pA)*10)/10:null,
     // réservoirs exprimés en NOMBRE DE VOIX (retour Elia) : évolution des voix LFI et
     // voix de gauche perdues (à reconquérir) entre les deux scrutins choisis.

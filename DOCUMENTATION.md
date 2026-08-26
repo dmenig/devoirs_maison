@@ -228,11 +228,15 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   des électeurs, méthode Etalab). Ce sont donc des contours **approchés** (pas les périmètres
   administratifs officiels) ; et tout bureau n'a pas de contour (résultats présents mais non
   cartographiés là où le Voronoï n'a pu être calculé) — la zone reste alors non colorée.
-  Un **filtre de fiabilité géométrique** (chantier 4) masque en outre les contours au tracé
-  absurde — polygones disjoints (fragmentation) ou très peu compacts (Polsby-Popper) — plutôt
-  que d'afficher un découpage faux : le bureau n'est alors pas peint, et ses résultats restent
-  accessibles via l'export. Le bureau de vote est par ailleurs une maille d'**organisation** du
-  travail (la maille de lecture pertinente pour un GA est plutôt la commune / le grand quartier).
+  Un **filtre de fiabilité géométrique** (chantier 4) a été écrit pour masquer les tracés
+  absurdes — polygones disjoints ou très peu compacts (Polsby-Popper) — mais il est
+  **désactivé** : sa métrique confondait le bruit de tessellation Voronoï avec une vraie
+  fragmentation et masquait à tort 25 à 40 % de bureaux parfaitement nets. **Tous** les
+  contours disponibles sont donc peints aujourd'hui, y compris ceux au tracé douteux ; le
+  filtre est à refondre en comptage tolérant aux fragments avant réactivation (les seuils
+  restent dans `prep_bv.py`, le filtre client dans `02_data_geo.js`). Le bureau de vote est
+  par ailleurs une maille d'**organisation** du travail (la maille de lecture pertinente
+  pour un GA est plutôt la commune / le grand quartier).
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
 - Le total **France est supérieur à la somme des régions**, d'environ **2 millions
