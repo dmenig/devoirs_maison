@@ -53,7 +53,10 @@ function carnetCompo(o,b){
   const gvs=["P22","E24","L24","M26"].map(k=>o[`gv_${k}`]).filter(v=>v!=null);
   if(!gvs.length)return "";
   const garanties=Math.min(...gvs), plafond=Math.max(...gvs);
-  const remob=Math.max(0,(o.lfiv_P22||0)-(o.lfiv_E24||0));
+  // Les deux scrutins doivent être mesurés : `||0` transformait un scrutin ABSENT en zéro
+  // voix, et donc soit un socle 2022 entier compté comme perdu, soit « rien à remobiliser »
+  // là où l'on ne sait pas. 33 communes du corpus n'ont qu'un des deux (cf. panneau d'action).
+  const remob=(o.lfiv_P22!=null&&o.lfiv_E24!=null)?Math.max(0,o.lfiv_P22-o.lfiv_E24):0;
   const potentielles=Math.max(0,plafond-garanties)+remob;
   // Abstention et non-/mal-inscription retirées de la décomposition (retour PEE) : on ne
   // mélange plus des données passées (abstention E24), présentes (non-/mal-inscrits) et

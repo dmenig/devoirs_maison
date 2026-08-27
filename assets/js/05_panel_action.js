@@ -47,8 +47,13 @@ function actionPanel(o){ if(!o)return "";
   items.push(lever("4","Aller vers les primo-votant·es","en continu",null,
     `${primo}Présence devant lycées / facs / résidences étudiantes (CROUS), inscription d'office à vérifier.`));
 
-  const ps=o.gauche_M26!=null&&o.lfi_M26!=null?Math.round((o.gauche_M26-o.lfi_M26)*10)/10:null;
-  const marg=ps!=null&&ps>0?`<div class="inv">Levier marginal : électorats proches (type PS 2024, ≈ ${ps} pts d'inscrits hors LFI à gauche) — à ne travailler qu'après les priorités ci-dessus.</div>`:"";
+  // « PS 2024 » se mesure sur les LÉGISLATIVES 2024, pas sur les municipales : le libellé
+  // disait 2024 et le calcul lisait M26 — le scrutin où, dans 31 542 communes de moins de
+  // 1 000 habitants, le ministère ne publie aucune ventilation par liste, si bien que le
+  // levier disparaissait là où il est justement le plus lisible. Aux municipales, « gauche
+  // hors LFI » est de surcroît surtout composée de listes locales, pas d'un électorat PS.
+  const ps=o.gauche_L24!=null&&o.lfi_L24!=null?Math.round((o.gauche_L24-o.lfi_L24)*10)/10:null;
+  const marg=ps!=null&&ps>0?`<div class="inv">Levier marginal : électorats proches (type PS, législatives 2024 : ≈ ${ps} pts d'inscrits hors LFI à gauche) — à ne travailler qu'après les priorités ci-dessus.</div>`:"";
 
   return `<div class="act"><div class="ah">🎯 Plan d'action — par ordre de priorité</div>`+
     `<ul class="levers">${items.join("")}</ul>${marg}`+
