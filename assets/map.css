@@ -1,5 +1,5 @@
   /* DEUX THÈMES, UNE SEULE FEUILLE : toutes les couleurs d'interface passent par les
-     tokens ci-dessous. Le thème sombre (défaut, cohérent avec le fond CARTO dark_nolabels)
+     tokens ci-dessous. Le thème sombre (défaut, cohérent avec le style OpenFreeMap dark)
      est défini sur :root ; le thème clair ne redéfinit que les tokens, sous
      :root[data-theme="light"]. Aucune règle plus bas ne code une couleur en dur, à
      l'exception des couleurs de DONNÉES (nuances politiques, échelle bleu→rouge de la
@@ -416,7 +416,7 @@
     #legend{bottom:8px;left:8px;right:8px;max-width:none}
     #legend .hint{display:none}
     body.fiche #legend{display:none}
-    /* la mention Leaflet/CARTO passait sous la légende pleine largeur */
+    /* la mention Leaflet/OpenStreetMap passait sous la légende pleine largeur */
     body:not(.fiche) .leaflet-bottom{bottom:52px}
 
     /* fiche zone en bottom-sheet rétractable : pleine largeur, ancrée en bas,

@@ -181,10 +181,18 @@ L.Map.ScrollWheelZoom.prototype._onWheelScroll=function(e){
 };
 const map=L.map('map',{zoomControl:true,zoomSnap:0,preferCanvas:true}).fitBounds(FRANCE);
 window.__map=map;
-// {dark,light}_nolabels : pas de fond raster francisé chez CARTO, on retire donc les
-// libellés anglais (pays voisins, mers) ; les noms français viennent des couches de l'atlas.
-// La variante suit le thème (voir 13_theme.js, qui remplace l'URL à la bascule).
-const tileURL=t=>`https://{s}.basemaps.cartocdn.com/${t==="light"?"light":"dark"}_nolabels/{z}/{x}/{y}{r}.png`;
+// Fond de carte : tuiles VECTORIELLES OpenFreeMap (données OpenStreetMap), rendues par
+// MapLibre. Trois raisons de ne pas reprendre un fond raster :
+//   1. les TOPONYMES. Un style vectoriel est un JSON qu'on retouche : on force les libellés
+//      sur `name:fr` (voir NAME_FR). Un raster arrive avec ses noms cuits dedans, et ils
+//      sont anglicisés — CARTO écrivait « New Aquitania » dès le zoom 8, d'où le fond
+//      _nolabels et le seuil de libellés qui ont longtemps servi de contournement ;
+//   2. le ZOOM. Les tuiles s'arrêtent au niveau 14 et MapLibre les redessine au-delà :
+//      descendre au quartier ou au bureau de vote (17-19) ne coûte AUCUNE requête ;
+//   3. la GRATUITÉ. Ni clé ni quota — CARTO exige désormais une clé et tamponne « API KEY
+//      REQUIRED » en travers des tuiles anonymes.
+// La variante suit le thème (voir 13_theme.js, qui rappelle setStyle à la bascule).
+const OFM=t=>`https://tiles.openfreemap.org/styles/${t==="light"?"positron":"dark"}`;
 // thème posé sur <html> avant le premier rendu par le script d'entête de map.html
 const theme=()=>document.documentElement.dataset.theme==="light"?"light":"dark";
 // Couleurs d'interface que le JS écrit lui-même (contours des polygones, fonds de barres,
@@ -197,48 +205,101 @@ const C={};
 function syncColors(){ const cs=getComputedStyle(document.documentElement);
   for(const n of CVARS)C[n]=cs.getPropertyValue("--"+n).trim(); }
 syncColors();
-const tiles=L.tileLayer(tileURL(theme()),
-  {attribution:'© OpenStreetMap, © CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
-// CARTO sert les libellés (rues, quartiers, communes) dans une couche SÉPARÉE : on la pose
-// dans un pane AU-DESSUS des polygones. Les noms sont donc imprimés PAR-DESSUS la
-// choroplèthe au lieu d'être recouverts par elle — c'est ce qui permet de baisser
-// l'opacité des zones sans perdre la lecture du terrain. Le pane est transparent aux
-// clics, sans quoi il intercepterait les clics destinés aux polygones.
-// Activée seulement à partir de LBL_MINZ : plus bas, CARTO écrit des noms de régions et de
-// mers ANGLICISÉS (« New Aquitania » dès le zoom 8) — la raison d'être du fond _nolabels ;
-// à partir du zoom 9 ce ne sont plus que des toponymes locaux (Bordeaux, Foix, Vielha).
-// Ce seuil est un SCALE, pas une taille d'écran : c'est justement pourquoi il doit rester
-// bas. Un même territoire s'affiche ~2 niveaux plus bas sur un écran étroit (ajuster des
-// bounds à 390 px de large donne un zoom bien inférieur qu'à 1500 px) : avec un seuil à 11,
-// Toulouse tombait à 10.6 en portable et n'avait NI libellés NI encre, là où le desktop
-// était à 12.35 et les avait. À 9, les deux se rejoignent dès l'échelle communale.
-const labelURL=t=>`https://{s}.basemaps.cartocdn.com/${t==="light"?"light":"dark"}_only_labels/{z}/{x}/{y}{r}.png`;
-const LBL_MINZ=9;
+// Le style OFM alimente les TROIS couches ci-dessous, chacune n'en gardant qu'une part.
+// MapLibre ne sait pas filtrer un style au chargement : on le retouche donc après coup, à
+// chaque `style.load` — donc aussi à chaque bascule de thème, qui rappelle setStyle.
+//   `symbols` = ce que la couche garde. false → le décor SANS un seul nom (fond, encre) ;
+//   true → les noms seuls sur un canevas transparent (couche de libellés).
+// Les libellés passent tous sur `name:fr` : les tuiles OFM portent une centaine de champs
+// `name:xx`, et le style s'en tient par défaut à `name:latin` — le nom LOCAL, soit
+// « España » et « Bay of Biscay » en bord de carte. C'est ce réglage d'une ligne qui rend
+// inutile tout le contournement raster (fond sans libellés + seuil d'affichage).
+const NAME_FR=["coalesce",["get","name:fr"],["get","name:latin"],["get","name"]];
+function shapeStyle(gl,symbols){
+  for(const l of gl.getStyle().layers){
+    if((l.type==="symbol")!==symbols){gl.removeLayer(l.id);continue;}
+    // On ne retouche QUE les couches dont le libellé lit déjà un nom. Les écussons
+    // d'autoroute affichent un NUMÉRO (`["to-string",["get","ref"]]`) : leur passer NAME_FR
+    // laissait des cartouches VIDES sur la carte (aucun `name` sur ces tronçons). Le test
+    // porte sur l'expression et non sur l'identifiant de couche, qui change d'un style à
+    // l'autre — dark nomme la sienne `highway_name_motorway`, positron en a trois
+    // (`highway-shield-non-us`, …).
+    const tf=l.layout&&l.layout["text-field"];
+    if(tf&&JSON.stringify(tf).includes('"name'))
+      gl.setLayoutProperty(l.id,"text-field",NAME_FR);
+  }
+}
+// Les trois couches demandent les MÊMES tuiles au même instant. Trois instances MapLibre =
+// trois files de requêtes indépendantes, et le cache HTTP du navigateur n'a encore RIEN
+// quand les deuxième et troisième partent : la vue France téléchargeait 36 tuiles pour 12
+// distinctes (1,8 Mo au lieu de 0,6). On route donc tuiles et glyphes vers un protocole
+// maison, partagé par les trois instances, qui mutualise la requête en vol. Une fois la
+// réponse arrivée on oublie la promesse : les demandes suivantes retombent sur le cache du
+// navigateur, qu'OpenFreeMap marque immuable (chemin versionné, max-age 10 ans).
+// `slice(0)` : MapLibre TRANSFÈRE le buffer à son worker de décodage, ce qui le détache —
+// sans copie, la première couche servie viderait le buffer des deux autres.
+const enVol=new Map();
+maplibregl.addProtocol("ofm",params=>{
+  const url="https"+params.url.slice(3);
+  let p=enVol.get(url);
+  if(!p){p=fetch(url).then(r=>r.arrayBuffer()).finally(()=>enVol.delete(url));enVol.set(url,p);}
+  return p.then(data=>({data:data.slice(0)}));
+});
+const MUTUALISE=new Set(["Tile","Glyphs"]);
+// Le pane est transparent aux clics, sans quoi il intercepterait ceux destinés aux
+// polygones ; l'opacité se pose sur le conteneur et non sur le pane, qui porte déjà le
+// mode de fusion de l'encre (voir map.css).
+function glLayer(symbols,opts){
+  const c=L.maplibreGL(Object.assign({style:OFM(theme()),maxZoom:19,
+    transformRequest:(url,kind)=>({url:MUTUALISE.has(kind)?url.replace(/^https/,"ofm"):url})},opts)).addTo(map);
+  // `style.load` et non `load` : il se rejoue à chaque setStyle, là où `load` ne part
+  // qu'une fois — sans quoi la bascule de thème rendrait le style entier, libellés
+  // anglicisés et fond dupliqué compris.
+  c.getMaplibreMap().on("style.load",()=>shapeStyle(c.getMaplibreMap(),symbols));
+  c.getContainer().style.pointerEvents="none";
+  if(opts&&opts.opacity!=null)c.getContainer().style.opacity=opts.opacity;
+  return c;
+}
+// La mention de source n'est pas passée en option : le greffon la LIT dans le style (champ
+// `attribution` des sources) et l'ajoute au contrôle Leaflet lui-même — « OpenFreeMap ©
+// OpenMapTiles Data from OpenStreetMap ». Les trois couches déclarent la même, que Leaflet
+// dédoublonne.
+const tiles=glLayer(false);
+// Les libellés (rues, quartiers, communes) sont posés dans un pane AU-DESSUS des polygones.
+// Les noms sont donc imprimés PAR-DESSUS la choroplèthe au lieu d'être recouverts par elle
+// — c'est ce qui permet de baisser l'opacité des zones sans perdre la lecture du terrain.
+// Contrairement au fond raster, cette couche n'a plus de zoom plancher : ses noms sont
+// français à toutes les échelles, il n'y a donc plus rien à cacher en vue nationale.
 map.createPane("labels").style.zIndex=450;
 map.getPane("labels").style.pointerEvents="none";
-// updateWhenZooming:false — pendant un vol, Leaflet empilait deux niveaux de tuiles de
-// libellés (l'ancien mis à l'échelle + le nouveau) : les noms de communes s'affichaient
-// en double, décalés, plusieurs secondes après l'atterrissage.
-const labels=L.tileLayer(labelURL(theme()),
-  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"labels",
-   updateWhenZooming:false,updateWhenIdle:true}).addTo(map);
-// SURIMPRESSION : une seconde copie du fond de carte, posée elle aussi au-dessus des
-// polygones et composée en fusion (multiply en thème clair, screen en sombre — voir
-// map.css). Le fond de CARTO étant quasi uni, il laisse la couleur de la zone intacte ;
-// seul ce qui s'en écarte — casings de routes, contours de bâtiments, cours d'eau —
-// s'imprime PAR-DESSUS elle, comme une encre sur du papier. C'est ce qui permet de garder
-// un remplissage franc au lieu de délaver la zone pour apercevoir la trame. Les tuiles ont
-// la MÊME URL que le fond : le navigateur les sert depuis son cache, sans requête réseau.
+const labels=glLayer(true,{pane:"labels"});
+// SURIMPRESSION : une seconde copie du décor, posée elle aussi au-dessus des polygones et
+// composée en fusion (multiply en thème clair, screen en sombre — voir map.css). Le fond
+// étant quasi uni, il laisse la couleur de la zone intacte ; seul ce qui s'en écarte —
+// casings de routes, contours de bâtiments, cours d'eau — s'imprime PAR-DESSUS elle, comme
+// une encre sur du papier. C'est ce qui permet de garder un remplissage franc au lieu de
+// délaver la zone pour apercevoir la trame. Les tuiles sont les MÊMES que celles du fond :
+// le navigateur les sert depuis son cache, sans requête réseau.
 map.createPane("overprint").style.zIndex=440;
 map.getPane("overprint").style.pointerEvents="none";
-const overprint=L.tileLayer(tileURL(theme()),
-  {subdomains:'abcd',maxZoom:19,minZoom:LBL_MINZ,pane:"overprint",opacity:.8,
-   updateWhenZooming:false,updateWhenIdle:true}).addTo(map);
-// Remplissage des zones : la trame étant désormais surimprimée, il reste franc (.8) — juste
-// assez transparent pour donner de la profondeur. Le CONTOUR s'épaissit d'autant, pour que
-// la zone reste délimitée sous l'encre. Un seul palier, celui de l'encre : deux réglages
-// qui s'allument au même seuil, donc identiques en portable comme en desktop.
-function fillStyle(){ return map.getZoom()>=LBL_MINZ?{op:.8,w:1}:{op:.85,w:.5}; }
+const overprint=glLayer(false,{pane:"overprint",opacity:.8});
+// L'encre ne s'allume qu'à partir d'INK_MINZ : au-dessus, elle n'a rien à imprimer (le
+// décor est vide à l'échelle nationale) et brûlerait du GPU pour rien. `visibility` plutôt
+// qu'un retrait de couche : détruire et rouvrir un contexte WebGL à chaque passage du seuil
+// se verrait comme un à-coup. Ce seuil est un SCALE, pas une taille d'écran : c'est
+// justement pourquoi il doit rester bas. Un même territoire s'affiche ~2 niveaux plus bas
+// sur un écran étroit (ajuster des bounds à 390 px de large donne un zoom bien inférieur
+// qu'à 1500 px) : avec un seuil à 11, Toulouse tombait à 10.6 en portable et n'avait pas
+// d'encre, là où le desktop était à 12.35 et l'avait. À 9, les deux se rejoignent dès
+// l'échelle communale.
+const INK_MINZ=9;
+const inkGate=()=>{map.getPane("overprint").style.visibility=map.getZoom()>=INK_MINZ?"":"hidden";};
+map.on("zoom zoomend",inkGate);
+inkGate();
+// Remplissage des zones : la trame étant surimprimée, il reste franc (.8) — juste assez
+// transparent pour donner de la profondeur. Le CONTOUR s'épaissit d'autant, pour que la
+// zone reste délimitée sous l'encre. Un seul palier, celui de l'encre.
+function fillStyle(){ return map.getZoom()>=INK_MINZ?{op:.8,w:1}:{op:.85,w:.5}; }
 
 // indicateur de coloration par défaut : « Voix à conquérir » (retour Elia, point 5) — la
 // carte montre d'emblée le besoin de mobilisation par zone plutôt que la participation.

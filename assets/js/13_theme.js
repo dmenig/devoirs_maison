@@ -1,7 +1,7 @@
 // Bascule thème clair ⇄ sombre. Le thème est un attribut sur <html> (data-theme) : toutes
 // les couleurs d'interface étant des tokens CSS (voir map.css), le basculement est immédiat
 // et ne touche pas au DOM. Trois choses ne suivent pas d'elles-mêmes et sont reprises ici :
-//   1. le fond de carte CARTO (variante dark_/light_nolabels) ;
+//   1. le fond de carte OpenFreeMap (style dark ⇄ positron) ;
 //   2. les couleurs écrites par le JS (échelle de la choroplèthe, contours des polygones) :
 //      syncColors() puis redessin de la couche courante SANS recadrer la caméra ;
 //   3. la fiche ouverte, dont quelques couleurs sont posées en style inline à la génération.
@@ -17,17 +17,14 @@
     btn.title = t === "light" ? "Passer au thème sombre" : "Passer au thème clair";
     btn.setAttribute("aria-pressed", String(t === "light"));
     syncColors();
-    // setUrl() sans noRedraw appelle redraw(), qui recale `_tileZoom` sur le zoom COURANT
-    // sans l'arrondir. Avec zoomSnap:0 ce zoom est fractionnaire (12.2858…) : Leaflet le
-    // met tel quel dans l'URL des tuiles, CARTO répond n'importe quoi et on se retrouvait
-    // avec des libellés d'Algérie par-dessus Toulouse. On change donc l'URL SANS redraw,
-    // on vide les tuiles, et on laisse la carte refaire une pose de grille propre
-    // (viewreset → _resetView, qui lui arrondit le niveau de tuiles).
-    for (const [couche, url] of [[tiles, tileURL(t)], [labels, labelURL(t)], [overprint, tileURL(t)]]) {
-      couche.setUrl(url, true);
-      couche._removeAllTiles();
+    // diff:false — par défaut MapLibre calcule un DIFF entre le style courant et le
+    // nouveau, et n'émet alors pas `style.load` : les couches que shapeStyle avait retirées
+    // reviendraient (fond dupliqué au-dessus des polygones, libellés anglicisés) sans que
+    // rien ne les redécoupe. Un rechargement complet coûte ici quelques dizaines de ko de
+    // JSON, les tuiles elles-mêmes étant déjà en cache.
+    for (const couche of [tiles, labels, overprint]) {
+      couche.getMaplibreMap().setStyle(OFM(t), { diff: false });
     }
-    map.fire("viewreset");
   };
   paint(theme());
   btn.addEventListener("click", () => {
