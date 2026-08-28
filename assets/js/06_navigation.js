@@ -16,9 +16,12 @@
 // ~330/345/478 · 0 → 701/728/846 (sans animation, moveend n'arrive pas et c'est le
 // minuteur de secours qui peint : supprimer le vol est plus LENT que le raccourcir).
 // Tout le reste est déjà gratuit : les données arrivent en 20-60 ms grâce au préchargement
-// au survol, le tracé coûte 13-64 ms. Le vol EST la latence — d'où 0.24 s, le seuil sous
-// lequel on ne gagne plus rien.
-const FLY_S=0.24, FADE_IN_S=0.13, FADE_OUT_S=0.09;
+// au survol, le tracé coûte 13-64 ms. Le vol EST la latence — d'où le seuil de 0.24 s,
+// sous lequel on ne gagnait plus rien.
+// Mais 0.24 s était trop BRUSQUE pour être suivi à l'œil : la caméra sautait, on perdait
+// le lien entre la zone cliquée et son agrandissement. On rend donc ~0.25 s de latence
+// pour que le déplacement redevienne lisible ; le fondu croisé suit d'autant.
+const FLY_S=0.5, FADE_IN_S=0.16, FADE_OUT_S=0.11;
 // Fondu croisé de SUBDIVISION : durée du chevauchement entre la zone cliquée (fantôme) et
 // ses enfants. Plus long que le simple fondu d'apparition, parce qu'ici rien ne manque à
 // l'écran pendant ce temps — la couleur du parent tient la place jusqu'au bout, on lit une
@@ -30,12 +33,13 @@ const FLY_S=0.24, FADE_IN_S=0.13, FADE_OUT_S=0.09;
 // disparaît » observé en Guadeloupe (3,2 Mo, sans préchargement possible). Le fantôme
 // tient maintenant le temps qu'il faut : c'est une copie peinte de la zone cliquée, la
 // garder pendant le chargement est exactement ce qu'on veut.
-const CROSS_S=0.20, GHOST_MAX_MS=20000;
+const CROSS_S=0.28, GHOST_MAX_MS=20000;
 // Filet de sécurité si moveend n'arrive pas (ex. flyToBounds sans déplacement à
 // l'amorçage). Il doit rester FRANCHEMENT au-dessus de la durée réelle du vol : s'il se
 // déclenche avant moveend, on peint pendant l'animation et les bandes partielles
-// reviennent. Vol observé jusqu'à ~480 ms (descente au bureau de vote, zoom 15).
-const DRAW_GUARD_MS=1000;
+// reviennent. Vol observé jusqu'à ~480 ms à FLY_S=0.24 (descente au bureau de vote,
+// zoom 15) ; la marge suit le vol allongé.
+const DRAW_GUARD_MS=1600;
 let animating=false, pendingDraw=null, pendingTimer=null, layerStyle=null, paintSig=null;
 function overlayEl(){ const p=map.getPanes().overlayPane; return p.querySelector("canvas")||p.querySelector("svg"); }
 function fadeInLayer(){ const el=overlayEl(); if(!el)return;
