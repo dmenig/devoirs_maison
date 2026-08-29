@@ -357,6 +357,26 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   restent dans `prep_bv.py`, le filtre client dans `02_data_geo.js`). Le bureau de vote est
   par ailleurs une maille d'**organisation** du travail (la maille de lecture pertinente
   pour un GA est plutôt la commune / le grand quartier).
+- Les contours data.gouv sont figés sur le **REU du 1<sup>er</sup> juin 2022** (le fichier
+  « latest » porte encore cette numérotation) : une commune qui a **renuméroté ses bureaux**
+  depuis voit ses scrutins 2024 et 2026 tomber sur des codes orphelins. Le pire cas est
+  **Bordeaux**, qui a tout renuméroté (`1101` → `1001`, `1201` → `1021`, `1301` → `1041`…) :
+  18 codes sur 153 coïncidaient encore, et *par accident* — les voix de 2024 y étaient
+  rattachées au contour d'un **autre** bureau. Avec 12 % seulement de son électorat localisé,
+  la ville passait aussi sous le seuil d'estimation par quartier (`ELEC_MIN`, 90 %) et ses
+  88 IRIS n'affichaient **aucune** valeur électorale hors présidentielle 2022.
+  `construire_crosswalk_renumerotation` (`prep_elections.py`) reconstruit l'appariement par
+  **alignement ordonné** des deux listes de bureaux, la renumérotation préservant l'ordre et
+  se contentant d'intercaler les créations. Le témoin est l'écart d'**inscrits** entre le
+  scrutin de référence ancien et le nouveau — indépendant des codes : 2,1 % d'écart médian à
+  Bordeaux, contre 63 à 74 % pour l'appariement par code identique. Trois garde-fous :
+  on n'intervient que sur les communes que l'appariement par code prive d'estimation,
+  l'écart médian doit rester sous 6 % (95<sup>e</sup> centile de l'écart des communes dont
+  l'appariement est complet), et le rattachement doit progresser. **7 communes** sur les 93
+  qui déclenchent l'alignement le passent ; Bordeaux y remonte de 12 % à 97 %. Les bureaux
+  créés depuis 2022 sont privés de contour (suffixe `+`) plutôt que laissés sur le polygone
+  d'un homonyme, et le crosswalk ne s'applique qu'aux scrutins de 2024 et après — ses clés
+  sont des codes 2022 parfaitement valides.
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
 - Le total **France est supérieur à la somme des régions**, d'environ **2 millions
