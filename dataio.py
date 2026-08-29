@@ -18,7 +18,7 @@ GEO = DATA / "geo"
 # téléchargées une fois depuis une release GitHub puis mises en cache sur le disque.
 DATA_URL = os.environ.get(
     "ATLAS_DATA_URL",
-    "https://github.com/dmenig/devoirs_maison/releases/download/data-v1/data_app.tar.gz",
+    "https://github.com/lfi-pee/devoirs_maison/releases/download/data-v1/data_app.tar.gz",
 )
 
 

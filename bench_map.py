@@ -24,7 +24,7 @@ from pathlib import Path
 
 from build_map import assemble_map
 
-BASE = "https://raw.githubusercontent.com/dmenig/devoirs_maison/master/data_app"
+BASE = "https://raw.githubusercontent.com/lfi-pee/devoirs_maison/master/data_app"
 ROOT = Path(__file__).parent
 
 # Instrumentation posée dans la page : on enveloppe paintLayer (la seule fonction qui met

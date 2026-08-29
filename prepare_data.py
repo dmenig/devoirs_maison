@@ -1,6 +1,5 @@
 """Orchestrateur : transforme les sorties de hexagonal en données compactes pour
-l'application Streamlit (dossier data_app/). À lancer une fois (et à chaque mise à
-jour des données) :
+la carte (dossier data_app/). À lancer une fois (et à chaque mise à jour des données) :
 
     uv run --project /home/veesion/hexagonal python prepare_data.py
 """

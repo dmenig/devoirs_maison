@@ -12,14 +12,26 @@ Les cartes par **bureau de vote** sont nationales et le scrutin affiché est sé
 
 ➡️ Voir **[DOCUMENTATION.md](DOCUMENTATION.md)** : ce que le site montre à chaque granularité.
 
+## En ligne
+
+➡️ **<https://lfi-pee.github.io/devoirs_maison/>**
+
 ## Lancer en local
 
 ```bash
-uv run --with streamlit streamlit run streamlit_app.py
+uv run python build_site.py && uv run python -m http.server -d _site
 ```
 
 La carte ([map.html](map.html)) va chercher elle-même les données (versionnées dans `data_app/`)
-en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_app.py).
+via la variable `__BASE__` injectée par [build_site.py](build_site.py) — par défaut en ligne,
+sur GitHub raw. Pour travailler sur des données locales, servir la racine du dépôt et pointer
+la base dessus :
+
+```bash
+uv run python build_site.py --base ../data_app && uv run python -m http.server
+```
+
+puis <http://localhost:8000/_site/> — la base `../data_app` est relative à la page servie.
 
 ## Architecture
 
@@ -29,7 +41,8 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 | `assets/map.css` | thème et mise en page de la carte |
 | `assets/js/*.js` | logique de la carte, un fichier par responsabilité (config · data/geo · panneau info · panneau admin · panneau action · navigation · contrôles · recherche) ; concaténée dans l'ordre des noms (préfixe `NN_`) |
 | `build_map.py` | `assemble_map(base)` : recolle squelette + CSS + JS en une string et injecte `__BASE__` |
-| `streamlit_app.py` | wrapper plein écran : sert `assemble_map(BASE)` |
+| `build_site.py` | écrit `_site/index.html` = `assemble_map(BASE)` : le site statique publié |
+| `.github/workflows/pages.yml` | publie `_site/` sur GitHub Pages à chaque push sur `master` |
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
 | `regen_elections.py` | régénère les seules tables électorales après un correctif du pipeline — enchaîner `prep_bake.py`, qui écrit aussi `manifest.json` |
 | `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
@@ -38,7 +51,7 @@ en ligne via la variable `__BASE__` injectée par [streamlit_app.py](streamlit_a
 | `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |
 | `prep_index.py` | hiérarchie + index de recherche ; redirige les anciens noms de communes fusionnées vers la commune nouvelle (`code_commune_parent` du COG) |
 | `nuances.py` | mapping nuances Min. Intérieur → blocs (recomposition / tripartition) : nuance simple, nuance de liste `L…`, nuance de binôme `BC-…`, et listes européennes 2019 (seul fichier sans nuance) |
-| `panels.py`, `viz.py`, `dataio.py` | **legacy** : prototype Streamlit natif (folium), non utilisé par la carte servie |
+| `panels.py`, `viz.py`, `dataio.py` | **legacy** : prototype Streamlit natif (folium), non utilisé par le site — nécessite `--with streamlit,streamlit-folium` |
 
 Les contours sont chargés **paresseusement par zone** (un département à la fois) par le
 navigateur, en pleine résolution.
@@ -57,8 +70,14 @@ INSEE / france-geojson. Seule exception, téléchargée directement par le pipel
 
 ## Déploiement
 
-Streamlit Community Cloud / serveur : pointer sur `streamlit_app.py`. Les valeurs et contours
-(`data_app/values`, `data_app/geo`) étant versionnés, la carte les sert directement depuis
-GitHub raw (`__BASE__`) ; seuls les intermédiaires volumineux et caches INSEE sont régénérables
-via `prepare_data.py` + `prep_bake.py`. Voir DOCUMENTATION.md pour les limites connues (contours
+**GitHub Pages**, automatiquement : chaque push sur `master` déclenche
+[pages.yml](.github/workflows/pages.yml), qui lance `build_site.py` et publie la page unique
+qui en sort. La carte étant entièrement côté client, le site n'est QUE ce fichier — aucun
+serveur applicatif, plus de Streamlit.
+
+Les données restent hors du site publié : `data_app/` pèse ~1,4 Go, au-delà de la limite d'1 Go
+d'un site Pages. Versionnées dans le dépôt, elles sont servies par GitHub raw (`__BASE__`),
+comme du temps de Streamlit. Une mise à jour des données est donc visible sans republier la
+page (cache CDN de raw : ~5 min). Seuls les intermédiaires volumineux et caches INSEE ne sont
+pas versionnés, régénérables via `prepare_data.py` + `prep_bake.py`. Voir DOCUMENTATION.md pour les limites connues (contours
 de bureaux de vote nationaux mais **approchés** — Voronoï data.gouv, rattachement commune↔circo approché, etc.).

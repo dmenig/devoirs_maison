@@ -1,18 +1,11 @@
 
-// Permalien : l'URL de la PAGE (pas de l'iframe) reflète la vue courante — centre `ll`,
-// zoom `z`, zone en focus `e` (niveau:code, sommet de pile), sous-mode `sm` (quartiers
-// IRIS) et fiche ouverte `f` (BV/IRIS cliqué) — pour qu'un militant sauvegarde l'URL et
-// retombe exactement sur sa vue. Écriture via replaceState (pas de rechargement, pas
-// d'entrée d'historique à chaque zoom). La carte vit dans l'iframe srcdoc du composant
-// Streamlit, et Streamlit Community Cloud enveloppe LUI-MÊME l'app dans un iframe interne
-// (/~/+/, même origine que la barre d'adresse) : window.parent n'est donc PAS la page
-// visible. On grimpe la chaîne d'ancêtres jusqu'à la plus haute fenêtre même-origine
-// (window.top en déployé comme en local) ; un ancêtre cross-origin arrête la montée et
-// on dégrade en silence sur la dernière fenêtre accessible.
+// Permalien : l'URL reflète la vue courante — centre `ll`, zoom `z`, zone en focus `e`
+// (niveau:code, sommet de pile), sous-mode `sm` (quartiers IRIS) et fiche ouverte `f`
+// (BV/IRIS cliqué) — pour qu'un militant sauvegarde l'URL et retombe exactement sur sa
+// vue. Écriture via replaceState (pas de rechargement, pas d'entrée d'historique à chaque
+// zoom). La page est servie telle quelle par GitHub Pages : son URL est celle de la barre
+// d'adresse, sans l'imbrication d'iframes qu'imposait le composant Streamlit.
 const URL_KEYS=["ll","z","e","sm","f"];
-function permWin(){ let w=window;
-  try{ while(w!==w.parent){ void w.parent.location.href; w=w.parent; } }catch(e){}
-  return w; }
 function urlState(){ const c=map.getCenter(), top=stack[stack.length-1];
   const p={ll:c.lat.toFixed(4)+","+c.lng.toFixed(4), z:map.getZoom().toFixed(2)};
   if(top){ p.e=top.niveau+":"+top.code;
@@ -22,10 +15,10 @@ function urlState(){ const c=map.getCenter(), top=stack[stack.length-1];
   return p; }
 let urlTimer=null;
 function writeURL(){ clearTimeout(urlTimer); urlTimer=setTimeout(()=>{ try{
-  const w=permWin(), u=new URL(w.location.href), p=urlState();
+  const u=new URL(location.href), p=urlState();
   URL_KEYS.forEach(k=>u.searchParams.delete(k));
   URL_KEYS.forEach(k=>{ if(p[k]!=null)u.searchParams.set(k,p[k]); });
-  w.history.replaceState(null,"",u); }catch(e){} },300); }
+  history.replaceState(null,"",u); }catch(e){} },300); }
 map.on("moveend",writeURL);
 
 // La restauration attend la fin des vols programmatiques (flyTo pose busy/animating)
@@ -50,7 +43,7 @@ async function restoreFiche(f){ const [niv,code]=f.split(":"), top=stack[stack.l
 // couche) puis on rétablit le cadrage exact. enterZoom est réaligné sur le zoom restauré
 // pour que la remontée relative au dézoom (ZBACK) reparte du bon repère ; zoomSettle est
 // purgé pour que ce setView programmatique n'arme pas la descente/remontée auto.
-async function restoreFromURL(){ let q; try{ q=new URL(permWin().location.href).searchParams; }catch(e){ return false; }
+async function restoreFromURL(){ let q; try{ q=new URL(location.href).searchParams; }catch(e){ return false; }
   const e=q.get("e"), z=parseFloat(q.get("z")), ll=(q.get("ll")||"").split(",").map(Number);
   const hasView=!isNaN(z)&&ll.length===2&&ll.every(v=>!isNaN(v));
   if(!e&&!hasView)return false;

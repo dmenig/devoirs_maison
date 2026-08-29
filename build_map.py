@@ -1,8 +1,7 @@
 """Assemblage de la carte : `map.html` (squelette) + `assets/map.css` + `assets/js/*.js`.
 
-La carte est servie en UNE seule string inlinée dans le composant Streamlit (pas de
-serveur d'assets), mais la source est éclatée en fichiers par responsabilité pour
-permettre l'édition en parallèle. Les modules JS sont concaténés dans l'ordre des noms
+La carte est servie en UNE seule page autoportante (pas de serveur d'assets), mais la
+source est éclatée en fichiers par responsabilité pour permettre l'édition en parallèle. Les modules JS sont concaténés dans l'ordre des noms
 (01_, 02_, …) : le résultat est identique au fichier monolithe d'origine.
 """
 
@@ -23,8 +22,7 @@ SEED_MARK = "/*__SEED__*/{}"
 
 
 # @cache : l'assemblage relit tous les modules et simplifie les contours de la vue France
-# (~0,4 s). C'est un coût de DÉMARRAGE, pas de session : Streamlit rappelle le script à
-# chaque interaction, et le refaire à chaque fois se paierait sur chaque visiteur.
+# (~0,4 s). Payé une fois à la PUBLICATION (build_site.py), jamais par un visiteur.
 @cache
 def assemble_map(base: str | None = None) -> str:
     css = (ASSETS / "map.css").read_text(encoding="utf-8")

@@ -9,3 +9,4 @@ data_app/geo/_circo_src/
 data_app/_insee_cache/
 # Cache des millésimes DVF (prix immobiliers par commune) — re-téléchargeables
 data_app/_immo_cache/
+_site/

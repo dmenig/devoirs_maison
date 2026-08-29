@@ -1,0 +1,45 @@
+name: Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      # Checkout partiel : `data_app/` pèse ~1,4 Go dont la page n'a besoin que de
+      # l'amorce (vue France). build_site.py échoue si ces deux fichiers manquent.
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*.py
+            /map.html
+            /assets/
+            /data_app/geo/regions.geojson
+            /data_app/values/region.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python build_site.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploiement
+        uses: actions/deploy-pages@v4
