@@ -24,11 +24,16 @@ const STAT=new Set(["lfi","part","rn","gauche"]);
 // rev/pauv : FILOSOFI, dispo seulement à la maille IRIS (absents aux échelons agrégés
 // région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
 const SOCIO=new Set(["rev","pauv"]);
-// Prix du logement / effort d'accession : publiés à la COMMUNE seulement (base DVF, cf.
-// prep_immo.py). Les quartiers d'une commune en héritent — même valeur pour tous —, d'où
-// des pastilles réservées à la carte des communes (vue département) : à l'IRIS, la
-// choroplèthe serait uniforme. Comme le socio, ces clés ne sont JAMAIS estimées.
-const IMMO=new Set(["pxm2","effort"]);
+// Effort d'accession : publié à la COMMUNE seulement (base DVF, cf. prep_immo.py). Les
+// quartiers d'une commune en héritent — même valeur pour tous —, d'où une pastille réservée
+// à la carte des communes (vue département) : à l'IRIS, la choroplèthe serait uniforme.
+// Comme le socio, ces clés ne sont JAMAIS estimées.
+// Le PRIX AU M² n'est plus une pastille : un prix brut ne décrit pas un territoire militant,
+// il décrit un marché — et il colorait la carte du même dégradé que les scores électoraux,
+// comme s'il se lisait de la même façon. Il reste dans la fiche, section « Prix du logement »,
+// à côté de l'effort d'accession qui, lui, le traduit en capacité réelle à se loger et garde
+// donc sa carte.
+const IMMO=new Set(["effort"]);
 // L'IRIS n'est PAS une maille électorale : le ministère n'y publie rien. Les résultats
 // affichés par quartier sont ESTIMÉS (cf. prep_iris_bv.py) en répartissant les voix de
 // chaque bureau de vote entre les quartiers que son contour recoupe, au prorata de la
@@ -61,7 +66,7 @@ const PAST=[["conquerir",CONQ_PAST[0],CONQ_PAST[1]],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
             ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
             ["abst","Abstention (nb de voix)"," voix"],["rev","Revenu","€"],["pauv","Pauvreté","%"],
-            ["pxm2","Prix au m²","€"],["effort","Effort logement","%"]];
+            ["effort","Effort logement","%"]];
 // Hypothèses du prix / de l'effort d'accession — MIROIR de prep_immo.py (à garder
 // synchronisé avec ce fichier). Elles ne sont pas décoratives : un taux d'effort ne veut
 // rien dire si l'on ne dit pas pour quel logement, quel crédit et quel ménage il est calculé.
@@ -148,7 +153,6 @@ const HEAD_INFO={
     `résultats électoraux, qui n'y sont qu'<b>estimés</b> depuis les bureaux de vote.`,"Revenu médian"],
   pauv:["2021","de la population",()=>
     `Part de la population vivant sous <b>60 % du revenu médian national</b>. Source : INSEE FILOSOFI 2021.`],
-  pxm2:[IMMO_HYP.annees,"le m² vendu dans la commune",IMMO_METHODO,"Prix du logement"],
   effort:[IMMO_HYP.annees,`du revenu du ménage pour ${IMMO_HYP.surface} m²`,IMMO_METHODO,"Effort d'accession"],
 };
 // intitulé du chiffre de tête : scrutins écrits en toutes lettres (la pastille, elle, est

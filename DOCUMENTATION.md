@@ -57,8 +57,8 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **France** | blocs + participation, tous scrutins ; tableau de recomposition | différentiels nationaux présidentielle→européenne→municipale, taux de perte | — |
 | **Région** | idem, agrégé région | différentiels et reports entre scrutins | — |
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
-| **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **prix moyen au m²** et **effort d'accession** (DVF) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
-| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) ; **prix au m²** et **effort d'accession** hérités de la commune (dits comme tels) |
+| **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **prix moyen au m²** (fiche seulement) et **effort d'accession** (DVF) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
+| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) ; **prix au m²** et **effort d'accession** hérités de la commune (dits comme tels, en fiche seulement) |
 | **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
@@ -247,10 +247,17 @@ fait de se loger. Deux indicateurs, à l'échelle de la **commune** :
   INSEE). Au-delà de **35 %**, la règle du HCSF conduit les banques à refuser le prêt.
 
 Les deux valeurs sont comparées à la **France** et à la **région** (moyennes pondérées par
-la population communale, même convention que le revenu et la pauvreté). Les pastilles de
-carte correspondantes ne s'affichent que sur une **carte de communes** (vue département) :
-à l'IRIS, tous les quartiers d'une commune porteraient la même couleur. La fiche d'un
-quartier, elle, affiche le prix en précisant qu'il vaut « à l'échelle de la commune ».
+la population communale, même convention que le revenu et la pauvreté), et vivent toutes
+deux dans la **fiche**, section « Prix du logement · commune ». La fiche d'un quartier les
+affiche aussi, en précisant qu'elles valent « à l'échelle de la commune ».
+
+Une seule des deux **colore la carte** : l'**effort d'accession**, et seulement sur une
+carte de communes (vue département) — à l'IRIS, tous les quartiers d'une commune
+porteraient la même couleur. Le **prix au m² n'est pas une pastille** : brut, il décrit un
+marché immobilier, pas un territoire militant, et l'étaler sur le même dégradé que les
+scores électoraux invitait à le lire comme eux. C'est l'effort d'accession qui le traduit
+en capacité réelle à se loger — la grandeur qui, elle, dit quelque chose des gens qui
+habitent là.
 
 ### Profil administratif de la commune (recensement INSEE 2021)
 
