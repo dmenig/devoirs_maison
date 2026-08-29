@@ -26,7 +26,10 @@ TOL_DEG = 200 / 111_000
 # 4 décimales ≈ 11 m, soit encore ~1/20 de pixel au zoom 6. Au-delà on n'encode que du bruit.
 DECIMALES = 4
 # fichiers de la vue France, tels que le client les demanderait (clés du cache mémoire)
-AMORCE = ("geo/regions.geojson", "values/region.json")
+# `values/_mobilisation.json` (~1 Ko) : les hypothèses du modèle 2027 que le volet « i »
+# des versions 2 et 3 affiche. Minuscule, et nécessaire dès le premier clic — on l'inline
+# plutôt que de payer un aller-retour au moment où l'utilisateur ouvre l'explication.
+AMORCE = ("geo/regions.geojson", "values/region.json", "values/_mobilisation.json")
 
 
 @dataclass(frozen=True)

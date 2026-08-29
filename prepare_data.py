@@ -17,6 +17,7 @@ import prep_bake
 import prep_geo
 import prep_immo
 import prep_iris_bv
+import prep_mobilisation
 from prep_elections import construire_resultats
 from prep_socio import construire_references, construire_socio
 
@@ -182,6 +183,23 @@ def main() -> None:
         prep_iris_bv.construire(OUT)
     else:
         print("   contours IRIS ou BV absents — étape ignorée")
+
+    print("→ Voix à conquérir 2027 (modèle elections_predictions + porte-à-porte)")
+    # Étape OPTIONNELLE : elle lit un second dépôt (elections_predictions), qu'on ne peut
+    # pas exiger d'un checkout de celui-ci. Absent, les versions 2 et 3 du site n'ont pas
+    # de score — la version 1 (objectif arithmétique) reste entière.
+    if (prep_mobilisation.SOURCE_DEFAUT / "report_app/2027/data/communes.json").exists():
+        mb, ref = prep_mobilisation.construire(prep_mobilisation.SOURCE_DEFAUT, OUT)
+        mb.to_parquet(OUT / "mobilisation_bv.parquet", index=False)
+        (OUT / "mobilisation_ref.json").write_text(
+            json.dumps(ref, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
+        print(f"   ✓ {ref['mob_france']} voix sur {ref['n_bv']} bureaux")
+    else:
+        print(
+            f"   {prep_mobilisation.SOURCE_DEFAUT} absent — étape ignorée "
+            "(cloner elections_predictions pour les versions 2 et 3)"
+        )
 
     # Le manifeste est écrit par prep_bake, qui termine aussi bien cette chaîne que
     # celle de regen_elections : écrit ici, il dérivait à chaque régénération partielle.

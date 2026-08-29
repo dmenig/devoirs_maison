@@ -129,9 +129,13 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   let headline="";
   if(iv!=null&&hi){
     const sgn=(indicKey==="dyn_dpart"&&iv>0)?"+":"";
-    headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}</div>`+
+    // Le « i » du chiffre de tête n'apparaît QUE là où la définition du score n'est pas
+    // devinable — les versions 2 et 3, dont le score sort d'un modèle. Survol = définition
+    // courte ; clic = volet méthodo, avec les valeurs de CETTE zone (cf. 034_mobilisation.js).
+    const info=(indicKey==="conquerir"&&VERSION>1)?" "+hint(CONQ_TIP):"";
+    headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}${info}</div>`+
            `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,
-      hi[2]()+(est?EST_METHODO:""));
+      hi[2](o)+(est?EST_METHODO:""));
   } else if(lfi!=null){
     headline=exp(`<div class="lead">Vote LFI · Europ. 2024${est?" · estimé":""}</div>`+
            `<div class="head">${lfi} %<small> des inscrits</small></div>`,

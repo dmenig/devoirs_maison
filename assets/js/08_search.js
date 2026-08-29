@@ -85,9 +85,12 @@ async function init(){ buildSelecteur(); buildPastilles();
   // promesses au lieu d'en relancer.
   getJSON("geo/regions.geojson"); getJSON("values/region.json");
   Promise.all([getJSON("values/_scrutins.json"),getJSON("values/_admin_fr.json"),
-               getJSON("values/_socio_fr.json"),getJSON("values/_socio_reg.json")])
-    .then(([scr,adm,sfr,sreg])=>{ window.__scr=scr; window.__adminFr=adm;
-      window.__socioFr=sfr; window.__socioReg=sreg; });
+               getJSON("values/_socio_fr.json"),getJSON("values/_socio_reg.json"),
+               // hypothèses et repères nationaux du modèle 2027 : inlinés dans l'amorce
+               // (prep_seed), donc déjà là — les versions 2 et 3 les affichent dans le « i ».
+               getJSON("values/_mobilisation.json")])
+    .then(([scr,adm,sfr,sreg,mob])=>{ window.__scr=scr; window.__adminFr=adm;
+      window.__socioFr=sfr; window.__socioReg=sreg; window.__mobRef=mob; });
   // Un permalien de ZONE (?e=) est la seule exception : gotoZone reconstruit le fil
   // d'Ariane avec regNom/depNom, qui lisent la hiérarchie chargée par initSearch. Là, on
   // l'attend d'abord — sinon le fil afficherait des codes au lieu des noms.

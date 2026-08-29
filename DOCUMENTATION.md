@@ -71,6 +71,75 @@ réelles (région, département, commune, bureau de vote) :
 - **Différentiel de participation** (`participation_B − participation_A`, en points d'inscrits)
 - **Stock d'abstentionnistes mobilisables** (`inscrits × taux d'abstention`)
 
+### Voix à conquérir : trois définitions, trois versions du site
+
+Le site est publié en **trois versions**, à trois adresses, qui ne diffèrent que par la
+façon de calculer les **« voix à conquérir »** — la pastille de carte affichée par défaut.
+Tout le reste est identique : mêmes données, mêmes fiches, mêmes échelles. Le sélecteur en
+haut de carte passe de l'une à l'autre sans quitter le territoire affiché.
+
+| Version | Ce que le chiffre veut dire | Unité |
+| --- | --- | --- |
+| **1 · Objectif** (`/`) | Ce qu'il **faudrait** obtenir : 20 % des exprimés estimés (seuil de qualification au 1<sup>er</sup> tour), moins le socle de voix LFI déjà acquises (plancher sur Présid. 2022, Europ. 2024, Légis. 2024). `0` = objectif atteint. | voix |
+| **2 · Modèle 2027** (`/v2/`) | Ce qu'il y a **réellement** à aller chercher : les abstentionnistes qu'une campagne peut ramener aux urnes **et** qui votent à gauche. | voix |
+| **3 · Rentabilité** (`/v3/`) | Ce que **rapporte une heure** de porte-à-porte : le gisement de la version 2, divisé par le temps qu'il coûte à démarcher. | voix / heure |
+
+La version 1 est un **objectif**, pas une mesure : une commune où la gauche plafonne depuis
+vingt ans y affiche le même « déficit » qu'une commune pleine d'abstentionnistes de gauche.
+Les versions 2 et 3 sont des **estimations**, et le disent : elles portent un bouton « i »
+(légende de la carte pour la méthode générale, chiffre de tête de la fiche pour le calcul
+détaillé, avec les valeurs de la zone ouverte).
+
+**Version 2 — le gisement.** Pour chaque bureau de vote :
+
+```
+voix à conquérir = abstentionnistes conjoncturels × γ(niveau de gauche prédit)
+```
+
+- **Abstentionnistes conjoncturels** = `inscrits × (abstention prédite 2027 − plancher
+  d'abstention du bureau)`. Le plancher est un quantile bas de l'abstention du bureau aux
+  législatives passées : on ne remobilise pas l'abstentionniste **chronique**, seulement la
+  frange qui revient voter quand la participation monte.
+- **γ** = part de gauche du **votant marginal**, lue sur la courbe participation → parts des
+  législatives : la couleur politique des électeur·ices qui *rentrent*, et non le score de la
+  gauche sur place. Prendre le score local serait circulaire et surestimerait le gisement
+  jusqu'à 17 points dans les bastions. γ vaut 40,1 % en moyenne nationale, de 23,7 % dans les
+  bureaux les plus à droite à 56,4 % dans les plus à gauche.
+- Total national : **2,23 millions de voix**, sur 5,58 millions d'abstentionnistes
+  conjoncturels et 49,3 millions d'inscrit·es.
+
+**Version 3 — la rentabilité.** La ressource rare d'une campagne n'est pas la voix théorique,
+c'est l'**heure de militant·e** :
+
+```
+rentabilité = voix à conquérir ÷ heures de porte-à-porte
+heures      = portes × (15 min de conversation + trajet jusqu'à la porte suivante)
+```
+
+- **Portes** = `inscrits ÷ 1,6` (nombre d'électeur·ices inscrit·es par logement). La constante
+  fixe l'unité, pas le classement.
+- **Trajet** : on ne choisit pas le mode, on retient le **moins coûteux** entre la marche
+  (4 km/h) et la voiture (25 km/h + 2 min par porte pour se garer et redémarrer). La bascule
+  tombe d'elle-même à **159 m** entre deux portes — on marche en ville, on roule à la campagne,
+  sans qu'aucun seuil ait été posé à la main. 10,5 % des portes de France sont en voiture.
+- **Écart entre deux portes** : déduit de l'aire du bureau et du nombre de logements, par la
+  longueur d'une tournée optimale sur une surface donnée (`0,7124 × √(aire × portes)`).
+- Moyenne nationale : **0,28 voix par heure** — une voix toutes les 3 h 30 de porte-à-porte.
+
+Aux échelles d'ensemble, la rentabilité est **voix totales ÷ heures totales**, jamais une
+moyenne de rapports : le rendement d'un département est celui de tout son terrain pris
+ensemble. Les voix, elles, se somment comme le reste de l'atlas (France = Σ départements =
+Σ communes = Σ bureaux).
+
+**Provenance.** Le niveau de gauche et l'abstention prédits viennent du modèle par bureau de
+vote du dépôt **elections_predictions** (prévision des législatives 2027, ~70 000 bureaux,
+démographie INSEE + historique de vote, validé sur les législatives 2024 tenues à l'écart de
+l'entraînement : R² de 0,82 sur la gauche, 0,56 sur l'abstention). Le niveau **national** est
+celui de son scénario de référence (gauche 30,4 %, abstention 48,0 %) : une hypothèse de
+conjoncture, pas une prédiction du résultat. Le modèle publie 2027 à la **commune** ; la
+répartition entre les bureaux d'une même commune reprend celle qu'il produit sur 2024, si
+bien que la moyenne pondérée des bureaux d'une commune redonne la valeur 2027 publiée.
+
 ### Résultats électoraux estimés à l'IRIS (quartier)
 
 Le quartier est la maille de lecture du terrain : c'est la seule à porter le revenu, la
@@ -217,12 +286,35 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   **Répertoire national des élus** (data.gouv) pour le maire en exercice.
 - **Électoral par quartier (IRIS)** : **estimé** — croisement des résultats par bureau de
   vote et des contours IRIS, recalé sur les résultats communaux (voir plus haut).
+- **Voix à conquérir 2027** (versions 2 et 3) : dépôt **elections_predictions** — modèle de
+  déviation par bureau de vote (législatives 2027), courbe γ participation → parts, plancher
+  d'abstention par bureau. On lit ses **sorties publiées** (site statique `report_app/`), on ne
+  ré-estime rien. Le porte-à-porte (aire du bureau, portes, kilomètres, budget-temps) est
+  calculé ici, dans `prep_mobilisation.py`.
 - **Découpage administratif** : INSEE **COG 2025** (communes, départements, régions).
 - **Fonds de carte** : régions/départements/communes (france-geojson), contours de bureaux
   de vote (Voronoï data.gouv), contours IRIS 2025 (IGN, quand disponibles).
 
 ## Limites connues
 
+- Les **« voix à conquérir » des versions 2 et 3** sont une **prévision**, avec trois sources
+  d'imprécision distinctes, à ne pas confondre. **(a)** Le modèle lui-même : R² de 0,82 sur la
+  gauche et 0,56 sur l'abstention en validation hors échantillon — le classement des bureaux est
+  bien plus fiable que la valeur absolue de chacun. **(b)** Le niveau **national** est posé par
+  hypothèse (scénario de référence : gauche 30,4 %, abstention 48,0 %) ; une conjoncture 2027
+  différente déplacerait tous les chiffres ensemble, sans réordonner la carte. **(c)** La
+  répartition **entre les bureaux d'une même commune** est reprise du millésime 2024 du modèle,
+  le millésime 2027 n'étant publié qu'à la commune : le total communal est exactement celui du
+  modèle, la dispersion interne est une reprise.
+- Le **budget-temps du porte-à-porte** (version 3) repose sur trois conventions assumées, toutes
+  affichées dans le « i » : **15 minutes** par porte (ordre de grandeur d'un vrai échange, pas une
+  mesure), **1,6 inscrit·e par logement** (le nombre de logements n'est pas compté, il est déduit),
+  et l'aire du bureau prise pour surface à parcourir. Les contours Voronoï couvrant **tout** le
+  territoire — champs compris — la distance entre deux portes est **majorée à la campagne**, où
+  l'habitat est groupé au village. Ces approximations déplacent l'échelle du chiffre bien plus
+  qu'elles ne réordonnent les zones. Un bureau dont on ne connaît pas l'aire (outre-mer sans
+  contours, Français·es de l'étranger) n'a **pas** de rentabilité : la zone reste grise, plutôt
+  qu'un rendement infini.
 - Les **contours de bureaux de vote** sont servis **nationalement en choroplèthe** depuis le jeu
   data.gouv « Proposition de contours des bureaux de vote » (découpage **Voronoï** autour des adresses
   des électeurs, méthode Etalab). Ce sont donc des contours **approchés** (pas les périmètres

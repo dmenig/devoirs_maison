@@ -33,6 +33,7 @@ jobs:
             /assets/
             /data_app/geo/regions.geojson
             /data_app/values/region.json
+            /data_app/values/_mobilisation.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

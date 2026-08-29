@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 import indicators as ind
@@ -510,6 +511,120 @@ def _conquerir(o: dict) -> int | None:
     return max(0, round(exprimes * QUALIF_1T - min(socle)))
 
 
+# Voix à conquérir 2027 — mesure modélisée (cf. prep_mobilisation.py), servie EN PLUS du
+# déficit arithmétique `conq` ci-dessus : les deux cohabitent dans les mêmes fichiers de
+# valeurs, et c'est la VERSION du site qui choisit laquelle elle affiche. Clés servies :
+#   mob  voix à conquérir (abstentionnistes conjoncturels × γ) — tous les bureaux de la zone
+#   mobc abstentionnistes conjoncturels · mobg γ moyen (%) · moba abstention prédite (%)
+#   mobf plancher d'abstention (%) · mobl niveau de gauche prédit (%)
+#   mobn voix à conquérir des seuls bureaux CHIFFRABLES en porte-à-porte (ceux dont on
+#        connaît l'aire) · mobp portes · mobh heures · mobk km · mobv part de portes en
+#        voiture (%). Le rendement de la version 3 est `mobn / mobh` — calculé côté client,
+#        pour qu'un agrégat soit bien « voix totales ÷ heures totales » et non une moyenne
+#        de rapports.
+# Extensif (sommé) vs intensif (moyenné) : la distinction est ce qui rend l'agrégation
+# correcte à toutes les échelles. `w` permet d'éclater un bureau sur plusieurs quartiers
+# (poids IRIS × bureau) sans dupliquer ses voix.
+MOB_EXT = {"mob": "mob", "conj": "mobc", "portes": "mobp", "heures": "mobh", "km": "mobk"}
+MOB_INT = {"pAB": "moba", "plancher": "mobf", "pG": "mobl"}
+MOB_DEC = {"mobg": 1, "moba": 1, "mobf": 1, "mobl": 1, "mobk": 1, "mobv": 1}
+
+
+def _mobilisation(da: Path) -> pd.DataFrame | None:
+    f = da / "mobilisation_bv.parquet"
+    if not f.exists():
+        print("  ⚠ mobilisation_bv absent — pas de « voix à conquérir » 2027 "
+              "(lancer prep_mobilisation.py)")
+        return None
+    return pd.read_parquet(f)
+
+
+def _mob_par_code(
+    mb: pd.DataFrame, codes: pd.Series, poids: pd.Series | None = None
+) -> dict[str, dict[str, float]]:
+    """Agrège les grandeurs de mobilisation par code de zone.
+
+    `codes` (et `poids`) sont alignés sur les LIGNES de `mb` — une ligne par bureau, ou une
+    ligne par couple (bureau, quartier) quand on éclate les bureaux sur les IRIS."""
+    w = pd.Series(1.0, index=mb.index) if poids is None else poids
+    d = pd.DataFrame({"code": codes.to_numpy(), "w": w.to_numpy()})
+    for col in (*MOB_EXT, *MOB_INT):
+        d[col] = mb[col].to_numpy()
+    # Poids des moyennes intensives = inscrits (le corps électoral, pas le nb de bureaux) ;
+    # sauf γ, moyenné sur les CONJONCTURELS — c'est sur eux qu'il s'applique.
+    d["_wi"] = mb["insc"].to_numpy() * d["w"]
+    d["_wc"] = mb["conj"].to_numpy() * d["w"]
+    d["_gc"] = mb["gamma"].to_numpy() * d["_wc"]
+    for col in MOB_EXT:
+        d[col] = d[col] * d["w"]
+    for col in MOB_INT:
+        d[col] = d[col] * d["_wi"]
+    # `mobn` : voix des seuls bureaux dont on sait chiffrer le porte-à-porte, pour que le
+    # rendement `mobn / mobh` compare bien un numérateur et un dénominateur du même terrain.
+    d["_n"] = np.where(np.isnan(mb["heures"].to_numpy()), 0.0, d["mob"])
+    d["_pv"] = np.where(mb["voiture"].fillna(False).to_numpy(), d["portes"], 0.0)
+    g = d.groupby("code").sum(numeric_only=True)
+
+    out: dict[str, dict[str, float]] = {}
+    for code, r in g.iterrows():
+        o: dict[str, float] = {}
+        for col, cle in MOB_EXT.items():
+            if not math.isnan(r[col]):
+                o[cle] = r[col]
+        if r["_wi"] > 0:
+            for col, cle in MOB_INT.items():
+                o[cle] = r[col] / r["_wi"]
+        if r["_wc"] > 0:
+            o["mobg"] = r["_gc"] / r["_wc"]
+        if r["heures"] > 0:
+            o["mobn"] = r["_n"]
+            if r["portes"] > 0:
+                o["mobv"] = 100 * r["_pv"] / r["portes"]
+        out[str(code)] = {
+            k: (round(v, MOB_DEC[k]) if k in MOB_DEC else round(v)) for k, v in o.items()
+        }
+    return out
+
+
+def mobilisation_par_niveau(
+    da: Path, region_de, departements: set[str]
+) -> dict[str, dict[str, dict]]:
+    """Voix à conquérir 2027 à toutes les échelles servies, `{niveau: {code: champs}}`.
+
+    Tout descend du même tableau par bureau : commune, département et région en sont des
+    SOMMES (France = Σ départements = Σ communes = Σ bureaux, l'invariant du site), et les
+    quartiers un éclatement du bureau par les poids IRIS × bureau de prep_iris_bv."""
+    mb = _mobilisation(da)
+    if mb is None:
+        return {}
+    com = mb["code_commune"]
+    dep = com.map(_dep)
+    out = {
+        "bv": _mob_par_code(mb, mb["bureau"]),
+        "commune": _mob_par_code(mb, com),
+    }
+    for niveau, codes in (
+        ("departement", dep.where(dep.isin(departements))),
+        ("region", com.map(region_de)),
+    ):
+        garde = codes.notna()
+        out[niveau] = _mob_par_code(mb[garde], codes[garde])
+    poids = da / "iris_bv_poids.parquet"
+    if poids.exists():
+        j = pd.read_parquet(poids).merge(mb, on="bureau", how="inner")
+        out["iris"] = _mob_par_code(j, j["code_iris"].astype(str), j["w"])
+    print(
+        f"  ✓ voix à conquérir 2027 : {round(mb['mob'].sum()):,} voix sur "
+        f"{len(mb)} bureaux, {len(out.get('iris', {}))} quartiers".replace(",", " ")
+    )
+    return out
+
+
+def _fusionner(cible: dict[str, dict], ajout: dict[str, dict]) -> None:
+    for code, v in ajout.items():
+        cible.setdefault(code, {}).update(v)
+
+
 def _rattachement_region(da: Path):
     """Renvoie `code commune → code région`, ou None si la commune ne relève d'aucune
     région (Français·es de l'étranger, collectivités du Pacifique et des Îles du Nord).
@@ -562,6 +677,7 @@ def ecrire_manifest(da: Path) -> None:
                 "admin_commune": (da / "admin_commune.parquet").exists(),
                 "immo_commune": (da / "immo_commune.parquet").exists(),
                 "iris_electoral_estime": (da / "resultats_iris.parquet").exists(),
+                "mobilisation_2027": (da / "mobilisation_bv.parquet").exists(),
             },
             ensure_ascii=False,
             indent=2,
@@ -631,6 +747,19 @@ def main() -> None:
         niveaux_agr["region"].setdefault(reg, {})["conq"] = v
     for dep, v in conq_dep.items():
         niveaux_agr["departement"].setdefault(dep, {})["conq"] = v
+    # Voix à conquérir 2027 (mesure modélisée) : servie À CÔTÉ du déficit arithmétique dans
+    # les mêmes fichiers, à toutes les échelles. Les trois versions du site lisent le même
+    # data_app — seule change la clé qu'elles colorent.
+    mob = mobilisation_par_niveau(DA, region_de, departements)
+    ref_mob = DA / "mobilisation_ref.json"
+    if ref_mob.exists():
+        # Hypothèses + repères nationaux du modèle : servis à part (et inlinés dans
+        # l'amorce) parce que le volet « i » des versions 2 et 3 les affiche tels quels,
+        # plutôt que de les recopier en dur dans le JavaScript de la carte.
+        _ecrire("_mobilisation", json.loads(ref_mob.read_text(encoding="utf-8")))
+    _fusionner(com, mob.get("commune", {}))
+    _fusionner(niveaux_agr["region"], mob.get("region", {}))
+    _fusionner(niveaux_agr["departement"], mob.get("departement", {}))
     for niveau, vals in niveaux_agr.items():
         _ecrire(niveau, vals)
         print(f"  ✓ values {niveau}")
@@ -668,6 +797,7 @@ def main() -> None:
         for cle, val in immo.get(str(r.code_commune), {}).items():
             cur.setdefault(cle, val)
     _baker_iris_elec(iris_vals, DA, ordre, fiables)
+    _fusionner(iris_vals, mob.get("iris", {}))
     iris_vals = _filtrer_sur_contours(iris_vals, DA / "geo" / "iris", "code_iris")
     for obsolete in (OUT / "iris").glob("*.json"):
         obsolete.unlink()  # un département qui perd ses contours ne doit pas survivre
@@ -687,9 +817,9 @@ def main() -> None:
         sous = sous[sous["code"].isin(contour)]
         if sous.empty:
             continue
-        (dossier / f"{dep}.json").write_text(
-            _dumps(_valeurs_niveau(sous, ordre, fiables))
-        )
+        vals_bv = _valeurs_niveau(sous, ordre, fiables)
+        _fusionner(vals_bv, {c: v for c, v in mob.get("bv", {}).items() if c in contour})
+        (dossier / f"{dep}.json").write_text(_dumps(vals_bv))
         ecrits += 1
     print(f"  ✓ values bv (par département, {ecrits})")
 

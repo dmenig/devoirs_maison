@@ -30,9 +30,16 @@ function syncSocioChips(){ const on=socioActive(), immo=immoActive();
   if((!on&&SOCIO.has(indicKey))||(!immo&&IMMO.has(indicKey)))setIndic("lfi"); else syncLegend();
   if(window.__syncLayout)window.__syncLayout(); }
 // Les valeurs électorales d'un quartier sont estimées : la légende de la carte le dit,
-// comme l'infobulle et la fiche.
-function syncLegend(){ $("legtitle").textContent=indicLabel+
-  (socioActive()&&!SOCIO.has(indicKey)?" · estimé":""); }
+// comme l'infobulle et la fiche. En versions 2 et 3, le titre porte en plus un « i » qui
+// ouvre la notice de méthode (15_version.js) : le score y sort d'un modèle, et il doit
+// s'expliquer AVANT qu'on ait cliqué une zone — c'est la coloration de la carte qu'on lit
+// en premier. `textContent` ailleurs : rien à échapper, et rien de plus à montrer.
+function syncLegend(){ const t=indicLabel+(socioActive()&&!SOCIO.has(indicKey)?" · estimé":"");
+  const lg=$("legtitle");
+  if(VERSION>1&&indicKey==="conquerir")
+    lg.innerHTML=`${t} <span class="legi" role="button" tabindex="0" `+
+      `title="Comment ce chiffre est calculé">i</span>`;
+  else lg.textContent=t; }
 function setIndic(k){ const p=PAST.find(x=>x[0]===k); if(!p)return;
   indicKey=p[0]; indicLabel=labelFor(k); indicUnit=p[2]||""; syncLegend();
   $("pastilles").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x.dataset.k===k));

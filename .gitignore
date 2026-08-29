@@ -10,3 +10,8 @@ data_app/_insee_cache/
 # Cache des millésimes DVF (prix immobiliers par commune) — re-téléchargeables
 data_app/_immo_cache/
 _site/
+# Dépôts sources clonés à côté du code (données amont, versionnées ailleurs) :
+# hexagonal fournit l'environnement Python et les données brutes, elections_predictions
+# les sorties du modèle 2027 que prep_mobilisation.py lit.
+/hexagonal/
+/elections_predictions/

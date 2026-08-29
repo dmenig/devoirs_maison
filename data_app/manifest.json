@@ -39,5 +39,6 @@
   "iris_contours": true,
   "admin_commune": true,
   "immo_commune": true,
-  "iris_electoral_estime": true
+  "iris_electoral_estime": true,
+  "mobilisation_2027": true
 }

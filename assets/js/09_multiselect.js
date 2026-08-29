@@ -50,12 +50,21 @@ function aggregateSelection(){
   const os=[...selCodes].map(c=>curVals[c]).filter(Boolean); if(!os.length)return null;
   const inscOf=o=>o.insc!=null?o.insc
     :(o.abst!=null&&o.part_E24!=null&&o.part_E24<100)?Math.round(o.abst/(1-o.part_E24/100)):null;
-  const isCount=k=>/^(lfiv_|gv_)/.test(k)||k==="abst"||k==="noninsc"||k==="malinsc";
-  const isPct=k=>/^(part|lfi|gauche|rn|em|lr)_/.test(k);
+  // Voix à conquérir 2027 : extensif (voix, conjoncturels, portes, heures, km) → somme ;
+  // intensif (abstention prédite, plancher, gauche prédite) → moyenne pondérée par les
+  // inscrits ; γ → moyenne pondérée par les CONJONCTURELS, sur lesquels il s'applique ;
+  // part de portes en voiture → moyenne pondérée par les portes. Le rendement de la
+  // version 3, lui, n'est jamais moyenné : il se recalcule en `mobn / mobh` sur l'agrégat.
+  const MOB_CNT=new Set(["mob","mobc","mobn","mobp","mobh","mobk"]);
+  const MOB_POND={mobg:"mobc",mobv:"mobp"};
+  const isCount=k=>/^(lfiv_|gv_)/.test(k)||k==="abst"||k==="noninsc"||k==="malinsc"||MOB_CNT.has(k);
+  const isPct=k=>/^(part|lfi|gauche|rn|em|lr)_/.test(k)||k==="moba"||k==="mobf"||k==="mobl";
   const agg={}, wsum={}, wnum={}; let inscTot=0;
   os.forEach(o=>{ const insc=inscOf(o); if(insc)inscTot+=insc;
     for(const k in o){ if(k.endsWith("_M26")||typeof o[k]!=="number")continue;
+      const pk=MOB_POND[k], p=pk?o[pk]:null;
       if(isCount(k))agg[k]=(agg[k]||0)+o[k];
+      else if(pk){ if(p){ wsum[k]=(wsum[k]||0)+o[k]*p; wnum[k]=(wnum[k]||0)+p; } }
       else if(isPct(k)&&insc){ wsum[k]=(wsum[k]||0)+o[k]*insc; wnum[k]=(wnum[k]||0)+insc; } } });
   for(const k in wsum)if(wnum[k])agg[k]=Math.round(wsum[k]/wnum[k]*10)/10;
   if(inscTot)agg.insc=inscTot; agg.reg=os[0].reg;

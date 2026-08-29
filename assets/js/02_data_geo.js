@@ -45,7 +45,11 @@ function pairMetrics(o){ if(!o)return {};
     dlfiv:  (lvA!=null&&lvB!=null)?lvB-lvA:null,
     pertev: (gvA!=null&&gvB!=null)?gvA-gvB:null };
 }
-// Voix à conquérir (retour Elia, point 5) : nombre de voix manquantes, par zone, pour
+// ============================================================================
+// « Voix à conquérir » — TROIS définitions, une par version du site (cf. VERSION,
+// 01_config.js). C'est le seul calcul qui change d'une version à l'autre.
+//
+// V1 · OBJECTIF (retour Elia, point 5) : nombre de voix manquantes, par zone, pour
 // atteindre l'objectif de qualification au 1er tour de la présidentielle 2027 (exprimés
 // estimés × seuil de qualification) AU-DELÀ du socle de voix garanties LFI (plancher des
 // voix LFI sur les scrutins nationaux où LFI se présente en propre : présidentielle 2022,
@@ -54,15 +58,30 @@ function pairMetrics(o){ if(!o)return {};
 // Aux échelles agrégées (région/dép), la valeur bakée `conq` prime : c'est la SOMME des
 // déficits communaux (chaque commune plafonnée à ≥ 0), pas un calcul sur les totaux
 // régionaux — sinon les communes largement au-dessus de l'objectif masquent les autres.
+// C'est un objectif, PAS une mesure : il ne dit rien de ce qui est réellement gagnable.
 const CONQ_SCRUTINS=["P22","E24","L24"];
-function voixConquerir(o){ if(!o)return null; const b=carnetBase(o); if(!b)return null;
+function objectifConquerir(o){ if(!o)return null; const b=carnetBase(o); if(!b)return null;
   const lv=CONQ_SCRUTINS.map(k=>o[`lfiv_${k}`]).filter(v=>v!=null);
   if(!lv.length)return null;
   return Math.max(0,Math.round(b.exprimes*CARNET_HYP.qualif1T-Math.min(...lv))); }
 
+// V3 · RENTABILITÉ : voix à conquérir ÷ heures de porte-à-porte. Le rapport est calculé
+// ICI, sur des sommes (voix totales ÷ heures totales), et non baké niveau par niveau :
+// c'est ce qui rend l'agrégat juste — le rendement d'un département est celui de tout son
+// terrain pris ensemble, jamais la moyenne des rendements de ses bureaux.
+// `mobn` (et non `mob`) au numérateur : les voix des seuls bureaux dont on sait chiffrer
+// le porte-à-porte, celles-là mêmes qui alimentent `mobh`.
+function rendementPorte(o){ if(!o||!o.mobh||o.mobn==null)return null;
+  return Math.round(1000*o.mobn/o.mobh)/1000; }
+
+function voixConquerir(o){ if(!o)return null;
+  if(VERSION===2)return o.mob!=null?o.mob:null;
+  if(VERSION===3)return rendementPorte(o);
+  return o.conq!=null?o.conq:objectifConquerir(o); }  // agrégats V1 : somme bakée
+
 // Les autres valeurs sont bakées par prep_bake.py et lues telles quelles.
 function rawVal(o,k){ if(!o)return null;
-  if(k==="conquerir") return o.conq!=null?o.conq:voixConquerir(o);  // agrégats : somme bakée
+  if(k==="conquerir") return voixConquerir(o);
   if(k==="dyn_report")return pairMetrics(o).report;
   if(k==="dyn_dpart") return pairMetrics(o).dpart;
   if(k==="dyn_perte") return pairMetrics(o).perte;
