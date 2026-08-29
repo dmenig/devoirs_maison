@@ -6,14 +6,14 @@ const BASE="__BASE__";
 // l'autre. Le sélecteur en haut de carte (15_version.js) est un lien, pas un interrupteur.
 //   1 · Objectif      — déficit arithmétique : 20 % des exprimés estimés − socle LFI
 //   2 · Modèle 2027   — voix réellement gagnables (abstentionnistes conjoncturels × γ)
-//   3 · Rentabilité   — voix gagnées par HEURE de porte-à-porte
+//   3 · Rentabilité   — voix gagnables par HEURE de porte-à-porte
 // Ces trois définitions vivent dans 02_data_geo.js (calcul) et 034_mobilisation.js (méthode).
 const VERSION=__VERSION__;
 // [numéro, chemin sous la racine du site, libellé, description] — MIROIR de build_map.VERSIONS.
 const VERSIONS=[
   [1,"","Objectif","Objectif arithmétique : 20 % des exprimés, moins le socle LFI déjà acquis."],
   [2,"v2/","Modèle 2027","Voix réellement gagnables : abstentionnistes de gauche mobilisables (modèle par bureau)."],
-  [3,"v3/","Rentabilité","Voix gagnées par heure de porte-à-porte : le rendement de l'effort militant."]];
+  [3,"v3/","Rentabilité","Voix gagnables par heure de porte-à-porte : le rendement de l'effort militant."]];
 const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];

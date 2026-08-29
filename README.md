@@ -28,7 +28,7 @@ ouvrir deux versions dans deux onglets et comparer les cartes.
 | --- | --- | --- |
 | 1 · **Objectif** | [`/`](https://lfi-pee.github.io/devoirs_maison/) | Objectif arithmétique : 20 % des exprimés estimés, moins le socle LFI déjà acquis. Ne repose sur aucune mesure de ce qui est gagnable. |
 | 2 · **Modèle 2027** | [`/v2/`](https://lfi-pee.github.io/devoirs_maison/v2/) | **Abstentionnistes conjoncturels × γ** : les électeur·ices qu'une campagne peut ramener aux urnes ET qui votent à gauche, d'après le modèle par bureau de vote de [`elections_predictions`](https://github.com/lfi-pee/elections_predictions) (législatives 2027). |
-| 3 · **Rentabilité** | [`/v3/`](https://lfi-pee.github.io/devoirs_maison/v3/) | **Voix par heure de porte-à-porte** : le score de la version 2 divisé par le temps qu'il faut pour aller le chercher (15 min de conversation par porte + trajet, à pied ou en voiture selon la densité du bureau). |
+| 3 · **Rentabilité** | [`/v3/`](https://lfi-pee.github.io/devoirs_maison/v3/) | **Voix gagnables par heure de porte-à-porte** : le score de la version 2 divisé par le temps qu'il faut pour aller le chercher (15 min de conversation par porte + trajet, à pied ou en voiture selon la densité du bureau). |
 
 Les versions 2 et 3 portent un **bouton « i »** — dans la légende de la carte pour la
 méthode générale, sur le chiffre de tête de la fiche pour le calcul détaillé avec les

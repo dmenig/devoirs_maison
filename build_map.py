@@ -12,7 +12,7 @@ au moment de la publication (`__VERSION__`), pas basculé à chaud par un bouton
 | --- | --- | --- |
 | 1 | `index.html` | objectif arithmétique : exprimés × 20 % − socle LFI (historique) |
 | 2 | `v2/index.html` | mesure modélisée : abstentionnistes conjoncturels × γ (2027) |
-| 3 | `v3/index.html` | rentabilité de l'effort : voix gagnées par heure de porte-à-porte |
+| 3 | `v3/index.html` | rentabilité de l'effort : voix gagnables par heure de porte-à-porte |
 
 Chaque version est donc un SITE à part entière, avec sa propre URL — le sélecteur en haut
 de carte n'est qu'un lien d'une page à l'autre, qui reporte l'état de la vue. Tout le reste
@@ -40,7 +40,7 @@ SEED_MARK = "/*__SEED__*/{}"
 VERSIONS = {
     1: ("", "Objectif", "Objectif arithmétique : 20 % des exprimés, moins le socle LFI"),
     2: ("v2/", "Modèle 2027", "Voix réellement gagnables : abstentionnistes de gauche mobilisables"),
-    3: ("v3/", "Rentabilité", "Voix gagnées par heure de porte-à-porte"),
+    3: ("v3/", "Rentabilité", "Voix gagnables par heure de porte-à-porte"),
 }
 
 

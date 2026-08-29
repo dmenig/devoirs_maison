@@ -23,7 +23,7 @@ const _pct=v=>v==null?"—":_n1(v)+" %";
 const CONQ_TIP=VERSION===2
   ? "Abstentionnistes de gauche mobilisables : les électeur·ices qui reviennent voter quand "+
     "la participation monte, et qui penchent à gauche. Cliquez pour le détail du calcul."
-  : "Voix gagnées par heure de porte-à-porte : chances de convaincre à chaque porte, "+
+  : "Voix gagnables par heure de porte-à-porte : chances de convaincre à chaque porte, "+
     "rapportées au temps qu'une porte coûte. Cliquez pour le détail du calcul.";
 
 // Rappel de provenance, commun aux deux versions : d'où sort le modèle et ce qu'il vaut.
@@ -117,7 +117,7 @@ function rendMethodo(o){ o=o||{};
     `portes se déduit de l'aire du territoire et du nombre de logements (longueur d'une tournée `+
     `optimale sur une surface donnée).</p>`+
     `<p><b>Comment le lire.</b> ${rend!=null?`<b>${_n2(rend)} voix par heure</b> ici, soit une voix `+
-      `gagnée toutes les <b>${_n1(heuresParVoix)} heures</b> de porte-à-porte`:"Valeur indisponible ici"} — `+
+      `gagnable toutes les <b>${_n1(heuresParVoix)} heures</b> de porte-à-porte`:"Valeur indisponible ici"} — `+
     `contre <b>${_n2(r.rendement_france)} voix/h</b> en moyenne en France. Deux fois la moyenne = deux `+
     `fois moins d'heures militantes pour la même voix. C'est un <b>rendement</b>, pas un volume : une `+
     `petite commune très rentable ne remplace pas une grande ville à gros gisement — regardez les deux `+
