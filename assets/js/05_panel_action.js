@@ -38,10 +38,21 @@ function actionPanel(o){ if(!o)return "";
     `retrouvées aux européennes 2024 — il faut renouer le contact, pas attendre qu'elles « reviennent à la maison ».`:
     `renouer le contact avec les électeur·ices de 2022, ne pas présumer leur retour.`}`));
 
-  if(o.abst!=null)
+  if(o.abst!=null){
+    // Le stock brut d'abstentionnistes est un FAIT mesuré (européennes 2024), pas une
+    // estimation : il ne change donc pas d'une version à l'autre. Mais le présenter seul,
+    // c'est laisser croire que tout ce monde est à prendre — l'erreur même que le modèle
+    // 2027 sert à corriger. En versions 2 et 3, on adosse donc au stock la part qui en est
+    // réellement gagnable, celle que colore la carte.
+    const part=(VERSION>1&&o.mob!=null&&o.abst>0)
+      ? ` Sur ce stock, le modèle 2027 n'en estime que <b>${Math.round(o.mob).toLocaleString('fr')}</b> `+
+        `réellement mobilisables à gauche (${(100*o.mob/o.abst).toLocaleString('fr',{maximumFractionDigits:1})} %) : `+
+        `le reste est de l'abstention chronique, que la campagne ne ramène pas.`
+      : "";
     items.push(lever("3","Mobiliser les abstentionnistes","févr.→avr.",o.abst,
-      `${o.abst.toLocaleString('fr')} inscrit·es n'ont pas voté aux européennes 2024. Plutôt tractage marchés / `+
+      `${o.abst.toLocaleString('fr')} inscrit·es n'ont pas voté aux européennes 2024.${part} Plutôt tractage marchés / `+
       `lieux publics (le porte-à-porte y est moins efficace, disponibilités contraintes).`));
+  }
 
   const primo=(o.a1529!=null)?`Part des 15-29 ans : <b>${o.a1529}%</b>. `:"";
   items.push(lever("4","Aller vers les primo-votant·es","en continu",null,

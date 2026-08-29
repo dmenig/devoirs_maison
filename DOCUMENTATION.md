@@ -90,6 +90,16 @@ Les versions 2 et 3 sont des **estimations**, et le disent : elles portent un bo
 (légende de la carte pour la méthode générale, chiffre de tête de la fiche pour le calcul
 détaillé, avec les valeurs de la zone ouverte).
 
+Le changement ne s'arrête pas à la couleur de la carte : **tout ce qui, dans la fiche, chiffre
+ce qu'il reste à aller chercher suit la version**. Dans le Carnet de campagne, le segment
+« Voix potentielles » de la décomposition de l'électorat devient « **Voix gagnables** » en
+versions 2 et 3 et porte exactement le nombre que colore la carte — la version 3 y ajoute le
+temps de porte-à-porte que ce gisement représente. Dans le Plan d'action, le levier
+« Mobiliser les abstentionnistes » garde son stock brut (un fait mesuré aux européennes 2024,
+identique dans les trois versions) mais lui adosse, en versions 2 et 3, la part réellement
+mobilisable à gauche — 4 030 sur 30 729 à Saint-Denis, soit 13 %. Deux chiffres nommés
+pareil et calculés autrement sur le même écran, c'était l'incohérence à éviter.
+
 **Version 2 — le gisement.** Pour chaque bureau de vote :
 
 ```
