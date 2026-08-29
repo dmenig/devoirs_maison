@@ -27,22 +27,36 @@ function carnetBase(o){
   return {insc,elig,part,exprimes:Math.round(insc*part)};
 }
 
-function carnetScenarios(o,b){ const H=CARNET_HYP;
+// Voix LFI RÉELLEMENT obtenues aux scrutins passés (point 14). Rien d'estimé, rien de
+// projeté : les trois versions l'affichent, et c'est ce à quoi on compare tout le reste.
+function carnetRepere(o,intitule){
+  const refs=[];
+  if(o.lfiv_P22!=null)refs.push(`Présidentielle 2022 : <b>${_nb(o.lfiv_P22)}</b> voix LFI`);
+  if(o.lfiv_E24!=null)refs.push(`Européennes 2024 : ${_nb(o.lfiv_E24)} voix`);
+  return refs.length?`<div class="cref">${intitule} · ${refs.join(" · ")}</div>`:"";
+}
+
+// Cartes d'objectif — VERSION 1 UNIQUEMENT. Ce sont des seuils arithmétiques (20 % des
+// exprimés estimés pour espérer la qualification, 50 % au second tour), c'est-à-dire la
+// formule même dont le score « voix à conquérir » de la version 1 est tiré :
+// `score v1 = cible du 1ᵉʳ tour − socle LFI`. Les laisser dans les versions 2 et 3 y
+// remettait sous les yeux le calcul qu'elles remplacent — « qualification : 6 553 voix »
+// juste au-dessus de « Voix gagnables : 4 030 » se lit comme « il en manque 6 553 ».
+// Hors version 1, le Carnet s'ouvre donc directement sur la décomposition de l'électorat,
+// et plus une seule ligne servie n'est calculée par l'arithmétique historique.
+function carnetScenarios(o,b){
+  if(VERSION>1)return carnetRepere(o,"Voix LFI obtenues");
+  const H=CARNET_HYP;
   const card=(t,cible)=>{ const m=Math.round(cible*H.margeRel);
     return `<div class="scn"><div class="scl">${t}</div>`+
       `<div class="scv">${_nb(cible)}<small> voix</small></div>`+
       `<div class="scr">${_nb(cible-m)} – ${_nb(cible+m)} (± ${_nb(m)})</div></div>`; };
-  // Repère = voix LFI réellement obtenues aux scrutins passés (point 14 : comparable à
-  // l'objectif en voix). La présidentielle 2022 prime — même type de scrutin que 2027.
-  const refs=[];
-  if(o.lfiv_P22!=null)refs.push(`Présidentielle 2022 : <b>${_nb(o.lfiv_P22)}</b> voix LFI`);
-  if(o.lfiv_E24!=null)refs.push(`Européennes 2024 : ${_nb(o.lfiv_E24)} voix`);
-  const ref=refs.length?`<div class="cref">Repère · ${refs.join(" · ")}</div>`:"";
   return `<div class="scns">`+
     card("1ᵉʳ tour · qualification",b.exprimes*H.qualif1T)+
     card("2ᵉ tour vs RN (Bardella)",b.exprimes*H.maj2T)+
     card("2ᵉ tour vs macroniste",b.exprimes*H.maj2T)+`</div>`+
-    ref+
+    // La présidentielle 2022 prime dans le repère : même type de scrutin que la cible.
+    carnetRepere(o,"Repère")+
     `<div class="hypnote">Objectifs indicatifs rapportés à ${_nb(b.elig)} électeur·ices potentiel·les `+
     `— ils visent l'objectif national et ne préjugent pas de la participation locale.</div>`;
 }
@@ -119,9 +133,16 @@ function carnetCompo(o,b){
 
 // Entête du Carnet : à insérer en tête de la fiche commune. Renvoie "" si pas de base
 // électorale exploitable (la fiche socio/IRIS reste alors affichée telle quelle).
+// Scrutin projeté par le Carnet. En version 1, ses objectifs sont ceux d'une PRÉSIDENTIELLE
+// (qualification au 1ᵉʳ tour, majorité au 2nd). Ces objectifs disparaissant en versions 2 et
+// 3, le seul chiffre projeté qui y reste est celui du modèle — qui porte sur les
+// LÉGISLATIVES 2027. Le titre suit, sans quoi la fiche annoncerait un scrutin et en
+// chiffrerait un autre.
+const CARNET_SCRUTIN=VERSION>1?"Législatives 2027":"Présidentielle 2027";
+
 function carnet(o){ if(!o)return "";
   const b=carnetBase(o); if(!b)return "";
-  return `<div class="carnet"><div class="clead">Carnet de campagne · Présidentielle 2027</div>`+
+  return `<div class="carnet"><div class="clead">Carnet de campagne · ${CARNET_SCRUTIN}</div>`+
     carnetScenarios(o,b)+
     `<div class="csec">Décomposition de l'électorat potentiel</div>`+
     carnetCompo(o,b)+

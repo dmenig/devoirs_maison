@@ -90,15 +90,26 @@ Les versions 2 et 3 sont des **estimations**, et le disent : elles portent un bo
 (légende de la carte pour la méthode générale, chiffre de tête de la fiche pour le calcul
 détaillé, avec les valeurs de la zone ouverte).
 
-Le changement ne s'arrête pas à la couleur de la carte : **tout ce qui, dans la fiche, chiffre
-ce qu'il reste à aller chercher suit la version**. Dans le Carnet de campagne, le segment
-« Voix potentielles » de la décomposition de l'électorat devient « **Voix gagnables** » en
-versions 2 et 3 et porte exactement le nombre que colore la carte — la version 3 y ajoute le
-temps de porte-à-porte que ce gisement représente. Dans le Plan d'action, le levier
-« Mobiliser les abstentionnistes » garde son stock brut (un fait mesuré aux européennes 2024,
-identique dans les trois versions) mais lui adosse, en versions 2 et 3, la part réellement
-mobilisable à gauche — 4 030 sur 30 729 à Saint-Denis, soit 13 %. Deux chiffres nommés
-pareil et calculés autrement sur le même écran, c'était l'incohérence à éviter.
+Le changement ne s'arrête pas à la couleur de la carte : **hors version 1, aucun chiffre servi
+n'est calculé par l'arithmétique historique**. Trois conséquences dans la fiche.
+
+- **Carnet de campagne — décomposition de l'électorat.** Le segment « Voix potentielles »
+  devient « **Voix gagnables** » et porte exactement le nombre que colore la carte (4 030 à
+  Saint-Denis, contre 20 354 pour l'heuristique de la version 1) ; la version 3 y ajoute le
+  temps de porte-à-porte que ce gisement représente. Une zone que le modèle ne couvre pas
+  perd le segment plutôt que d'afficher un `0`.
+- **Carnet de campagne — objectifs.** Les trois cartes de seuil (20 % des exprimés pour la
+  qualification, 50 % au second tour) ne sont servies **qu'en version 1** : elles sont la
+  formule dont son score est tiré (`score = cible du 1ᵉʳ tour − socle LFI`), et les afficher
+  ailleurs remettait ce calcul sous les yeux du lecteur juste au-dessus du chiffre censé le
+  remplacer. En versions 2 et 3, le Carnet s'ouvre sur les voix LFI réellement obtenues aux
+  scrutins passés, puis sur la décomposition. Son titre suit : « Carnet de campagne ·
+  **Législatives 2027** », le scrutin que le modèle projette, là où les objectifs de la
+  version 1 sont ceux d'une présidentielle.
+- **Plan d'action.** Le levier « Mobiliser les abstentionnistes » garde son stock brut (un
+  fait mesuré aux européennes 2024, identique dans les trois versions) mais lui adosse, en
+  versions 2 et 3, la part réellement mobilisable à gauche — 4 030 sur 30 729 à Saint-Denis,
+  soit 13 %, le reste étant de l'abstention chronique.
 
 **Version 2 — le gisement.** Pour chaque bureau de vote :
 
