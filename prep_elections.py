@@ -207,21 +207,39 @@ def construire_crosswalk_plm(dossier_clean: Path, geo_dir: Path) -> dict[str, st
 # vaut 100 %), et l'alignement ordonné n'y peut rien — on ne fait pas correspondre 11
 # bureaux fusionnés à 17 polygones.
 #
-# Seul l'écart d'INSCRITS sur les codes appariés le révèle, et il le fait franchement :
-#   · communes dont l'appariement est complet (donc présumé vrai) : 1,9 % d'écart médian,
-#     6,0 % au 95e centile, 15,4 % au 99e — et un nombre de bureaux inchangé (+0,0 %) ;
-#   · communes au-delà de 15 % d'écart : +20 % de bureaux en médiane pour +1,8 % d'électorat.
-# Le nombre de bureaux bouge donc beaucoup pendant que le corps électoral ne bouge pas :
-# c'est la signature d'un redécoupage, pas d'une croissance. Au-dessus d'ECART_IDENTITE_MAX
-# (le 99e centile des communes saines), on déclare l'appariement FAUX. Faute de mieux — il
-# n'existe aucune correspondance à retrouver — les bureaux de ces communes sont privés de
-# contour pour les scrutins récents : 75 communes, 914 bureaux, 800 000 inscrit·es qui
-# perdent leur détail infra-communal pour 2024 et 2026, plutôt que de le porter faux.
-# Leurs totaux communaux, eux, ne changent pas d'un iota (ils ne passent pas par le bureau).
-ECART_IDENTITE_MAX = 0.15  # 99e centile de l'écart d'inscrits des communes saines
-CODES_APPARIES_MIN = (
-    5  # sous 5 codes appariés, l'écart médian n'est pas un témoin fiable
-)
+# Seul l'écart d'INSCRITS sur les codes appariés le révèle, et il faut DEUX statistiques
+# pour le lire, parce qu'elles ne voient pas la même chose.
+#
+# 1. L'ÉCART MÉDIAN dit « la plupart des appariements sont faux ». Sur les communes dont
+#    l'ensemble des codes est identique d'un millésime à l'autre — donc présumées intactes —
+#    il vaut 1,9 % en médiane, 5,7 % au 95e centile et 10,5 % au 99e. Au-delà de
+#    ECART_IDENTITE_MAX, la commune a été refondue en bloc : +20 % de bureaux en médiane
+#    pour +1,8 % d'électorat, le nombre de bureaux bouge quand le corps électoral ne bouge
+#    pas. C'est la signature d'un redécoupage, pas d'une croissance.
+#
+# 2. La PART DES BUREAUX FRANCHEMENT FAUX dit « une partie des appariements est fausse », ce
+#    que la médiane, justement robuste, cache. Bordeaux le montre : ses 18 codes coïncidant
+#    par accident ont des écarts de 0 %, 2 %, 3 %, 3 %, 5 %, 5 %, 5 %, 8 %, 11 %, 14 %, puis
+#    18 %, 24 %, 27 %, 29 %, 30 %, 51 %, 97 %, 108 % — médiane 12,4 %, sous le seuil, alors
+#    que huit bureaux sur dix-huit sont grossièrement faux. La moitié basse n'est pas un
+#    signe de justesse : ses bureaux faisant tous entre 600 et 1 400 inscrit·es, un
+#    appariement au hasard tombe juste une fois sur deux. On regarde donc la PART des
+#    bureaux dont l'écart dépasse ECART_BUREAU_MAX. Sur les communes intactes, elle vaut
+#    0,0 % jusqu'au 90e centile et 0,9 % au 95e : au-delà de FRAC_FAUX_MAX, soit vingt-cinq
+#    fois ce 95e centile, l'appariement ne tient plus.
+#
+# Ces deux témoins servent à DÉCLENCHER l'examen, pas à condamner : l'alignement ordonné est
+# tenté d'abord, et beaucoup de ces communes sont réparables — Port-de-Bouc passe de 13 à 14
+# bureaux, ses six premiers codes concordent et seuls les suivants décalent, ce qui est la
+# signature d'un bureau intercalé, pas d'une refonte. Ce n'est que lorsque l'alignement
+# échoue ET que l'identité est démentie qu'on prive les bureaux de contour : mieux vaut
+# perdre le détail infra-communal de 2024 et 2026 que le porter faux. Les totaux communaux,
+# départementaux et régionaux, eux, ne bougent pas d'un iota (ils ne passent pas par le
+# bureau).
+ECART_IDENTITE_MAX = 0.15  # 99e centile de l'écart médian des communes intactes
+ECART_BUREAU_MAX = 0.20  # au-delà, l'écart d'UN bureau n'est plus une dérive de listes
+FRAC_FAUX_MAX = 0.25  # 25 × le 95e centile de cette part sur les communes intactes
+CODES_APPARIES_MIN = 5  # sous 5 codes appariés, ces deux témoins ne sont pas fiables
 CROSSWALK_REF_ANCIEN = ("2022-legislatives-1", "2022-presidentielle-1")
 CROSSWALK_REF_NOUVEAU = "2024-europeenne"
 # Année à partir de laquelle les fichiers portent la NOUVELLE numérotation. Le crosswalk
@@ -353,7 +371,7 @@ def construire_crosswalk_renumerotation(
 
     crosswalk: dict[str, str] = {}
     realignees: list[tuple[str, float, float, float]] = []
-    detachees: list[tuple[str, int, int, float]] = []
+    detachees: list[tuple[str, int, int, float, float]] = []
     for com, nouveaux in nouveaux_par_com.items():
         anciens = sorted(c for c in contours.get(com, ()) if c in insc_old)
         nouveaux = sorted(nouveaux)
@@ -368,35 +386,39 @@ def construire_crosswalk_renumerotation(
         # d'inscrits entre les deux millésimes. C'est le seul témoin du redécoupage, que la
         # couverture ne voit pas (elle reste à 100 % quand l'espace de codes ne change pas).
         identiques = [c for c in nouveaux if c in avec_contour and c in insc_old]
-        ecart_identite = (
-            _mediane(
-                [
-                    abs(insc_old[c] - insc_new[c]) / max(insc_old[c], 1)
-                    for c in identiques
-                ]
-            )
-            if len(identiques) >= CODES_APPARIES_MIN
-            else None
-        )
-        identite_fausse = (
-            ecart_identite is not None and ecart_identite > ECART_IDENTITE_MAX
+        ecarts = [
+            abs(insc_old[c] - insc_new[c]) / max(insc_old[c], 1) for c in identiques
+        ]
+        if len(ecarts) >= CODES_APPARIES_MIN:
+            ecart_identite = _mediane(ecarts)
+            frac_faux = sum(e > ECART_BUREAU_MAX for e in ecarts) / len(ecarts)
+        else:
+            ecart_identite = frac_faux = None
+        identite_fausse = ecart_identite is not None and (
+            ecart_identite > ECART_IDENTITE_MAX or frac_faux > FRAC_FAUX_MAX
         )
         if avant >= CROSSWALK_ELEC_MIN and not identite_fausse:
             continue  # appariement crédible : ne pas déranger un rattachement qui tient
         couples = _aligner_bureaux(anciens, nouveaux, insc_old, insc_new)
         apres = sum(insc_new[b] for _, b, _ in couples) / total if couples else 0.0
         ecart = _mediane([e for _, _, e in couples]) if couples else 1.0
-        if (
-            couples
-            and ecart <= CROSSWALK_ECART_MAX
-            and apres >= avant + CROSSWALK_GAIN_MIN
-        ):
+        # Le gain de RATTACHEMENT ne peut pas être exigé quand l'identité est fausse : une
+        # commune dont tous les codes coïncident est déjà à 100 % de couverture, et aucun
+        # alignement, même parfait, ne la fera progresser. C'est le cas de Port-de-Bouc, dont
+        # les six premiers codes concordent et dont seuls les suivants décalent d'un cran.
+        # Là, la preuve n'est pas la couverture gagnée mais la COHÉRENCE de l'alignement :
+        # un écart d'inscrits sous le seuil des communes intactes suffit, et vaut mieux qu'un
+        # détachement qui jetterait un appariement juste.
+        assez_coherent = couples and ecart <= CROSSWALK_ECART_MAX
+        if assez_coherent and (apres >= avant + CROSSWALK_GAIN_MIN or identite_fausse):
             crosswalk.update({b: a for a, b, _ in couples if a != b})
             realignees.append((com, avant, apres, ecart))
         elif identite_fausse:
             # Rien à réapparier, et l'identité est démentie : mieux vaut aucun contour
             # qu'un contour faux. Sans entrée de crosswalk, _remapper les détache tous.
-            detachees.append((com, len(anciens), len(nouveaux), ecart_identite))
+            detachees.append(
+                (com, len(anciens), len(nouveaux), ecart_identite, frac_faux)
+            )
     for com, avant, apres, ecart in sorted(realignees, key=lambda r: r[1]):
         print(
             f"  ↻ {com} : bureaux renumérotés depuis 2022 — électorat localisé "
@@ -405,13 +427,15 @@ def construire_crosswalk_renumerotation(
     if realignees:
         print(f"  ↻ crosswalk renumérotation : {len(crosswalk)} bureaux réappariés")
     if detachees:
-        pires = sorted(detachees, key=lambda r: -r[3])[:5]
-        detail = ", ".join(f"{c} ({a}→{n} BV, {e:.0%})" for c, a, n, e in pires)
+        pires = sorted(detachees, key=lambda r: -r[4])[:5]
+        detail = ", ".join(
+            f"{c} ({a}→{n} BV, {f:.0%} de bureaux faux)" for c, a, n, _, f in pires
+        )
         print(
-            f"  ✂ {len(detachees)} commune(s) redécoupée(s) depuis 2022 "
-            f"({sum(n for _, _, n, _ in detachees)} bureaux) : appariement par code démenti "
-            f"par les inscrits et non réparable — leurs bureaux récents sont privés de "
-            f"contour. Pires écarts : {detail}"
+            f"  ✂ {len(detachees)} commune(s) dont l'appariement par code est démenti par "
+            f"les inscrits et que l'alignement ne répare pas "
+            f"({sum(n for _, _, n, _, _ in detachees)} bureaux) : leurs bureaux récents "
+            f"sont privés de contour. Pires cas : {detail}"
         )
     recodees = [com for com, *_ in realignees] + [com for com, *_ in detachees]
     return crosswalk, frozenset(recodees)

@@ -368,30 +368,43 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   Bordeaux, contre 63 à 74 % pour l'appariement par code identique. Trois garde-fous :
   on n'intervient que sur les communes que l'appariement par code prive d'estimation,
   l'écart médian doit rester sous 6 % (95<sup>e</sup> centile de l'écart des communes dont
-  l'appariement est complet), et le rattachement doit progresser. **7 communes** passent
-  l'alignement ; Bordeaux y remonte de 12 % à 97 %. Les bureaux créés depuis 2022 sont
+  les communes intactes). **30 communes** passent l'alignement ; Bordeaux y remonte de 12 %
+  à 97 %. Les bureaux créés depuis 2022 sont
   privés de contour (suffixe `+`) plutôt que laissés sur le polygone d'un homonyme, et le
   crosswalk ne s'applique qu'aux scrutins de 2024 et après — ses clés sont des codes 2022
   parfaitement valides. Là où l'alignement échoue **et** où l'identité est démentie par les
-  inscrits, la commune est détachée de ses contours plutôt que réparée : c'est le cas du
-  redécoupage, décrit à la puce suivante.
-- **74 communes ont REDÉCOUPÉ leurs bureaux** entre le millésime des contours et 2024, sans
-  changer d'espace de codes — Dammarie-les-Lys passe de 17 bureaux à 11, Montceau-les-Mines
-  de 14 à 10, Sarreguemines de 18 à 14, Cogolin de 7 à 12, à électorat quasi constant. Tous
-  leurs codes se retrouvent donc des deux côtés de la jointure, mais aucun ne décrit le même
-  territoire : le bureau `0001` de 2024 couvre ce qui était deux bureaux en 2022. La
-  couverture est **aveugle** à ce cas (elle vaut 100 %) ; seul l'écart d'inscrits entre les
-  deux millésimes le révèle — 53 % en médiane à Dammarie-les-Lys, 48 % à Montceau, contre
-  **1,9 %** pour une commune dont l'appariement est vrai, dont le nombre de bureaux ne bouge
-  d'ailleurs pas (+0,0 %, contre +20 % au-delà du seuil, pour +1,8 % d'électorat : le
-  redécoupage se lit là, pas dans la croissance). L'alignement ordonné n'y peut rien — on ne
-  fait pas correspondre 11 bureaux fusionnés à 17 polygones. Faute de correspondance à
-  retrouver, les bureaux de ces communes sont donc **privés de contour** pour les scrutins de
-  2024 et 2026 : **904 bureaux, 800 000 inscrit·es** perdent leur détail infra-communal
-  (carte des bureaux et estimation par quartier) plutôt que de le porter faux. Leurs totaux
+  inscrits, la commune est détachée de ses contours plutôt que réparée : c'est le cas décrit
+  aux deux puces suivantes.
+- **Le même code de bureau ne désigne pas le même bureau selon la source.** La
+  renumérotation n'est qu'une des deux façons de le perdre ; l'autre est le **redécoupage**,
+  où la commune refond ses bureaux sans changer d'espace de codes — Dammarie-les-Lys 17 → 11,
+  Montceau-les-Mines 14 → 10, Cogolin 7 → 12, à électorat quasi constant. Tous ses codes se
+  retrouvent alors des deux côtés de la jointure et pas un ne décrit le même territoire. La
+  couverture est **aveugle** à ce cas (elle vaut 100 %) : seul l'écart d'**inscrits** entre
+  deux millésimes le révèle, et il faut **deux statistiques** pour le lire.
+  **(1) L'écart médian** dit « la plupart des appariements sont faux » : sur les 1 826
+  communes dont l'ensemble des codes est identique d'un millésime à l'autre — donc présumées
+  intactes — il vaut 1,9 % en médiane, 5,7 % au 95<sup>e</sup> centile, 10,5 % au
+  99<sup>e</sup>. **(2) La part des bureaux franchement faux** (écart > 20 %) dit « une
+  partie l'est », ce que la médiane, justement robuste, cache : les 18 codes que Bordeaux
+  faisait coïncider par accident ont des écarts de 0, 2, 3, 3, 5, 5, 5, 8, 11, 14, puis 18,
+  24, 27, 29, 30, 51, 97 et 108 % — médiane 12,4 %, **sous** le seuil, alors que huit
+  bureaux sur dix-huit sont grossièrement faux. La moitié basse n'est pas un signe de
+  justesse : ses bureaux faisant tous entre 600 et 1 400 inscrit·es, un appariement au
+  hasard tombe juste une fois sur deux. Sur les communes intactes, cette part vaut 0,0 %
+  jusqu'au 90<sup>e</sup> centile et 0,9 % au 95<sup>e</sup> ; le seuil est à 25 %.
+- **Ces témoins déclenchent l'examen, ils ne condamnent pas.** L'alignement ordonné est tenté
+  d'abord, et il répare **30 communes (401 bureaux)** — dont Bordeaux, Sarreguemines et
+  Le Creusot. Le gain de rattachement n'y est pas exigé : une commune dont tous les codes
+  coïncident est déjà à 100 % de couverture et aucun alignement, même parfait, ne la ferait
+  progresser ; la preuve est alors la **cohérence** de l'alignement (écart sous le seuil des
+  communes intactes). Là où aucun alignement ne tient — **101 communes, 1 469 bureaux** —
+  les bureaux récents sont **privés de contour** : Port-de-Bouc passe de 13 à 14 bureaux mais
+  son décalage n'est pas une simple insertion, et l'on ne fait pas correspondre 11 bureaux
+  fusionnés à 17 polygones. Ces communes perdent le détail infra-communal de 2024 et 2026
+  (carte des bureaux, estimation par quartier) plutôt que de le porter faux ; leurs totaux
   communaux, départementaux et régionaux ne changent pas d'un iota — ils ne passent pas par
-  le bureau. Le seuil (`ECART_IDENTITE_MAX`, 15 %) est le 99<sup>e</sup> centile de l'écart
-  des communes dont l'appariement est complet.
+  le bureau.
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
 - Un **scrutin entier pouvait disparaître à cause d'une commune**. `construire_resultats`
