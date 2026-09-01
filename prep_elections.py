@@ -12,6 +12,7 @@ Indicateurs produits par (échelle × scrutin), comme demandé par la présentat
 from __future__ import annotations
 
 import collections
+import json
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -51,10 +52,21 @@ def charger_listes_lfi(fichier: Path) -> set[tuple[str, int]]:
     (`étiquette_tdl == "LFI"`) : les listes d'union que LFI soutient sans les conduire
     (têtes DVG, PCF, PS, écolos…) relèvent de la gauche, pas du « vote LFI ».
     code_circonscription matche `code_commune` (communes) ou `code_secteur` (PLM,
-    métropole de Lyon) ; le numéro de panneau identifie la liste au sein du scrutin."""
-    df = pd.read_parquet(
-        fichier, columns=["code_circonscription", "numéro_panneau", "étiquette_tdl"]
+    métropole de Lyon) ; le numéro de panneau identifie la liste au sein du scrutin.
+
+    Les deux graphies des colonnes sont acceptées : hexagonal a livré cette table avec des
+    en-têtes accentués (`numéro_panneau`, `étiquette_tdl`) puis sans. Exiger une seule des
+    deux faisait échouer la lecture sur le millésime opposé, et l'échec ne se voyait qu'à
+    l'exécution — un scrutin entier ventilé sans la requalification des listes LFI."""
+    df = pd.read_parquet(fichier)
+    df = df.rename(
+        columns={"numero_panneau": "numéro_panneau", "etiquette_tdl": "étiquette_tdl"}
     )
+    manque = {"code_circonscription", "numéro_panneau", "étiquette_tdl"} - set(
+        df.columns
+    )
+    if manque:
+        raise ValueError(f"{fichier} : colonnes manquantes {sorted(manque)}")
     df = df.dropna(subset=["numéro_panneau"])
     df = df[df["étiquette_tdl"] == "LFI"]
     return {
@@ -173,14 +185,43 @@ def construire_crosswalk_plm(dossier_clean: Path, geo_dir: Path) -> dict[str, st
 # fausseté.
 #
 # Trois garde-fous, dans l'esprit du crosswalk PLM (« sinon on s'abstient ») :
-#   - on n'intervient QUE sur les communes que l'appariement par code laisse sous le seuil
-#     d'estimation : ailleurs, un alignement même bon dégraderait un rattachement déjà juste ;
+#   - on n'intervient QUE sur les communes dont l'appariement par code est douteux (couverture
+#     sous le seuil d'estimation, ou identité démentie par les inscrits) : ailleurs, un
+#     alignement même bon dégraderait un rattachement déjà juste ;
 #   - l'écart médian d'inscrits doit rester sous ECART_MAX, calibré sur les communes SAINES
 #     (appariement complet par code) : leur écart médian vaut 1,9 % en médiane et 6,0 % au
 #     95e centile — au-delà, l'alignement n'est plus aussi cohérent qu'un vrai appariement ;
 #   - le rattachement doit progresser franchement, sinon on garde l'existant.
-# Sur les 93 communes qui déclenchent l'alignement, 7 le passent — dont Bordeaux, qui
-# repasse de 12 % à 97 % d'électorat localisé.
+# 7 communes passent l'alignement — dont Bordeaux, qui repasse de 12 % à 97 % d'électorat
+# localisé.
+#
+# ---------------------------------------------------------------------------------
+# Communes REDÉCOUPÉES : celles dont l'appariement n'est pas réparable
+# ---------------------------------------------------------------------------------
+# La renumérotation n'est qu'une des deux façons de perdre l'appariement. L'autre est le
+# REDÉCOUPAGE : une commune refond ses bureaux sans changer d'espace de codes — Dammarie-
+# les-Lys passe de 17 bureaux à 11, Montceau-les-Mines de 14 à 10, Sarreguemines de 18 à 14,
+# Cogolin de 7 à 12 — à électorat quasi constant. TOUS ses codes se retrouvent alors des
+# deux côtés de la jointure, et pas un seul ne désigne le même territoire : le bureau 0001
+# de 2024 couvre ce qui était deux bureaux en 2022. La couverture est aveugle à ce cas (elle
+# vaut 100 %), et l'alignement ordonné n'y peut rien — on ne fait pas correspondre 11
+# bureaux fusionnés à 17 polygones.
+#
+# Seul l'écart d'INSCRITS sur les codes appariés le révèle, et il le fait franchement :
+#   · communes dont l'appariement est complet (donc présumé vrai) : 1,9 % d'écart médian,
+#     6,0 % au 95e centile, 15,4 % au 99e — et un nombre de bureaux inchangé (+0,0 %) ;
+#   · communes au-delà de 15 % d'écart : +20 % de bureaux en médiane pour +1,8 % d'électorat.
+# Le nombre de bureaux bouge donc beaucoup pendant que le corps électoral ne bouge pas :
+# c'est la signature d'un redécoupage, pas d'une croissance. Au-dessus d'ECART_IDENTITE_MAX
+# (le 99e centile des communes saines), on déclare l'appariement FAUX. Faute de mieux — il
+# n'existe aucune correspondance à retrouver — les bureaux de ces communes sont privés de
+# contour pour les scrutins récents : 75 communes, 914 bureaux, 800 000 inscrit·es qui
+# perdent leur détail infra-communal pour 2024 et 2026, plutôt que de le porter faux.
+# Leurs totaux communaux, eux, ne changent pas d'un iota (ils ne passent pas par le bureau).
+ECART_IDENTITE_MAX = 0.15  # 99e centile de l'écart d'inscrits des communes saines
+CODES_APPARIES_MIN = (
+    5  # sous 5 codes appariés, l'écart médian n'est pas un témoin fiable
+)
 CROSSWALK_REF_ANCIEN = ("2022-legislatives-1", "2022-presidentielle-1")
 CROSSWALK_REF_NOUVEAU = "2024-europeenne"
 # Année à partir de laquelle les fichiers portent la NOUVELLE numérotation. Le crosswalk
@@ -277,12 +318,16 @@ def construire_crosswalk_renumerotation(
     """Crosswalk {code_bv 2024+ → code_bv des contours} pour les communes ayant
     renuméroté leurs bureaux depuis le REU de 2022 (cf. le commentaire ci-dessus).
 
-    Renvoie aussi l'ensemble des communes réalignées : dans celles-là, l'alignement fait
-    autorité pour TOUS les bureaux, y compris ceux qu'il n'a pas placés (cf. _remapper).
+    Renvoie aussi l'ensemble des communes RECODÉES — celles où un code de bureau ne
+    désigne plus le contour qu'il nomme. Deux cas y tombent, traités par la même règle
+    dans `_remapper` : la commune renumérotée, dont l'alignement place la plupart des
+    bureaux (les autres perdent leur contour), et la commune redécoupée, où rien n'est
+    plaçable et où tous le perdent.
 
-    Ne retient que les communes où l'alignement est à la fois NÉCESSAIRE (l'appariement
-    par code les prive d'estimation), COHÉRENT (écart d'inscrits sous le seuil des
-    communes saines) et UTILE (le rattachement progresse). Ailleurs : rien."""
+    L'alignement n'est retenu que là où il est NÉCESSAIRE (appariement douteux), COHÉRENT
+    (écart d'inscrits sous le seuil des communes saines) et UTILE (le rattachement
+    progresse). Là où il échoue mais où l'identité est démentie par les inscrits, la
+    commune est recodée sans crosswalk : ses bureaux récents n'ont plus de contour."""
     contours: dict[str, set[str]] = collections.defaultdict(set)
     for f in sorted(geo_dir.glob("*.geojson")):
         for code in gpd.read_file(f, ignore_geometry=True)["bureau"].astype(str):
@@ -307,7 +352,8 @@ def construire_crosswalk_renumerotation(
         nouveaux_par_com[code.partition("_")[0]].append(code)
 
     crosswalk: dict[str, str] = {}
-    retenues: list[tuple[str, float, float, float]] = []
+    realignees: list[tuple[str, float, float, float]] = []
+    detachees: list[tuple[str, int, int, float]] = []
     for com, nouveaux in nouveaux_par_com.items():
         anciens = sorted(c for c in contours.get(com, ()) if c in insc_old)
         nouveaux = sorted(nouveaux)
@@ -318,25 +364,57 @@ def construire_crosswalk_renumerotation(
             continue
         avec_contour = set(contours.get(com, ()))
         avant = sum(insc_new[c] for c in nouveaux if c in avec_contour) / total
-        if avant >= CROSSWALK_ELEC_MIN:
-            continue  # la commune est déjà estimée : ne pas déranger un appariement qui tient
+        # Ce que VAUT l'appariement par code, mesuré sur les codes qu'il apparie : l'écart
+        # d'inscrits entre les deux millésimes. C'est le seul témoin du redécoupage, que la
+        # couverture ne voit pas (elle reste à 100 % quand l'espace de codes ne change pas).
+        identiques = [c for c in nouveaux if c in avec_contour and c in insc_old]
+        ecart_identite = (
+            _mediane(
+                [
+                    abs(insc_old[c] - insc_new[c]) / max(insc_old[c], 1)
+                    for c in identiques
+                ]
+            )
+            if len(identiques) >= CODES_APPARIES_MIN
+            else None
+        )
+        identite_fausse = (
+            ecart_identite is not None and ecart_identite > ECART_IDENTITE_MAX
+        )
+        if avant >= CROSSWALK_ELEC_MIN and not identite_fausse:
+            continue  # appariement crédible : ne pas déranger un rattachement qui tient
         couples = _aligner_bureaux(anciens, nouveaux, insc_old, insc_new)
-        if not couples:
-            continue
-        apres = sum(insc_new[b] for _, b, _ in couples) / total
-        ecart = _mediane([e for _, _, e in couples])
-        if ecart > CROSSWALK_ECART_MAX or apres < avant + CROSSWALK_GAIN_MIN:
-            continue
-        crosswalk.update({b: a for a, b, _ in couples if a != b})
-        retenues.append((com, avant, apres, ecart))
-    for com, avant, apres, ecart in sorted(retenues, key=lambda r: r[1]):
+        apres = sum(insc_new[b] for _, b, _ in couples) / total if couples else 0.0
+        ecart = _mediane([e for _, _, e in couples]) if couples else 1.0
+        if (
+            couples
+            and ecart <= CROSSWALK_ECART_MAX
+            and apres >= avant + CROSSWALK_GAIN_MIN
+        ):
+            crosswalk.update({b: a for a, b, _ in couples if a != b})
+            realignees.append((com, avant, apres, ecart))
+        elif identite_fausse:
+            # Rien à réapparier, et l'identité est démentie : mieux vaut aucun contour
+            # qu'un contour faux. Sans entrée de crosswalk, _remapper les détache tous.
+            detachees.append((com, len(anciens), len(nouveaux), ecart_identite))
+    for com, avant, apres, ecart in sorted(realignees, key=lambda r: r[1]):
         print(
             f"  ↻ {com} : bureaux renumérotés depuis 2022 — électorat localisé "
             f"{avant:.0%} → {apres:.0%} (écart d'inscrits médian {ecart:.1%})"
         )
-    if retenues:
+    if realignees:
         print(f"  ↻ crosswalk renumérotation : {len(crosswalk)} bureaux réappariés")
-    return crosswalk, frozenset(com for com, *_ in retenues)
+    if detachees:
+        pires = sorted(detachees, key=lambda r: -r[3])[:5]
+        detail = ", ".join(f"{c} ({a}→{n} BV, {e:.0%})" for c, a, n, e in pires)
+        print(
+            f"  ✂ {len(detachees)} commune(s) redécoupée(s) depuis 2022 "
+            f"({sum(n for _, _, n, _ in detachees)} bureaux) : appariement par code démenti "
+            f"par les inscrits et non réparable — leurs bureaux récents sont privés de "
+            f"contour. Pires écarts : {detail}"
+        )
+    recodees = [com for com, *_ in realignees] + [com for com, *_ in detachees]
+    return crosswalk, frozenset(recodees)
 
 
 @dataclass(frozen=True)
@@ -424,29 +502,33 @@ def _reparer_voix_negatives(
 
 
 def _remapper(
-    codes: pd.Series, crosswalk: dict[str, str], renumerotees: frozenset[str]
+    codes: pd.Series, crosswalk: dict[str, str], recodees: frozenset[str]
 ) -> pd.Series:
-    """Applique le crosswalk, puis prive de contour les bureaux qu'il ne place pas dans
-    une commune réalignée.
+    """Applique le crosswalk, puis prive de contour tout bureau qu'il ne place pas dans une
+    commune RECODÉE.
 
-    Ces bureaux-là sont des créations postérieures au millésime des contours, et le code
-    qu'ils portent aujourd'hui peut être celui d'un ANCIEN bureau : le laisser tel quel
-    les dessinerait sur le polygone d'un voisin — le faux appariement qu'on est
-    précisément en train de défaire. La règle vaut pour tous les scrutins récents, et pas
-    seulement pour celui qui a servi de référence : les municipales 2026 ont créé à leur
-    tour des bureaux que le crosswalk, bâti sur 2024, ne connaît pas.
+    Une seule règle couvre les deux façons de perdre l'appariement. Dans une commune
+    RENUMÉROTÉE, l'alignement place la plupart des bureaux ; ceux qui restent sont des
+    créations postérieures aux contours, et le code qu'elles portent peut être celui d'un
+    ANCIEN bureau. Dans une commune REDÉCOUPÉE, il n'y a rien à placer : aucun code ne
+    désigne plus le même territoire, et tous sont détachés. Dans les deux cas, laisser le
+    code tel quel dessinerait les voix sur le polygone d'un voisin.
+
+    La règle vaut pour tous les scrutins récents, et pas seulement pour celui qui a servi
+    de référence : les municipales 2026 ont créé à leur tour des bureaux que le crosswalk,
+    bâti sur 2024, ne connaît pas.
 
     Le suffixe `+` ne fait que retirer le contour : prep_bake écarte de la carte tout code
     qui n'en a pas, et les voix continuent de compter dans les agrégats commune,
     département et région, qui ne passent pas par le bureau."""
-    if not crosswalk and not renumerotees:
+    if not crosswalk and not recodees:
         return codes
 
     def un(c: str) -> str:
         vise = crosswalk.get(c)
         if vise is not None:
             return vise
-        return f"{c}+" if c.partition("_")[0] in renumerotees else c
+        return f"{c}+" if c.partition("_")[0] in recodees else c
 
     return codes.map(un)
 
@@ -456,7 +538,7 @@ def _bureau_depuis_df(
     scrutin: Scrutin,
     crosswalk: dict[str, str],
     listes_lfi: set[tuple[str, int]],
-    communes_renumerotees: frozenset[str] = frozenset(),
+    communes_recodees: frozenset[str] = frozenset(),
 ) -> pd.DataFrame:
     """Renvoie une ligne par bureau de vote, avec voix ventilées par famille."""
     df = df.copy()
@@ -471,7 +553,7 @@ def _bureau_depuis_df(
     df["bureau_de_vote"] = df.get("bureau_de_vote", "")
     base_bv = df["code_secteur"] if "code_secteur" in df.columns else df["code_commune"]
     df["code_bv"] = base_bv.astype(str) + "_" + _canon_suffix(df["bureau_de_vote"])
-    df["code_bv"] = _remapper(df["code_bv"], crosswalk, communes_renumerotees)
+    df["code_bv"] = _remapper(df["code_bv"], crosswalk, communes_recodees)
     df, voix_perdues = _reparer_voix_negatives(df, scrutin)
 
     nuance = df["nuance"] if "nuance" in df.columns else pd.Series([None] * len(df))
@@ -582,8 +664,17 @@ def _neutraliser_non_ventile(out: pd.DataFrame) -> pd.DataFrame:
     # ligne n'en porte aucune : ces voix disparaissaient de la barre SANS entrer dans la
     # part non ventilée, qui restait à 0. La recomposition s'arrêtait à 62 % à La Foa et
     # dans 21 autres communes (54 bureaux, jusqu'à −40 points). Comptées, elles bouclent.
-    ventiles = out[FAMILLES].sum(axis=1).where(connu, 0)
-    out["exprimes_nuances"] = ventiles.clip(lower=0, upper=out["exprimes"])
+    ventiles = out[FAMILLES].sum(axis=1).where(connu, 0).clip(lower=0)
+    # Le plafond doit être appliqué là où il EXISTE, et nulle part ailleurs.
+    # `clip(upper=serie_nullable)` remplace en interne le NA par +inf, que pandas refuse
+    # ensuite d'écrire dans un entier nullable : l'exception remontait jusqu'au garde-fou
+    # « un scrutin atypique ne doit pas tout bloquer » de construire_resultats, et
+    # 20 lignes sans exprimés à Montbéliard emportaient les 69 743 bureaux du
+    # 1er tour des législatives 2024 — un des quatre scrutins servis par la carte,
+    # disparu de la France entière à cause d'une commune.
+    plafond = out["exprimes"]
+    trop = plafond.notna() & (ventiles > plafond)
+    out["exprimes_nuances"] = ventiles.where(~trop, plafond)
     return out
 
 
@@ -591,7 +682,7 @@ def _par_bureau(
     scrutin: Scrutin,
     crosswalk: dict[str, str],
     listes_lfi: set[tuple[str, int]],
-    communes_renumerotees: frozenset[str] = frozenset(),
+    communes_recodees: frozenset[str] = frozenset(),
 ) -> list[tuple[Scrutin, pd.DataFrame]]:
     """Lit le fichier d'un scrutin et renvoie un (scrutin, table BV) par tour. Les fichiers
     legacy regroupant plusieurs tours (présidentielle 2012, municipales 2014) sont séparés
@@ -605,7 +696,7 @@ def _par_bureau(
                 (
                     sc,
                     _bureau_depuis_df(
-                        sub, sc, crosswalk, listes_lfi, communes_renumerotees
+                        sub, sc, crosswalk, listes_lfi, communes_recodees
                     ),
                 )
             )
@@ -613,9 +704,7 @@ def _par_bureau(
     return [
         (
             scrutin,
-            _bureau_depuis_df(
-                df, scrutin, crosswalk, listes_lfi, communes_renumerotees
-            ),
+            _bureau_depuis_df(df, scrutin, crosswalk, listes_lfi, communes_recodees),
         )
     ]
 
@@ -756,24 +845,44 @@ def departements_de(
     return codes.map(com2dep).fillna(depuis_code.where(depuis_code.isin(dep2reg)))
 
 
+# Communes dont un code de bureau a changé de SENS entre le millésime des contours et les
+# scrutins récents — renumérotées ou redécoupées (cf. construire_crosswalk_renumerotation
+# et _remapper). La liste est écrite dans
+# data_app parce qu'elle ne concerne pas que ce module : dans ces communes, un code de
+# bureau ne désigne pas le même bureau selon la source qui le porte, et toute donnée
+# ATTACHÉE AUX CODES venue d'ailleurs y est suspecte. prep_mobilisation s'en sert pour
+# écarter la texture intra-communale d'elections_predictions, qui porte le même faux
+# appariement un cran plus haut : ses 18 entrées bordelaises publient les inscrits des
+# bureaux de 2024 sous des codes de contours de 2022.
+FICHIER_RECODEES = "communes_recodees.json"
+
+
 def construire_resultats(
     dossier_clean: Path,
     communes: pd.DataFrame,
     geo_dir: Path | None = None,
     listes_lfi_fichier: Path | None = None,
+    sortie: Path | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Construit un dict {niveau: DataFrame} agrégeant tous les scrutins."""
+    """Construit un dict {niveau: DataFrame} agrégeant tous les scrutins.
+
+    `sortie` (facultatif) : dossier data_app où déposer la liste des communes
+    réalignées, à l'usage des étapes suivantes du pipeline."""
     crosswalk = construire_crosswalk_plm(dossier_clean, geo_dir) if geo_dir else {}
     # Le crosswalk de renumérotation ne vaut QUE pour les scrutins qui portent la nouvelle
     # numérotation : appliqué aux scrutins antérieurs, ses clés (des codes 2022 valides)
     # renverraient les voix d'un bureau sur le contour d'un autre. D'où deux tables, et le
     # choix par année au moment de lire le fichier.
-    renum, renumerotees = (
+    renum, recodees = (
         construire_crosswalk_renumerotation(dossier_clean, geo_dir)
         if geo_dir
         else ({}, frozenset())
     )
     crosswalk_recent = {**crosswalk, **renum}
+    if sortie is not None:
+        (sortie / FICHIER_RECODEES).write_text(
+            json.dumps(sorted(recodees), indent=1), encoding="utf-8"
+        )
     listes_lfi = charger_listes_lfi(listes_lfi_fichier) if listes_lfi_fichier else set()
     com2dep, dep2reg = rattachement_communal(communes)
     accum: dict[str, list[pd.DataFrame]] = {
@@ -786,7 +895,7 @@ def construire_resultats(
                 scrutin,
                 crosswalk_recent if recent else crosswalk,
                 listes_lfi,
-                renumerotees if recent else frozenset(),
+                recodees if recent else frozenset(),
             )
         except Exception as e:  # un scrutin atypique ne doit pas tout bloquer
             print(f"  ⚠ {scrutin.cle} ignoré : {e}")

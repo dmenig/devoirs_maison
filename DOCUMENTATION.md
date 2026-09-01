@@ -368,13 +368,41 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   Bordeaux, contre 63 à 74 % pour l'appariement par code identique. Trois garde-fous :
   on n'intervient que sur les communes que l'appariement par code prive d'estimation,
   l'écart médian doit rester sous 6 % (95<sup>e</sup> centile de l'écart des communes dont
-  l'appariement est complet), et le rattachement doit progresser. **7 communes** sur les 93
-  qui déclenchent l'alignement le passent ; Bordeaux y remonte de 12 % à 97 %. Les bureaux
-  créés depuis 2022 sont privés de contour (suffixe `+`) plutôt que laissés sur le polygone
-  d'un homonyme, et le crosswalk ne s'applique qu'aux scrutins de 2024 et après — ses clés
-  sont des codes 2022 parfaitement valides.
+  l'appariement est complet), et le rattachement doit progresser. **7 communes** passent
+  l'alignement ; Bordeaux y remonte de 12 % à 97 %. Les bureaux créés depuis 2022 sont
+  privés de contour (suffixe `+`) plutôt que laissés sur le polygone d'un homonyme, et le
+  crosswalk ne s'applique qu'aux scrutins de 2024 et après — ses clés sont des codes 2022
+  parfaitement valides. Là où l'alignement échoue **et** où l'identité est démentie par les
+  inscrits, la commune est détachée de ses contours plutôt que réparée : c'est le cas du
+  redécoupage, décrit à la puce suivante.
+- **74 communes ont REDÉCOUPÉ leurs bureaux** entre le millésime des contours et 2024, sans
+  changer d'espace de codes — Dammarie-les-Lys passe de 17 bureaux à 11, Montceau-les-Mines
+  de 14 à 10, Sarreguemines de 18 à 14, Cogolin de 7 à 12, à électorat quasi constant. Tous
+  leurs codes se retrouvent donc des deux côtés de la jointure, mais aucun ne décrit le même
+  territoire : le bureau `0001` de 2024 couvre ce qui était deux bureaux en 2022. La
+  couverture est **aveugle** à ce cas (elle vaut 100 %) ; seul l'écart d'inscrits entre les
+  deux millésimes le révèle — 53 % en médiane à Dammarie-les-Lys, 48 % à Montceau, contre
+  **1,9 %** pour une commune dont l'appariement est vrai, dont le nombre de bureaux ne bouge
+  d'ailleurs pas (+0,0 %, contre +20 % au-delà du seuil, pour +1,8 % d'électorat : le
+  redécoupage se lit là, pas dans la croissance). L'alignement ordonné n'y peut rien — on ne
+  fait pas correspondre 11 bureaux fusionnés à 17 polygones. Faute de correspondance à
+  retrouver, les bureaux de ces communes sont donc **privés de contour** pour les scrutins de
+  2024 et 2026 : **904 bureaux, 800 000 inscrit·es** perdent leur détail infra-communal
+  (carte des bureaux et estimation par quartier) plutôt que de le porter faux. Leurs totaux
+  communaux, départementaux et régionaux ne changent pas d'un iota — ils ne passent pas par
+  le bureau. Le seuil (`ECART_IDENTITE_MAX`, 15 %) est le 99<sup>e</sup> centile de l'écart
+  des communes dont l'appariement est complet.
 - Les **contours IRIS** dépendent d'un téléchargement IGN parfois throttlé ; si absent, les
   données IRIS restent disponibles en tableau.
+- Un **scrutin entier pouvait disparaître à cause d'une commune**. `construire_resultats`
+  entoure chaque scrutin d'un `try/except` — « un scrutin atypique ne doit pas tout bloquer » —
+  mais l'exception n'était jamais tracée au-delà d'une ligne d'avertissement. Vingt lignes sans
+  exprimés à Montbéliard (bureaux de la série `0E`, dont le code sortait cassé du ministère et
+  dont la réparation amont décalait les colonnes) faisaient échouer le plafonnement de
+  `exprimes_nuances`, et les **70 099 bureaux du 1<sup>er</sup> tour des législatives 2024** —
+  un des quatre scrutins que propose la carte — sortaient du corpus pour la France entière.
+  Corrigé des deux côtés : le plafond ne s'applique plus que là où il existe (`prep_elections`),
+  et le `sed` de nettoyage d'hexagonal rétablit le code de bureau sans décaler la ligne.
 - Le total **France est supérieur à la somme des régions**, d'environ **2 millions
   d'inscrits** aux européennes 2024 (4 %). Ce n'est pas une perte : les **Français·es de
   l'étranger** (codes `Z…`) et les **collectivités du Pacifique**, de Saint-Pierre-et-Miquelon

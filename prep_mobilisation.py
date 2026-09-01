@@ -59,6 +59,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+import prep_elections
+
 RACINE = Path(__file__).parent
 SOURCE_DEFAUT = RACINE / "elections_predictions"
 
@@ -158,8 +160,24 @@ def communes_2027(source: Path) -> pd.DataFrame:
     return df.set_index("code_commune")
 
 
-def texture_bv(source: Path) -> pd.DataFrame:
+def communes_recodees(da: Path) -> set[str]:
+    """Communes dont un code de bureau ne désigne pas le même bureau selon la source qui
+    le porte — renumérotées ou redécoupées (cf. prep_elections). Fichier absent = aucune,
+    le pipeline ayant pu tourner avant que la liste ne soit écrite."""
+    f = da / prep_elections.FICHIER_RECODEES
+    return set(json.loads(f.read_text())) if f.exists() else set()
+
+
+def texture_bv(source: Path, recodees: set[str] | None = None) -> pd.DataFrame:
     """Texture intra-communale, lue sur la démonstration 2024 servie au bureau de vote.
+
+    Les communes RECODÉES en sont écartées. elections_predictions porte le même faux
+    appariement que l'atlas avant correction : ses codes sont ceux des contours (2022) mais
+    les valeurs celles des bureaux de 2024 — à Bordeaux, 18 entrées sur 147 contours, et
+    `i` y vaut 1 349 inscrits là où le bureau 33063_1101 de 2022 en comptait 686. Les
+    retenir reviendrait à recoller la texture d'un bureau sur son voisin. Sans elles, ces
+    bureaux portent exactement la valeur communale 2027 — le comportement que `_ancrer`
+    réserve déjà aux bureaux sans texture, « sans texture inventée ».
 
     Trois grandeurs par bureau : la gauche prédite `pg`, l'abstention prédite `pa`, et le
     plancher d'abstention — que le fichier ne porte pas directement mais qu'on RETROUVE
@@ -168,14 +186,22 @@ def texture_bv(source: Path) -> pd.DataFrame:
     sans troncature, et le plancher s'en déduit. `cj` étant servi arrondi à l'unité, le
     plancher reconstruit porte un bruit d'arrondi — sans effet ici, où l'on ne garde de ces
     trois grandeurs que leur ÉCART À LA MOYENNE COMMUNALE (le niveau vient de 2027)."""
+    ecartees = recodees or set()
     lignes = []
     for f in sorted((source / "report_app/data/bv").glob("*.geojson")):
         for ft in json.loads(f.read_text())["features"]:
             p = ft["properties"]
+            code = str(p["l"])
+            if code.partition("_")[0] in ecartees:
+                continue
             insc = max(1, int(p["i"]))
             lignes.append(
-                (str(p["l"]), float(p["pg"]), float(p["pa"]),
-                 float(p["pa"]) - 100.0 * float(p["cj"]) / insc)
+                (
+                    code,
+                    float(p["pg"]),
+                    float(p["pa"]),
+                    float(p["pa"]) - 100.0 * float(p["cj"]) / insc,
+                )
             )
     df = pd.DataFrame(lignes, columns=["bureau", "t_G", "t_AB", "t_plancher"])
     # Un même bureau peut apparaître dans deux fichiers départementaux (contours limitrophes
@@ -195,6 +221,7 @@ def aires_km2(da: Path) -> tuple[pd.Series, pd.Series]:
     y compris champs et forêts. L'aire d'un bureau rural est donc l'aire de son TERRITOIRE,
     pas celle de son bâti — le kilométrage de porte-à-porte qu'on en tire est majoré à la
     campagne. C'est une limite assumée, dite dans la fiche."""
+
     def _lire(dossier: Path, cle: str) -> pd.Series:
         parts = []
         for f in sorted(dossier.glob("*.geojson")):
@@ -232,7 +259,13 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
     ref = ancres(source)
     nat = ref["nat"]
     com27 = communes_2027(source)
-    tex = texture_bv(source)
+    recodees = communes_recodees(da)
+    tex = texture_bv(source, recodees)
+    if recodees:
+        print(
+            f"  ↻ texture 2024 écartée dans {len(recodees)} commune(s) recodée(s) : "
+            "leurs bureaux portent la valeur communale 2027"
+        )
 
     # Univers des bureaux = celui de l'atlas (registre européennes 2024), pas celui du
     # modèle : c'est lui que la carte sait dessiner et joindre.
@@ -249,7 +282,8 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
     for c in ("t_G", "t_AB", "t_plancher"):
         df[c] = tex[c].reindex(df.index)
     ecart = {
-        c: _ancrer(df[c], df["insc"], df["code_commune"]) for c in ("t_G", "t_AB", "t_plancher")
+        c: _ancrer(df[c], df["insc"], df["code_commune"])
+        for c in ("t_G", "t_AB", "t_plancher")
     }
 
     com = com27.reindex(df["code_commune"]).set_index(df.index)
@@ -269,9 +303,7 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
     # communale ÷ nombre de bureaux), sinon il sortirait du calcul de rendement et les
     # sommes départementales ne boucleraient plus sur les sommes communales.
     nbv = pd.Series(com27["nbv"].reindex(df["code_commune"]).to_numpy(), index=df.index)
-    aire_c = pd.Series(
-        aire_com.reindex(df["code_commune"]).to_numpy(), index=df.index
-    )
+    aire_c = pd.Series(aire_com.reindex(df["code_commune"]).to_numpy(), index=df.index)
     repli = aire_c / nbv.fillna(1).clip(lower=1)
     df["portes"] = df["insc"] / ELECTEURS_PAR_PORTE
     df["aire_km2"] = np.maximum(a.fillna(repli), df["portes"] / PORTES_KM2_MAX)
@@ -304,9 +336,7 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
         "kmh_voiture": KMH_VOITURE,
         "minutes_arret_voiture": MINUTES_ARRET_VOITURE,
         "pas_bascule_m": round(
-            1000
-            * MINUTES_ARRET_VOITURE
-            / (60 / KMH_MARCHE - 60 / KMH_VOITURE)
+            1000 * MINUTES_ARRET_VOITURE / (60 / KMH_MARCHE - 60 / KMH_VOITURE)
         ),
         "n_bv": len(df),
         "n_bv_texture": int(df["bureau"].isin(tex.index).sum()),
@@ -359,8 +389,9 @@ def main() -> None:
         f"  ✓ mobilisation 2027 : {ref['n_bv']} bureaux, "
         f"{ref['mob_france']:,} voix à conquérir, γ moyen {ref['gamma_moyen']} %, "
         f"{ref['heures_france']:,} h de porte-à-porte "
-        f"({ref['rendement_france']} voix/h, {ref['part_voiture']} % des portes en voiture)"
-        .replace(",", " ")
+        f"({ref['rendement_france']} voix/h, {ref['part_voiture']} % des portes en voiture)".replace(
+            ",", " "
+        )
     )
 
 

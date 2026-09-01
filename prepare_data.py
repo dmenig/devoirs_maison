@@ -1,13 +1,17 @@
 """Orchestrateur : transforme les sorties de hexagonal en données compactes pour
 la carte (dossier data_app/). À lancer une fois (et à chaque mise à jour des données) :
 
-    uv run --project /home/veesion/hexagonal python prepare_data.py
+    uv run --project ./hexagonal python prepare_data.py
+
+La racine des données hexagonal est cherchée d'abord sous ce dépôt (./hexagonal/data),
+puis dans /home/veesion/hexagonal/data ; HEXAGONAL_DATA force le choix.
 """
 
 from __future__ import annotations
 
 import collections
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -21,7 +25,26 @@ import prep_mobilisation
 from prep_elections import construire_resultats
 from prep_socio import construire_references, construire_socio
 
-HEX = Path("/home/veesion/hexagonal/data")
+
+# Racine des données hexagonal. Le dépôt est cloné SOUS celui-ci (cf. .gitignore, qui
+# ignore /hexagonal/), mais il a aussi vécu à côté, dans /home/veesion/hexagonal — le
+# chemin était codé en dur sur cette seconde forme, et le pipeline ne trouvait plus rien
+# depuis un clone conforme à la convention du dépôt. On prend le premier qui existe, et
+# la variable d'environnement HEXAGONAL_DATA tranche si les deux sont là.
+def _racine_hexagonal() -> Path:
+    depuis_env = os.environ.get("HEXAGONAL_DATA")
+    candidats = [Path(depuis_env)] if depuis_env else []
+    candidats += [
+        Path(__file__).parent / "hexagonal" / "data",
+        Path("/home/veesion/hexagonal/data"),
+    ]
+    for c in candidats:
+        if (c / "02_clean").is_dir():
+            return c
+    return candidats[-1]  # message d'erreur explicite au premier accès
+
+
+HEX = _racine_hexagonal()
 CLEAN = HEX / "02_clean"
 RAW = HEX / "01_raw"
 OUT = Path(__file__).parent / "data_app"
@@ -83,9 +106,21 @@ def main() -> None:
     communes, admin = charger_cog()
 
     print("→ Résultats électoraux (toutes échelles)")
-    listes_lfi = RAW / "lafranceinsoumise" / "2026-municipales-1-listes-lfi.parquet"
+    # Le fichier a changé de place dans hexagonal (sous-dossier `elections/`) : on essaie
+    # les deux, sans quoi la requalification des listes LFI 2026 tombait en silence.
+    listes_lfi = next(
+        (
+            f
+            for f in (
+                RAW / "lafranceinsoumise/elections/2026-municipales-1-listes-lfi.parquet",
+                RAW / "lafranceinsoumise/2026-municipales-1-listes-lfi.parquet",
+            )
+            if f.exists()
+        ),
+        None,
+    )
     resultats = construire_resultats(
-        CLEAN / "elections", communes, GEO / "bv", listes_lfi
+        CLEAN / "elections", communes, GEO / "bv", listes_lfi, OUT
     )
     for niveau, df in resultats.items():
         df.to_parquet(OUT / f"resultats_{niveau}.parquet", index=False)
