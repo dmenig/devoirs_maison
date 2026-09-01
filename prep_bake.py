@@ -19,6 +19,7 @@ import pandas as pd
 import indicators as ind
 import nuances
 import prep_admin
+import prep_immo
 
 
 def _clean(o):
@@ -308,10 +309,14 @@ _SOCIO_KEYS = {
     "part_locataires": ("logloc", 1),
     "part_hlm": ("loghlm", 1),
     # logement : prix de marché (DVF) et effort d'accession — cf. prep_immo.py. Publiés à
-    # la COMMUNE seulement ; les quartiers en héritent (valeur communale, dite comme telle).
+    # la COMMUNE, sauf à Paris/Lyon/Marseille où DVF géolocalisé les ventile par
+    # ARRONDISSEMENT ; les quartiers en héritent (échelle dite dans la fiche). `pxw` est
+    # le nombre de millésimes lus (3, ou 5 dans les communes à ventes rares) : la fiche
+    # annonce la période qu'elle affiche au lieu de la supposer.
     "pxm2": ("pxm2", 0),
     "effort": ("effort", 1),
     "ventes": ("nvte", 0),
+    "fenetre": ("pxw", 0),
 }
 
 
@@ -452,15 +457,21 @@ def _baker_iris_elec(
 
 
 def _immo(da: Path) -> dict[str, dict]:
-    """Prix au m² / effort d'accession par commune (cf. prep_immo.py)."""
+    """Prix au m² / effort d'accession par commune — et par arrondissement à Paris, Lyon
+    et Marseille, où le code porté par la clé est celui de l'arrondissement (cf. prep_immo)."""
     f = da / "immo_commune.parquet"
     if not f.exists():
         return {}
     df = pd.read_parquet(f)
-    out = {
-        str(r.code_commune): _socio_champs(r._asdict())
-        for r in df.itertuples(index=False)
-    }
+    out = {}
+    for r in df.itertuples(index=False):
+        v = _socio_champs(r._asdict())
+        # `pxw` ne voyage que s'il DIT quelque chose : la fenêtre normale est celle que la
+        # fiche affiche par défaut, la baker sur 80 000 zones ne ferait que répéter 27 879
+        # fois la valeur attendue dans des fichiers déjà lourds (cf. prep_immo.FENETRE_*).
+        if v.get("pxw") == len(prep_immo.FENETRE_RECENTE):
+            del v["pxw"]
+        out[str(r.code_commune)] = v
     print(f"  ✓ logement : prix au m² sur {len(out)} communes")
     return out
 
@@ -729,10 +740,15 @@ def main() -> None:
         reg = region_de(_commune_de_iris(str(r.code_iris)))
         if reg:
             v["reg"] = reg
-        # prix/effort : publiés à la commune, hérités tels quels par ses quartiers (la
-        # fiche dit « à l'échelle de la commune » ; aucune pastille de carte à l'IRIS,
-        # qui serait uniforme sur toute la commune).
-        v.update(immo.get(_commune_de_iris(str(r.code_iris)), {}))
+        # prix/effort : hérités de la commune par ses quartiers (la fiche dit à quelle
+        # échelle ; aucune pastille de carte à l'IRIS, qui serait uniforme sur la commune).
+        # À Paris/Lyon/Marseille, le code de l'IRIS EST celui de son arrondissement, pour
+        # lequel prep_immo publie une valeur propre : on la prend avant celle de la ville,
+        # sans quoi les 20 arrondissements de Paris réafficheraient le même prix.
+        code_iris = str(r.code_iris)
+        v.update(
+            immo.get(code_iris[:5]) or immo.get(_commune_de_iris(code_iris), {})
+        )
         iris_vals[str(r.code_iris)] = v
     # Communes sans FILOSOFI infra-communal : leur unique contour {commune}0000 a bien une
     # ligne socio_iris (recensement) mais sans revenu/pauvreté. On rabat les champs FILOSOFI

@@ -294,20 +294,32 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     `répartition des revenus (barre épaisse = moitié des foyers autour de la médiane). Source : INSEE `+
     `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`+
     refCouverture());
-  // Prix du logement (DVF) et effort d'accession — cf. prep_immo.py. Publiés à la COMMUNE :
-  // les quartiers d'une même commune portent la même valeur, d'où le « · commune » dans
-  // l'intitulé, à toutes les échelles. Un prix brut ne dit rien : il est comparé à la France
-  // et à la région, et doublé de l'effort qu'il représente pour le revenu local.
+  // Prix du logement (DVF) et effort d'accession — cf. prep_immo.py. Publiés à la commune,
+  // et par ARRONDISSEMENT à Paris/Lyon/Marseille : l'intitulé nomme l'échelle lue au lieu
+  // de la supposer, comme il nomme la PÉRIODE, qui s'élargit à cinq millésimes là où trois
+  // ne rassemblent pas assez de ventes (`pxw`). Un prix brut ne dit rien : il est comparé à
+  // la France et à la région, et doublé de l'effort qu'il représente pour le revenu local.
+  const ech=immoEchelle(niveau,code), dans=ech==="arrondissement"?"l'arrondissement":"la commune";
+  const per=(o&&o.pxw===5)?IMMO_HYP.anneesLarge:IMMO_HYP.annees;
   const immo=rows([["Prix moyen au m²","pxm2","€",TIP_PXM2],
     ["Effort d'accession","effort","%",TIP_EFFORT]]);
-  // DVF n'agrège un prix au m² que là où il y a eu assez de ventes : 7 147 communes
-  // (20,5 %) n'en ont aucun. On le dit plutôt que d'escamoter la rubrique.
-  if(!immo)socio+=exp(sec(`Prix du logement · commune · ${IMMO_HYP.annees}`)+
-    `<div class="hypnote">Trop peu de ventes enregistrées dans la commune pour un prix au m² fiable.</div>`,
-    IMMO_METHODO());
-  if(immo)socio+=exp(sec(`Prix du logement · commune · ${IMMO_HYP.annees}`)+immo+
+  // Pas de prix : deux raisons bien distinctes, et les confondre trompait. Le champ de DVF
+  // exclut l'Alsace-Moselle et l'outre-mer — Strasbourg n'a pas « trop peu de ventes », elle
+  // en a des milliers que la source ne voit pas. Ailleurs, c'est bien la rareté des ventes.
+  // La rubrique ne s'affiche qu'aux échelles où le prix EXISTE (commune, quartier) : plus
+  // haut, le manque n'en est pas un.
+  if(!immo&&(niveau==="iris"||niveau==="commune"))socio+=exp(sec(`Prix du logement · ${ech}`)+
+    `<div class="hypnote">`+(horsChampDVF(code)
+      ?(ALSACE_MOSELLE.has(depOf(String(code)))
+        ?`<b>Alsace-Moselle</b> : le droit local (livre foncier) place la Moselle, le Bas-Rhin et le `+
+         `Haut-Rhin <b>hors du champ de la base DVF</b>. Aucun prix n'y est publié — quel que soit le `+
+         `nombre de ventes, qui n'a rien de rare ici.`
+        :`<b>Outre-mer</b> : la base DVF ne couvre pas ce territoire. Aucun prix n'y est publié.`)
+      :`Moins de ${IMMO_HYP.vmin} ventes enregistrées sur ${IMMO_HYP.anneesLarge} : pas de moyenne fiable.`)+
+    `</div>`, IMMO_METHODO());
+  if(immo)socio+=exp(sec(`Prix du logement · ${ech} · ${per}`)+immo+
     (o.nvte!=null?`<div class="hypnote">Moyenne sur ${o.nvte.toLocaleString('fr')} vente${o.nvte>1?"s":""} `+
-      `enregistrée${o.nvte>1?"s":""} dans la commune sur ${IMMO_HYP.annees}.</div>`:""),
+      `enregistrée${o.nvte>1?"s":""} dans ${dans} sur ${per}.</div>`:""),
     IMMO_METHODO());
   const age=rows([["0-14 ans","a014","%"],["15-29 ans","a1529","%"],["30-44 ans","a3044","%"],
     ["45-59 ans","a4559","%"],["60-74 ans","a6074","%"],["75 ans et +","a75","%"]]);

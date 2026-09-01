@@ -15,9 +15,10 @@ const STAT=new Set(["lfi","part","rn","gauche"]);
 // rev/pauv : FILOSOFI, dispo seulement à la maille IRIS (absents aux échelons agrégés
 // région/dép/circo et quasi vides en commune) → pastilles montrées en vue Quartiers IRIS.
 const SOCIO=new Set(["rev","pauv"]);
-// Effort d'accession : publié à la COMMUNE seulement (base DVF, cf. prep_immo.py). Les
-// quartiers d'une commune en héritent — même valeur pour tous —, d'où une pastille réservée
-// à la carte des communes (vue département) : à l'IRIS, la choroplèthe serait uniforme.
+// Effort d'accession : publié à la COMMUNE (base DVF, cf. prep_immo.py ; à l'arrondissement
+// dans les trois villes qui en ont). Les quartiers d'une commune en héritent — même valeur
+// pour tous —, d'où une pastille réservée à la carte des communes (vue département) : à
+// l'IRIS, la choroplèthe serait uniforme.
 // Comme le socio, ces clés ne sont JAMAIS estimées.
 // Le PRIX AU M² n'est plus une pastille : un prix brut ne décrit pas un territoire militant,
 // il décrit un marché — et il colorait la carte du même dégradé que les scores électoraux,
@@ -57,13 +58,31 @@ const PAST=[["conquerir","Rentabilité du porte-à-porte"," voix/h"],
 // Hypothèses du prix / de l'effort d'accession — MIROIR de prep_immo.py (à garder
 // synchronisé avec ce fichier). Elles ne sont pas décoratives : un taux d'effort ne veut
 // rien dire si l'on ne dit pas pour quel logement, quel crédit et quel ménage il est calculé.
-const IMMO_HYP={annees:"2022-2024",surface:70,apport:10,taux:3.5,duree:25,uc:1.55,vmin:5,hcsf:35};
+// `annees` = fenêtre normale, `anneesLarge` = celle des communes à ventes rares (repli de
+// prep_immo, signalé zone par zone par la clé `pxw`) : la fiche annonce la période qu'elle
+// affiche vraiment plutôt que d'en supposer une seule pour toute la France.
+const IMMO_HYP={annees:"2022-2024",anneesLarge:"2020-2024",surface:70,apport:10,taux:3.5,
+                duree:25,uc:1.55,vmin:5,hcsf:35};
+// Échelle de publication du prix pour la zone ouverte. Partout la commune — sauf à Paris,
+// Lyon et Marseille, où prep_immo ventile la ville par ARRONDISSEMENT et où les quartiers
+// portent justement le code de leur arrondissement (751xx / 6938x / 132xx, cf. PLM).
+const estArrondissement=code=>Object.values(PLM).some(r=>r.test(String(code)));
+const immoEchelle=(niveau,code)=>
+  (niveau==="iris"&&estArrondissement(code))?"arrondissement":"commune";
+// Territoires hors du CHAMP de DVF, et non pas simplement peu vendeurs : l'Alsace-Moselle
+// relève du livre foncier (57, 67, 68) et l'outre-mer n'y figure pas. Écrire « trop peu de
+// ventes » à Strasbourg, qui en compte des milliers, était faux.
+const ALSACE_MOSELLE=new Set(["57","67","68"]);
+const horsChampDVF=code=>{ const d=depOf(String(code));
+  return ALSACE_MOSELLE.has(d)||d.startsWith("97")||d.startsWith("98"); };
 const IMMO_METHODO=()=>
   `<p><b>Prix moyen au m²</b> des logements — maisons et appartements confondus — réellement <b>vendus</b> `+
-  `dans la commune sur ${IMMO_HYP.annees}. Source : base <b>DVF</b> (Demandes de valeurs foncières, DGFiP), `+
+  `dans la zone sur ${IMMO_HYP.annees}. Source : base <b>DVF</b> (Demandes de valeurs foncières, DGFiP), `+
   `agrégée par commune et par année sur data.gouv.fr. Les millésimes sont mis en commun, pondérés par le `+
-  `nombre de ventes ; sous ${IMMO_HYP.vmin} ventes sur la période, aucun prix n'est affiché — une moyenne `+
-  `tirée de deux mutations ne dit rien du marché local.</p>`+
+  `nombre de ventes ; sous ${IMMO_HYP.vmin} ventes sur la période, la fenêtre s'élargit à `+
+  `<b>${IMMO_HYP.anneesLarge}</b> — la fiche affiche alors cette période-là. Sous ${IMMO_HYP.vmin} ventes `+
+  `même sur cinq ans, aucun prix n'est affiché : une moyenne tirée de deux mutations ne dit rien du `+
+  `marché local.</p>`+
   `<p><b>Effort d'accession</b> : part du revenu d'un ménage médian qu'absorberait la mensualité du crédit `+
   `pour acheter <b>${IMMO_HYP.surface} m²</b> ici. C'est ce qui traduit un prix en <b>capacité réelle à se `+
   `loger</b> : ${IMMO_HYP.surface} m² à Paris et ${IMMO_HYP.surface} m² dans la Creuse, ce n'est pas le même `+
@@ -73,11 +92,15 @@ const IMMO_METHODO=()=>
   `Au-delà de <b>${IMMO_HYP.hcsf} %</b>, la règle du HCSF conduit les banques à refuser le prêt : la propriété `+
   `est alors hors d'atteinte pour la moitié des habitant·es.</p>`+
   `<p>Publié à l'échelle de la <b>commune</b> : les quartiers d'une même commune portent la même valeur. `+
+  `À <b>Paris, Lyon et Marseille</b>, où la source ne connaît qu'un seul code pour toute la ville, le prix `+
+  `est ventilé par <b>arrondissement</b> à partir des mutations de <b>DVF géolocalisé</b> — la ventilation `+
+  `est recalée sur le prix publié de la ville (repondérée par les ventes, elle le redonne exactement), pour `+
+  `que ces arrondissements restent comparables à n'importe quelle commune. `+
   `Deux territoires sont absents de la source — l'<b>Alsace-Moselle</b> (57, 67, 68), régie par le livre `+
   `foncier et hors champ DVF, et l'<b>outre-mer</b>. Le prix est enfin un indicateur de <b>transaction</b> : `+
   `il décrit ce qui s'est vendu, pas la valeur du parc existant.</p>`;
-const TIP_PXM2="Prix moyen au m² des logements vendus dans la commune (maisons et appartements), "+
-  "base DVF 2022-2024. Cliquez pour la méthode et les limites.";
+const TIP_PXM2="Prix moyen au m² des logements vendus dans la zone (maisons et appartements), "+
+  "base DVF — période indiquée dans le titre de la rubrique. Cliquez pour la méthode et les limites.";
 const TIP_EFFORT="Part du revenu d'un ménage médian qu'absorberait le crédit pour acheter 70 m² ici "+
   "(apport 10 %, 25 ans à 3,5 %). Au-delà de 35 %, les banques refusent en général le prêt.";
 // Le repère « France » de ce taux ne porte que sur les communes où l'INSEE le publie :
@@ -212,8 +235,28 @@ const theme=()=>document.documentElement.dataset.theme==="light"?"light":"dark";
 const CVARS=["geosel","geoline","geonodata","track","tick","softh","detbd","bg",
              "ramp0","ramp1","ramp2","ramp3","ramp4","lr","rn"];
 const C={};
+// Le parseur de couleurs, c'est le NAVIGATEUR : `fillStyle` accepte tout ce que CSS et
+// MapLibre acceptent (#rgb, rgb(), hsl(), hsla()) et le rend normalisé, là où une regex
+// maison ne couvrirait qu'une notation sur trois. La sentinelle repère ce qui n'est PAS
+// une couleur — `fillStyle` garde alors sa valeur précédente, et une expression MapLibre
+// est pleine de chaînes qui n'en sont pas (« interpolate », « zoom »…).
+const SENTINELLE="#fedcba";
+const _c2d=document.createElement("canvas").getContext("2d");
+function rvba(couleur){
+  _c2d.fillStyle=SENTINELLE; _c2d.fillStyle=couleur;
+  const s=_c2d.fillStyle;
+  if(s===SENTINELLE&&couleur!==SENTINELLE)return null;
+  if(s[0]==="#")return [parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16),1];
+  const m=(s.match(/[\d.]+/g)||[]).map(Number);
+  return m.length>=3?[m[0],m[1],m[2],m[3]!=null?m[3]:1]:null;
+}
+// Les cinq bornes de l'échelle, gardées en RVB : la choroplèthe INTERPOLE entre elles
+// (cf. colorer) au lieu d'arrondir à la plus proche, il lui faut des nombres.
+const RAMP=[];
 function syncColors(){ const cs=getComputedStyle(document.documentElement);
-  for(const n of CVARS)C[n]=cs.getPropertyValue("--"+n).trim(); }
+  for(const n of CVARS)C[n]=cs.getPropertyValue("--"+n).trim();
+  RAMP.length=0;
+  for(let i=0;i<5;i++)RAMP.push(rvba(C["ramp"+i])||[128,128,128]); }
 syncColors();
 // Le style OFM alimente les TROIS couches ci-dessous, chacune n'en gardant qu'une part.
 // MapLibre ne sait pas filtrer un style au chargement : on le retouche donc après coup, à
@@ -225,9 +268,37 @@ syncColors();
 // « España » et « Bay of Biscay » en bord de carte. C'est ce réglage d'une ligne qui rend
 // inutile tout le contournement raster (fond sans libellés + seuil d'affichage).
 const NAME_FR=["coalesce",["get","name:fr"],["get","name:latin"],["get","name"]];
-function shapeStyle(gl,symbols){
+// ÉCLAIRCISSEMENT DU STYLE SOMBRE. Là où positron étage vraiment le thème clair (fond 242,
+// parcs 230, eau 194 — 48 niveaux entre la terre et l'eau), le style `dark` d'OpenFreeMap
+// est écrasé SUR LE NOIR : fond rgb(12,12,12), eau rgb(27,27,29), bâti rgb(10,10,10),
+// résidentiel à 5 % de clarté. Quinze niveaux séparent le fleuve de la terre, et sur cette
+// partie de la courbe l'œil n'en distingue quasiment rien — sous un remplissage à .85 et
+// l'encre par-dessus, il ne restait à l'écran qu'un rectangle noir : le fond de carte avait
+// DISPARU (ni Garonne, ni tissu urbain, ni littoral pour se repérer).
+// La hiérarchie est pourtant BIEN LÀ, simplement tassée contre zéro : un gamma la redéploie.
+// C'est une règle unique appliquée à toutes les couleurs du style, et non une table couche
+// par couche qui périmerait au premier remaniement du style amont — au reste, le style dark
+// n'a pas une teinte, tout y est gris : il n'y a aucune couleur d'auteur à trahir.
+const LIFT = .62;                       // c' = (c/255)^LIFT : 12 → 39, 27 → 65, 60 → 106
+function eclaircir(couleur){
+  const v=rvba(couleur); if(!v)return couleur;   // « interpolate », « zoom »… : tel quel
+  const f=x=>Math.round(255*Math.pow(x/255,LIFT));
+  return `rgba(${f(v[0])},${f(v[1])},${f(v[2])},${v[3]})`;
+}
+// Une propriété de couleur peut être une expression : on descend dedans, les couleurs y
+// sont des feuilles (["interpolate",["linear"],["zoom"],5.8,"hsla(0,0%,85%,.53)",6,"#000"]).
+const eclaircirVal=v=>Array.isArray(v)?v.map(eclaircirVal):(typeof v==="string"?eclaircir(v):v);
+function shapeStyle(gl,symbols,encre){
+  const sombre=theme()!=="light";
   for(const l of gl.getStyle().layers){
     if((l.type==="symbol")!==symbols){gl.removeLayer(l.id);continue;}
+    // Le FOND uni ne s'imprime pas. L'encre est composée en fusion (screen/multiply) : un
+    // aplat couvrant l'écran entier délave uniformément toutes les zones sans rien y
+    // dessiner, et le gamma ci-dessus, en remontant ce fond de 12 à 39, triplait ce voile.
+    // Ne restent donc en surimpression que les objets — routes, eau, bâti, voies ferrées.
+    if(encre&&l.type==="background"){gl.removeLayer(l.id);continue;}
+    if(sombre)for(const k in l.paint||{})
+      if(k.includes("color"))gl.setPaintProperty(l.id,k,eclaircirVal(l.paint[k]));
     // On ne retouche QUE les couches dont le libellé lit déjà un nom. Les écussons
     // d'autoroute affichent un NUMÉRO (`["to-string",["get","ref"]]`) : leur passer NAME_FR
     // laissait des cartouches VIDES sur la carte (aucun `name` sur ces tronçons). Le test
@@ -265,7 +336,7 @@ function glLayer(symbols,opts){
   // `style.load` et non `load` : il se rejoue à chaque setStyle, là où `load` ne part
   // qu'une fois — sans quoi la bascule de thème rendrait le style entier, libellés
   // anglicisés et fond dupliqué compris.
-  c.getMaplibreMap().on("style.load",()=>shapeStyle(c.getMaplibreMap(),symbols));
+  c.getMaplibreMap().on("style.load",()=>shapeStyle(c.getMaplibreMap(),symbols,!!(opts&&opts.encre)));
   c.getContainer().style.pointerEvents="none";
   if(opts&&opts.opacity!=null)c.getContainer().style.opacity=opts.opacity;
   return c;
@@ -292,7 +363,7 @@ const labels=glLayer(true,{pane:"labels"});
 // le navigateur les sert depuis son cache, sans requête réseau.
 map.createPane("overprint").style.zIndex=440;
 map.getPane("overprint").style.pointerEvents="none";
-const overprint=glLayer(false,{pane:"overprint",opacity:.8});
+const overprint=glLayer(false,{pane:"overprint",opacity:.8,encre:true});
 // L'encre ne s'allume qu'à partir d'INK_MINZ : au-dessus, elle n'a rien à imprimer (le
 // décor est vide à l'échelle nationale) et brûlerait du GPU pour rien. `visibility` plutôt
 // qu'un retrait de couche : détruire et rouvrir un contexte WebGL à chaque passage du seuil

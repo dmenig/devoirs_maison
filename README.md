@@ -71,7 +71,7 @@ relatif dépendrait de l'emplacement de la page.
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
 | `regen_elections.py` | régénère les seules tables électorales après un correctif du pipeline — enchaîner `prep_bake.py`, qui écrit aussi `manifest.json` |
 | `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
-| `prep_immo.py` | prix au m² (DVF) et effort d'accession par commune + références France/région |
+| `prep_immo.py` | prix au m² (DVF) et effort d'accession par commune — par arrondissement à Paris/Lyon/Marseille — + références France/région |
 | `prep_mobilisation.py` | « voix à conquérir » 2027 par bureau de vote : reprend les sorties du modèle **elections_predictions** et y ajoute la géométrie du porte-à-porte (portes, kilomètres, budget-temps) |
 | `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
 | `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |

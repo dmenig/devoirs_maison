@@ -21,8 +21,9 @@ const socioActive=()=>{ const t=stack[stack.length-1];
 // masquées (elles n'ont de valeurs qu'à l'IRIS) et on rebascule sur l'électoral.
 // Prix au m² / effort d'accession : publiés à la COMMUNE (base DVF, cf. prep_immo.py). Leurs
 // pastilles n'ont de sens que sur une carte de COMMUNES — la vue département : à l'IRIS, tous
-// les quartiers d'une commune porteraient la même valeur, donc la même couleur. La fiche du
-// quartier, elle, continue d'afficher le prix en le disant « à l'échelle de la commune ».
+// les quartiers d'une commune porteraient la même valeur, donc la même couleur (l'exception
+// des arrondissements de Paris/Lyon/Marseille ne ferait que trois villes sur 34 800 communes).
+// La fiche du quartier, elle, continue d'afficher le prix en nommant l'échelle qu'elle lit.
 const immoActive=()=>{ const t=stack[stack.length-1]; return !!t&&t.niveau==="departement"; };
 function syncSocioChips(){ const on=socioActive(), immo=immoActive();
   $("pastilles").querySelectorAll(".chip").forEach(c=>{ const k=c.dataset.k;

@@ -58,7 +58,7 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **Région** | idem, agrégé région | différentiels et reports entre scrutins | — |
 | **Département** | idem, agrégé département | différentiels, reports, taux de perte | — |
 | **Commune** | blocs + participation ; tableau de recomposition (comme la prez) | différentiels prés/euro/muni, taux de perte, reports | **revenu médian**, **taux de pauvreté** (FILOSOFI) ; **prix moyen au m²** (fiche seulement) et **effort d'accession** (DVF) ; **profil administratif INSEE** : pyramide des âges, statut d'occupation, déplacements domicile-travail, renouvellement de population, maire en exercice — comparés à la France |
-| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) ; **prix au m²** et **effort d'accession** hérités de la commune (dits comme tels, en fiche seulement) |
+| **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) ; **prix au m²** et **effort d'accession** hérités de la commune — de l'**arrondissement** à Paris/Lyon/Marseille (échelle et période dites dans l'intitulé, en fiche seulement) |
 | **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
@@ -240,9 +240,11 @@ elles affichaient « LFI 0,00 % · PS 0,00 % · RN 0,00 % ».
 > manquante n'existe nulle part : on publie donc la couverture avec la valeur, et la fiche
 > dit que le repère se lit « par rapport aux communes comparables », pas « la France ».
 > À la **commune**, Q1/Q3 sont la moyenne des quartiles de ses quartiers, pas les quartiles
-> de la commune (l'INSEE ne les publie qu'à l'IRIS) : la ligne le dit désormais. Le prix au m² manque pour **20,5 % des communes** (DVF, seuil de
-> 5 ventes). La fiche le **dit** au lieu d'escamoter la rubrique ; aucune valeur n'est
-> fabriquée à la place. Là où FILOSOFI ne descend pas à l'IRIS, la commune forme un seul
+> de la commune (l'INSEE ne les publie qu'à l'IRIS) : la ligne le dit désormais. Le prix au m²
+> manque pour **11 % des communes** (DVF, seuil de 5 ventes, fenêtre élargie à cinq millésimes
+> là où trois ne suffisent pas). La fiche le **dit** au lieu d'escamoter la rubrique, et dit
+> **pourquoi** — trop peu de ventes, ou territoire hors du champ de DVF, ce qui n'est pas la
+> même chose ; aucune valeur n'est fabriquée à la place. Là où FILOSOFI ne descend pas à l'IRIS, la commune forme un seul
 > quartier. Le revenu médian communal est ici la moyenne de ses IRIS
 > (approximation), à confronter au terrain.
 
@@ -253,8 +255,12 @@ fait de se loger. Deux indicateurs, à l'échelle de la **commune** :
 
 - **Prix moyen au m²** des logements — maisons et appartements confondus — réellement
   **vendus** dans la commune. Les trois millésimes sont mis en commun et pondérés par le
-  nombre de ventes ; sous **5 ventes** cumulées, aucun prix n'est affiché (une moyenne
-  tirée de deux mutations ne dit rien d'un marché local).
+  nombre de ventes ; sous **5 ventes** cumulées, la fenêtre s'élargit à **2020-2024** plutôt
+  que de ne rien afficher — 3 032 communes rurales de plus y gagnent un prix, et la fiche
+  **annonce la période qu'elle lit**. Sous 5 ventes même sur cinq ans, aucun prix (une
+  moyenne tirée de deux mutations ne dit rien d'un marché local). Les vieux millésimes ne
+  sont **pas** recalés sur un indice national : un marché rural ne suit pas la courbe
+  nationale, et corriger de 9 % un prix mesuré sur cinq ventes le rendrait faussement précis.
 - **Effort d'accession** : part du revenu d'un ménage médian qu'absorberait la mensualité
   du crédit pour acheter **70 m²** dans la commune. C'est ce qui traduit un prix en
   *capacité réelle à se loger* — 70 m² à Paris et 70 m² dans la Creuse, ce n'est pas le
@@ -263,10 +269,28 @@ fait de se loger. Deux indicateurs, à l'échelle de la **commune** :
   assurance, revenu médian local rapporté au ménage (**1,55** unité de consommation,
   INSEE). Au-delà de **35 %**, la règle du HCSF conduit les banques à refuser le prêt.
 
+**Paris, Lyon et Marseille** font exception à la maille communale. Le jeu source ne connaît
+de ces trois villes qu'un seul code INSEE : le 6ᵉ et le 19ᵉ arrondissement de Paris
+affichaient le même prix, et le 8ᵉ et le 3ᵉ de Marseille aussi. Les arrondissements sont
+donc reconstitués depuis **DVF géolocalisé** (mutations une par une, `prep_immo._arrondissements`)
+— et **recalés sur le prix publié de la ville** : la moyenne des arrondissements repondérée
+par leurs ventes redonne exactement ce prix. On ne substitue pas une source à l'autre, on
+n'emprunte à la seconde que la *forme* (le rapport d'un arrondissement à sa ville), car ses
+filtres ne sont pas ceux du jeu communal — la même définition donne 10 158 €/m² sur Paris
+2024 là où le jeu communal en publie 9 674. Un arrondissement reste ainsi comparable à
+n'importe quelle commune de France. Les IRIS portant le code de leur arrondissement
+(751xx / 6938x / 132xx), la valeur retombe exactement sur la maille des quartiers : Paris
+s'étage désormais de **8 262 €/m² au 19ᵉ à 14 987 € au 6ᵉ**, Marseille de **2 020 € au 3ᵉ à
+5 592 € au 8ᵉ**.
+
 Les deux valeurs sont comparées à la **France** et à la **région** (moyennes pondérées par
 la population communale, même convention que le revenu et la pauvreté), et vivent toutes
-deux dans la **fiche**, section « Prix du logement · commune ». La fiche d'un quartier les
-affiche aussi, en précisant qu'elles valent « à l'échelle de la commune ».
+deux dans la **fiche**, section « Prix du logement ». L'intitulé **nomme l'échelle lue**
+(commune, ou arrondissement) et **la période** ; la fiche d'un quartier hérite de sa
+commune et le dit. Le recensement ventilant PLM par arrondissement, ces trois villes
+n'avaient jusqu'ici **aucun poids** dans les moyennes France et région, faute de code
+commun : la moyenne France passe de 2 893 à **3 148 €/m²**, l'Île-de-France de 4 524 à
+**5 468 €**.
 
 Une seule des deux **colore la carte** : l'**effort d'accession**, et seulement sur une
 carte de communes (vue département) — à l'IRIS, tous les quartiers d'une commune
@@ -303,8 +327,10 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   France) en sont **agrégées**, et bouclent donc exactement les unes sur les autres.
 - **Socio-économique** : INSEE **FILOSOFI 2021** (revenu disponible par IRIS).
 - **Prix du logement** : base **DVF** (Demandes de valeurs foncières, DGFiP), millésimes
-  2022-2024, via le jeu « Indicateurs Immobiliers par commune et par année » (data.gouv.fr,
-  ODbL). L'effort d'accession en est dérivé, croisé au revenu FILOSOFI.
+  2022-2024 (2020-2024 là où les ventes sont trop rares), via le jeu « Indicateurs
+  Immobiliers par commune et par année » (data.gouv.fr, ODbL), complété par **DVF
+  géolocalisé** (Etalab, ODbL) pour ventiler Paris, Lyon et Marseille par arrondissement.
+  L'effort d'accession en est dérivé, croisé au revenu FILOSOFI.
 - **Administratif (commune)** : **recensement INSEE 2021** — bases infracommunales (âges,
   logement, activité/déplacements) et fichier détail « individus localisés » (renouvellement) ;
   **Répertoire national des élus** (data.gouv) pour le maire en exercice.
@@ -518,10 +544,12 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   publiée pour la variable IRAN) puis rabattu sur la commune via son canton COG.
 - Le **prix au m²** est un indicateur de **transaction** : il décrit ce qui s'est vendu, pas la
   valeur du parc existant, et il est d'autant plus bruité que les ventes sont rares (d'où le
-  seuil de 5 ventes et la mise en commun de trois millésimes). C'est une **moyenne**, pas une
-  médiane, et elle mêle maisons et appartements — dans une commune qui vend les deux, elle
-  reflète leur mélange. Deux territoires sont **absents de la source** : l'**Alsace-Moselle**
-  (57, 67, 68), régie par le livre foncier et hors champ DVF, et l'**outre-mer** ; 27 834
-  communes sur ~34 900 portent un prix. L'**effort d'accession** dépend en outre de ses
+  seuil de 5 ventes et la mise en commun de trois millésimes, cinq là où trois ne suffisent
+  pas). C'est une **moyenne**, pas une médiane, et elle mêle maisons et appartements — dans une
+  commune qui vend les deux, elle reflète leur mélange. Deux territoires sont **absents de la
+  source**, et le resteront : l'**Alsace-Moselle** (57, 67, 68), régie par le livre foncier et
+  hors champ DVF, et l'**outre-mer**. La fiche les distingue des communes à ventes rares —
+  écrire « trop peu de ventes » à Strasbourg, qui en compte des milliers, était faux. 30 911
+  zones sur ~34 900 portent un prix (contre 27 834 avant l'élargissement de la fenêtre). L'**effort d'accession** dépend en outre de ses
   hypothèses de crédit (apport, durée, taux) : c'est un ordre de grandeur comparable d'une
   commune à l'autre, pas une simulation bancaire.

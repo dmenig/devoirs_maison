@@ -14,16 +14,39 @@ const irisInCommune=(ci,code)=>{ const r=PLM[code]; return r?r.test(ci):ci.slice
 // const bvFiable=f=>{ const p=f.properties;
 //   return p&&p.fiable!=null?!!(+p.fiable):geomParts(f.geometry)<=BV_MAX_PARTS; };
 
-// Coloration par RANG (percentile) parmi les zones affichées : les couleurs
-// s'étalent sur toute la distribution (chaque zone ayant une valeur est colorée).
-// Le centre (ton médian de l'échelle) = la médiane des zones ; bleu = plus faible, rouge = plus élevé.
+// Coloration DIVERGENTE, centrée sur la MÉDIANE des zones affichées et proportionnelle à
+// l'ÉCART : la médiane prend le ton neutre du milieu de l'échelle, et une zone s'en écarte
+// vers le bleu (plus faible) ou le rouge (plus élevé) à proportion de cet écart.
+//
+// Pourquoi plus le RANG. Colorer au percentile garantit autant de bleu que de rouge à
+// l'écran — une propriété qu'on ne cherche pas, et qui coûte cher : le rang écrase les
+// écarts là où la distribution est dense et en invente là où elle est plate. Deux zones de
+// la queue haute, +45 % et +100 % de voix, tombaient dans le même cinquième et sortaient
+// du MÊME rouge, alors que l'une vaut deux fois l'autre.
+//
+// L'ÉTALON. « Proportionnellement » demande une unité, et la même des deux côtés (sans
+// quoi un même écart ne donnerait pas le même ton à gauche et à droite de la médiane) :
+// c'est l'écart absolu à la médiane pris au 9e décile. Le MAXIMUM ferait l'affaire si une
+// seule zone aberrante ne suffisait pas à tasser toutes les autres sur le ton neutre ; à ce
+// décile, ~10 % des zones saturent au bout de l'échelle et les 90 % restantes s'y déploient.
+//
+// Le ton est INTERPOLÉ entre les cinq bornes, non arrondi à la plus proche : c'est ce qui
+// permet à +45 % et +100 % de ne pas se ressembler, et c'est exactement le dégradé que
+// montre la barre de la légende (même interpolation sRVB que `linear-gradient`).
+const ECART_Q=.9;
+const quantile=(tri,p)=>{ const i=(tri.length-1)*p, k=Math.floor(i);
+  return tri[k]+(tri[Math.ceil(i)]-tri[k])*(i-k); };
+function tonEchelle(u){ const x=Math.max(0,Math.min(1,u))*(RAMP.length-1),
+  i=Math.min(RAMP.length-2,Math.floor(x)), f=x-i, a=RAMP[i], b=RAMP[i+1];
+  return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`; }
 function colorer(vals){ const xs=vals.filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>a-b);
   if(!xs.length)return()=>C.geonodata;
-  const n=xs.length, s=[C.ramp0,C.ramp1,C.ramp2,C.ramp3,C.ramp4];
-  const rang=v=>{ let lo=0,hi=n; while(lo<hi){const md=(lo+hi)>>1; xs[md]<v?lo=md+1:hi=md;}
-    let hi2=lo; while(hi2<n&&xs[hi2]===v)hi2++; return ((lo+hi2)/2)/n; };
+  const med=quantile(xs,.5);
+  const etalon=quantile(xs.map(v=>Math.abs(v-med)).sort((a,b)=>a-b),ECART_Q);
   return v=>{ if(v==null||isNaN(v))return C.geonodata;
-    const x=rang(v)*(s.length-1),i=Math.floor(x); return (x-i)<.5||i+1>=s.length?s[i]:s[i+1]; }; }
+    // étalon nul : toutes les zones portent la même valeur, aucune ne s'écarte — toutes neutres.
+    const t=etalon>0?Math.max(-1,Math.min(1,(v-med)/etalon)):0;
+    return tonEchelle((t+1)/2); }; }
 // Réservoirs entre les deux scrutins choisis (A→B), recalculés à la volée à partir des
 // voix réelles bakées (lfiv_*, gv_*) et de la participation — mêmes formules que
 // indicators.reservoirs : report = voixB/voixA, perte gauche = (voixA−voixB)/voixA,

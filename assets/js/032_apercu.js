@@ -46,7 +46,7 @@ function apercuCartes(geo,vals,code){
   }).filter(Boolean).join("");
   if(!cards)return "";
   return `<div class="aminis">${cards}</div>`+
-    `<div class="ahint">Commune (contour blanc) comparée à ses voisines · Europ. 2024 · couleur = rang local (bleu faible → rouge élevé).</div>`;
+    `<div class="ahint">Commune (contour blanc) comparée à ses voisines · Europ. 2024 · couleur = écart à la médiane locale (bleu faible → rouge élevé).</div>`;
 }
 
 // Paris/Lyon/Marseille : pas de contours d'arrondissement, et le vote n'est baké qu'à la
