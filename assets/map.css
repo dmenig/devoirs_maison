@@ -329,17 +329,6 @@
   #modalclose{position:absolute;top:8px;right:10px;cursor:pointer;border:none;background:transparent;
               color:var(--mut);font-size:15px;line-height:1;padding:4px 7px;border-radius:6px}
   #modalclose:hover{color:var(--txt);background:var(--softh)}
-  /* Sélecteur de version : même grammaire que le groupe « comparaison de scrutins »
-     (cadre discret + libellé + pastilles). Les pastilles sont des LIENS : la version
-     courante est marquée, les deux autres s'ouvrent aussi bien dans un nouvel onglet. */
-  #vgroup{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:3px 8px 3px 7px;
-          border:1px solid var(--lav);border-radius:16px;background:var(--softh)}
-  #vlab{font-size:11px;font-weight:700;color:var(--lav);letter-spacing:.03em;white-space:nowrap}
-  #vchips{display:flex;gap:5px;flex-wrap:wrap}
-  .vchip{cursor:pointer;text-decoration:none;border:1px solid var(--bord);border-radius:14px;
-         padding:2px 9px;background:var(--pbg2);color:var(--txt);font-size:11.5px;white-space:nowrap}
-  .vchip:hover{border-color:var(--lav)}
-  .vchip.on{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:700}
   .bar{display:inline-block;width:130px;height:10px;border-radius:3px;vertical-align:middle;margin:0 6px;
        background:linear-gradient(to right,var(--ramp0),var(--ramp1),var(--ramp2),var(--ramp3),var(--ramp4))}
   .hint{color:var(--mut2);font-size:11px}
@@ -416,12 +405,6 @@
     .lbl{display:none}
     /* fil d'Ariane sur une ligne tronquée → hauteur de #top stable (2 lignes) */
     #fil{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
-    /* Sélecteur de version : sa propre ligne, cibles tactiles à 44 px, libellé « 🧮 Voix à
-       conquérir » masqué — les trois pastilles se nomment elles-mêmes, et la barre du haut
-       tient déjà le fil d'Ariane et cinq boutons. */
-    #vgroup{order:4;flex:1 0 100%;justify-content:center}
-    #vlab{display:none}
-    .vchip{min-height:36px;display:inline-flex;align-items:center;padding:4px 12px;font-size:13px}
     #search{order:5;flex:1 0 100%;min-width:0;font-size:16px;padding:8px 10px}
     /* message d'état : sa propre ligne, lisible, au lieu d'un filet gris coincé
        entre deux boutons (134 px de large en 360 px). */

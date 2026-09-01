@@ -1,15 +1,13 @@
 
 // ============================================================================
-// Carnet de campagne — Présidentielle 2027 (chantier 3 ; maquette de référence :
-// exemple-slide-commune-lfipee.netlify.app). Traduit le profil de la zone en objectifs
+// Carnet de campagne — Législatives 2027 (chantier 3 ; maquette de référence :
+// exemple-slide-commune-lfipee.netlify.app). Traduit le profil de la zone en repères
 // chiffrés + décomposition de l'électorat. Le plan d'action priorisé est dans actionPanel.
 //
-// Les SEUILS et la DÉCOMPOSITION (taux de qualification, participation attendue) sont
-// regroupés dans CARNET_HYP pour rester ajustables.
+// Les hypothèses de la DÉCOMPOSITION sont regroupées dans CARNET_HYP pour rester
+// ajustables. Les seuils d'objectif (qualification à 20 % des exprimés, majorité à 50 %)
+// en sont sortis avec les cartes d'objectif : plus rien ici ne projette un résultat.
 const CARNET_HYP={
-  qualif1T:0.20,   // part des exprimés visée au 1er tour pour espérer la qualification
-  maj2T:0.50,      // majorité absolue des exprimés au 2nd tour
-  margeRel:0.08,   // demi-fourchette relative (± marge d'incertitude)
   partDef:0.70,    // participation présidentielle attendue à défaut de donnée (fraction)
 };
 const _nb=v=>Math.round(v).toLocaleString('fr');
@@ -28,7 +26,7 @@ function carnetBase(o){
 }
 
 // Voix LFI RÉELLEMENT obtenues aux scrutins passés (point 14). Rien d'estimé, rien de
-// projeté : les trois versions l'affichent, et c'est ce à quoi on compare tout le reste.
+// projeté : c'est ce à quoi on compare tout le reste.
 function carnetRepere(o,intitule){
   const refs=[];
   if(o.lfiv_P22!=null)refs.push(`Présidentielle 2022 : <b>${_nb(o.lfiv_P22)}</b> voix LFI`);
@@ -36,66 +34,35 @@ function carnetRepere(o,intitule){
   return refs.length?`<div class="cref">${intitule} · ${refs.join(" · ")}</div>`:"";
 }
 
-// Cartes d'objectif — VERSION 1 UNIQUEMENT. Ce sont des seuils arithmétiques (20 % des
-// exprimés estimés pour espérer la qualification, 50 % au second tour), c'est-à-dire la
-// formule même dont le score « voix à conquérir » de la version 1 est tiré :
-// `score v1 = cible du 1ᵉʳ tour − socle LFI`. Les laisser dans les versions 2 et 3 y
-// remettait sous les yeux le calcul qu'elles remplacent — « qualification : 6 553 voix »
-// juste au-dessus de « Voix gagnables : 4 030 » se lit comme « il en manque 6 553 ».
-// Hors version 1, le Carnet s'ouvre donc directement sur la décomposition de l'électorat,
-// et plus une seule ligne servie n'est calculée par l'arithmétique historique.
-function carnetScenarios(o,b){
-  if(VERSION>1)return carnetRepere(o,"Voix LFI obtenues");
-  const H=CARNET_HYP;
-  const card=(t,cible)=>{ const m=Math.round(cible*H.margeRel);
-    return `<div class="scn"><div class="scl">${t}</div>`+
-      `<div class="scv">${_nb(cible)}<small> voix</small></div>`+
-      `<div class="scr">${_nb(cible-m)} – ${_nb(cible+m)} (± ${_nb(m)})</div></div>`; };
-  return `<div class="scns">`+
-    card("1ᵉʳ tour · qualification",b.exprimes*H.qualif1T)+
-    card("2ᵉ tour vs RN (Bardella)",b.exprimes*H.maj2T)+
-    card("2ᵉ tour vs macroniste",b.exprimes*H.maj2T)+`</div>`+
-    // La présidentielle 2022 prime dans le repère : même type de scrutin que la cible.
-    carnetRepere(o,"Repère")+
-    `<div class="hypnote">Objectifs indicatifs rapportés à ${_nb(b.elig)} électeur·ices potentiel·les `+
-    `— ils visent l'objectif national et ne préjugent pas de la participation locale.</div>`;
-}
+// Le Carnet s'ouvre sur les voix LFI RÉELLEMENT obtenues, puis sur la décomposition de
+// l'électorat. Il a porté un temps, en version 1, des cartes d'objectif arithmétique
+// (20 % des exprimés estimés pour espérer la qualification, 50 % au second tour) : c'était
+// la formule dont le score de cette version-là était tiré. Elles remettaient sous les yeux
+// le calcul que la rentabilité remplace — « qualification : 6 553 voix » juste au-dessus de
+// « Voix gagnables : 4 030 » se lit comme « il en manque 6 553 ». Plus une seule ligne
+// servie ne sort désormais de l'arithmétique historique.
+const carnetScenarios=o=>carnetRepere(o,"Voix LFI obtenues");
 
-// Décomposition de l'électorat potentiel en 4 segments (cf. maquette). garanties/potentielles
-// = voix réelles (socle = plancher gauche ; potentiel = plafond + insoumis 2022 non remobilisés).
-// Deuxième segment de la décomposition : ce qu'il reste à ALLER CHERCHER. Sa définition suit
-// la VERSION du site, comme la pastille de carte — c'est la même quantité, pas un second
-// calcul qui la contredirait sous les yeux du lecteur. Le carnet affichait jusqu'ici
-// l'heuristique de la version 1 dans les trois versions : on lisait « 134 voix potentielles »
-// sous une carte qui en annonçait un autre nombre, pour le même territoire et le même mot.
-//
-//   V1 · heuristique de voix RÉELLES : l'écart entre le meilleur et le pire score de la
-//        gauche (ce que la zone a déjà su faire, moins son plancher), plus les voix
-//        insoumises de 2022 non retrouvées en 2024.
-//   V2/V3 · la mesure modélisée : les abstentionnistes de gauche mobilisables. Elle ne
-//        compte QUE des gens qui n'ont pas voté, là où l'heuristique mélangeait démobilisés
-//        et abstentionnistes — d'où un nombre franchement différent, et c'est le propos.
-//
-// V2 et V3 donnent le même effectif : la version 3 ne change pas ce qui est gagnable, elle
-// dit ce que ça coûte d'aller le chercher (ligne d'effort ajoutée sous la barre).
-function carnetGagnables(o,garanties,plafond){
-  if(VERSION>1)return o.mob!=null?o.mob:null;
-  // Les deux scrutins doivent être mesurés : `||0` transformait un scrutin ABSENT en zéro
-  // voix, et donc soit un socle 2022 entier compté comme perdu, soit « rien à remobiliser »
-  // là où l'on ne sait pas. 33 communes du corpus n'ont qu'un des deux (cf. panneau d'action).
-  const remob=(o.lfiv_P22!=null&&o.lfiv_E24!=null)?Math.max(0,o.lfiv_P22-o.lfiv_E24):0;
-  return Math.max(0,plafond-garanties)+remob;
-}
-const GAGNABLES_LAB=VERSION>1?"Voix gagnables":"Voix potentielles";
+// Décomposition de l'électorat potentiel (cf. maquette). Les voix garanties sont RÉELLES :
+// le plancher de la gauche sur les scrutins connus.
+// Deuxième segment de la décomposition : ce qu'il reste à ALLER CHERCHER. C'est le NUMÉRATEUR
+// du score que colore la carte, pas un second calcul qui le contredirait sous les yeux du
+// lecteur — la rentabilité n'est que ces mêmes voix rapportées aux heures de porte-à-porte.
+// Le Carnet a longtemps affiché ici l'heuristique de la version 1 (l'écart entre le meilleur
+// et le pire score de la gauche, plus les voix insoumises de 2022 non retrouvées en 2024) :
+// on lisait « 134 voix potentielles » sous une carte qui en annonçait un autre nombre, pour
+// le même territoire et le même mot. La mesure modélisée ne compte QUE des gens qui n'ont
+// pas voté, là où l'heuristique mélangeait démobilisés et abstentionnistes.
+const carnetGagnables=o=>o.mob!=null?o.mob:null;
+const GAGNABLES_LAB="Voix gagnables";
 
-// Note sous la barre : d'où sort le segment « à gagner », et ce qu'il coûte en version 3.
+// Note sous la barre : d'où sort le segment « à gagner », et ce qu'il coûte en heures.
 function carnetGagnablesNote(o,gagnables){
-  if(VERSION===1)return "";
   if(gagnables==null)
     return `<div class="hypnote">Le modèle 2027 ne couvre pas cette zone : les voix gagnables `+
       `n'y sont pas estimées.</div>`;
   const rend=rendementPorte(o);
-  const effort=(VERSION===3&&rend&&o.mobh!=null)
+  const effort=(rend&&o.mobh!=null)
     ? ` Il faudrait ≈ <b>${_nb(o.mobh)} heures</b> de porte-à-porte pour frapper à toutes les `+
       `portes de la zone, soit <b>${rend.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})} voix/h</b>.`
     : "";
@@ -107,8 +74,8 @@ function carnetGagnablesNote(o,gagnables){
 function carnetCompo(o,b){
   const gvs=["P22","E24","L24","M26"].map(k=>o[`gv_${k}`]).filter(v=>v!=null);
   if(!gvs.length)return "";
-  const garanties=Math.min(...gvs), plafond=Math.max(...gvs);
-  const gagnables=carnetGagnables(o,garanties,plafond);
+  const garanties=Math.min(...gvs);
+  const gagnables=carnetGagnables(o);
   // Abstention et non-/mal-inscription retirées de la décomposition (retour PEE) : on ne
   // mélange plus des données passées (abstention E24), présentes (non-/mal-inscrits) et
   // futures (voix garanties/gagnables). L'abstention structurelle gonfle désormais les
@@ -133,17 +100,16 @@ function carnetCompo(o,b){
 
 // Entête du Carnet : à insérer en tête de la fiche commune. Renvoie "" si pas de base
 // électorale exploitable (la fiche socio/IRIS reste alors affichée telle quelle).
-// Scrutin projeté par le Carnet. En version 1, ses objectifs sont ceux d'une PRÉSIDENTIELLE
-// (qualification au 1ᵉʳ tour, majorité au 2nd). Ces objectifs disparaissant en versions 2 et
-// 3, le seul chiffre projeté qui y reste est celui du modèle — qui porte sur les
-// LÉGISLATIVES 2027. Le titre suit, sans quoi la fiche annoncerait un scrutin et en
-// chiffrerait un autre.
-const CARNET_SCRUTIN=VERSION>1?"Législatives 2027":"Présidentielle 2027";
+// Le seul chiffre PROJETÉ du Carnet est celui du modèle, qui porte sur les LÉGISLATIVES
+// 2027 : le titre suit, sans quoi la fiche annoncerait un scrutin et en chiffrerait un
+// autre. (Il a dit « Présidentielle 2027 » tant que le Carnet portait les objectifs de
+// qualification au 1ᵉʳ tour, retirés avec la version 1.)
+const CARNET_SCRUTIN="Législatives 2027";
 
 function carnet(o){ if(!o)return "";
   const b=carnetBase(o); if(!b)return "";
   return `<div class="carnet"><div class="clead">Carnet de campagne · ${CARNET_SCRUTIN}</div>`+
-    carnetScenarios(o,b)+
+    carnetScenarios(o)+
     `<div class="csec">Décomposition de l'électorat potentiel</div>`+
     carnetCompo(o,b)+
     `<div class="cfoot">Pôle Études Électorales — fiche générée automatiquement par zone.</div></div>`;

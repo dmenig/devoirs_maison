@@ -129,10 +129,10 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   let headline="";
   if(iv!=null&&hi){
     const sgn=(indicKey==="dyn_dpart"&&iv>0)?"+":"";
-    // Le « i » du chiffre de tête n'apparaît QUE là où la définition du score n'est pas
-    // devinable — les versions 2 et 3, dont le score sort d'un modèle. Survol = définition
+    // Le « i » du chiffre de tête n'apparaît QUE là où la définition n'est pas devinable
+    // — la rentabilité, qui sort d'un modèle. Survol = définition
     // courte ; clic = volet méthodo, avec les valeurs de CETTE zone (cf. 034_mobilisation.js).
-    const info=(indicKey==="conquerir"&&VERSION>1)?" "+hint(CONQ_TIP):"";
+    const info=indicKey==="conquerir"?" "+hint(CONQ_TIP):"";
     headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}${info}</div>`+
            `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,
       hi[2](o)+(est?EST_METHODO:""));

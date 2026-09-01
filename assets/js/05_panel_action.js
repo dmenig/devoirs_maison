@@ -40,11 +40,10 @@ function actionPanel(o){ if(!o)return "";
 
   if(o.abst!=null){
     // Le stock brut d'abstentionnistes est un FAIT mesuré (européennes 2024), pas une
-    // estimation : il ne change donc pas d'une version à l'autre. Mais le présenter seul,
-    // c'est laisser croire que tout ce monde est à prendre — l'erreur même que le modèle
-    // 2027 sert à corriger. En versions 2 et 3, on adosse donc au stock la part qui en est
-    // réellement gagnable, celle que colore la carte.
-    const part=(VERSION>1&&o.mob!=null&&o.abst>0)
+    // estimation. Mais le présenter seul, c'est laisser croire que tout ce monde est à
+    // prendre — l'erreur même que le modèle 2027 sert à corriger. On adosse donc au stock
+    // la part qui en est réellement gagnable, celle dont la carte tire son rendement.
+    const part=(o.mob!=null&&o.abst>0)
       ? ` Sur ce stock, le modèle 2027 n'en estime que <b>${Math.round(o.mob).toLocaleString('fr')}</b> `+
         `réellement mobilisables à gauche (${(100*o.mob/o.abst).toLocaleString('fr',{maximumFractionDigits:1})} %) : `+
         `le reste est de l'abstention chronique, que la campagne ne ramène pas.`

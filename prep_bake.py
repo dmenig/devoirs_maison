@@ -7,7 +7,6 @@ suffisant pour l'usage militant et léger à charger."""
 
 from __future__ import annotations
 
-import collections
 import json
 import math
 import re
@@ -447,11 +446,6 @@ def _baker_iris_elec(
         o = iris_vals.get(str(code))
         if o is not None and pd.notna(v):
             o["insc"] = int(v)
-    for o in iris_vals.values():
-        if o.get("est"):
-            c = _conquerir(o)
-            if c is not None:
-                o["conq"] = c
     print(
         f"  ✓ électoral estimé sur {ri['code'].nunique()} quartiers (intersection BV)"
     )
@@ -484,42 +478,13 @@ def _baker_admin(com: dict[str, dict], da: Path) -> None:
     print(f"  ✓ admin communes fusionnées ({len(df) - 1})")
 
 
-# Voix à conquérir (retour Elia) — miroir Python de assets/js/02_data_geo.js. Socle = plancher
-# des voix LFI sur les scrutins nationaux où LFI se présente en propre (présidentielle 2022,
-# européennes 2024, législatives 2024). On exclut les municipales 2026 : « conduite par LFI »
-# y vaut 0 sans tête de liste LFI et écraserait le plancher. Aux échelles agrégées, la valeur
-# est la SOMME des déficits communaux (chaque commune plafonnée à ≥ 0).
-QUALIF_1T = 0.20
-CONQ_SCRUTINS = ("P22", "E24", "L24")
-
-
-def _conquerir(o: dict) -> int | None:
-    insc = o.get("insc")
-    if insc is None:
-        abst, part = o.get("abst"), o.get("part_E24")
-        if abst is not None and part is not None and part < 100:
-            insc = round(abst / (1 - part / 100))
-    if insc is None:
-        return None
-    pp = o.get("part_P22")
-    if pp is None:
-        pp = o.get("part_E24")
-    exprimes = round(insc * (pp / 100 if pp is not None else 0.70))
-    socle = [o[f"lfiv_{k}"] for k in CONQ_SCRUTINS if o.get(f"lfiv_{k}") is not None]
-    if not socle:
-        return None
-    return max(0, round(exprimes * QUALIF_1T - min(socle)))
-
-
-# Voix à conquérir 2027 — mesure modélisée (cf. prep_mobilisation.py), servie EN PLUS du
-# déficit arithmétique `conq` ci-dessus : les deux cohabitent dans les mêmes fichiers de
-# valeurs, et c'est la VERSION du site qui choisit laquelle elle affiche. Clés servies :
+# Voix à conquérir 2027 — mesure modélisée (cf. prep_mobilisation.py). Clés servies :
 #   mob  voix à conquérir (abstentionnistes conjoncturels × γ) — tous les bureaux de la zone
 #   mobc abstentionnistes conjoncturels · mobg γ moyen (%) · moba abstention prédite (%)
 #   mobf plancher d'abstention (%) · mobl niveau de gauche prédit (%)
 #   mobn voix à conquérir des seuls bureaux CHIFFRABLES en porte-à-porte (ceux dont on
 #        connaît l'aire) · mobp portes · mobh heures · mobk km · mobv part de portes en
-#        voiture (%). Le rendement de la version 3 est `mobn / mobh` — calculé côté client,
+#        voiture (%). Le score que colore la carte est `mobn / mobh` — calculé côté client,
 #        pour qu'un agrégat soit bien « voix totales ÷ heures totales » et non une moyenne
 #        de rapports.
 # Extensif (sommé) vs intensif (moyenné) : la distinction est ce qui rend l'agrégation
@@ -723,33 +688,17 @@ def main() -> None:
     region_de = _rattachement_region(DA)
     # `_dep()` découpe un préfixe, pas un département : appliqué aux Français·es de
     # l'étranger et aux collectivités du Pacifique il fabriquait les clés « ZZ », « 98 »,
-    # « 975 »… que departement.json servait ensuite avec un seul champ `conq` et qu'aucun
-    # contour ne pouvait joindre — 100 826 « voix à conquérir » garées dans le vide.
+    # « 975 »… qu'aucun contour ne pouvait joindre. La liste de référence les écarte.
     departements = set(
         pd.read_parquet(DA / "ref_departement.parquet")["code_departement"].astype(str)
     )
-    conq_reg: dict[str, int] = collections.defaultdict(int)
-    conq_dep: dict[str, int] = collections.defaultdict(int)
     for code, vals in com.items():
         reg = region_de(code)
-        valide = reg is not None
-        if valide:
+        if reg is not None:
             vals["reg"] = reg
-        c = _conquerir(vals)
-        if c is None:
-            continue
-        vals["conq"] = c
-        if valide:
-            conq_reg[str(reg)] += c
-        if _dep(code) in departements:
-            conq_dep[_dep(code)] += c
-    for reg, v in conq_reg.items():
-        niveaux_agr["region"].setdefault(reg, {})["conq"] = v
-    for dep, v in conq_dep.items():
-        niveaux_agr["departement"].setdefault(dep, {})["conq"] = v
-    # Voix à conquérir 2027 (mesure modélisée) : servie À CÔTÉ du déficit arithmétique dans
-    # les mêmes fichiers, à toutes les échelles. Les trois versions du site lisent le même
-    # data_app — seule change la clé qu'elles colorent.
+    # Voix à conquérir 2027 (mesure modélisée), à toutes les échelles. Le déficit
+    # arithmétique `conq` qui cohabitait ici — 20 % des exprimés estimés moins le socle LFI —
+    # a disparu avec la version 1 du site : plus rien ne le lisait.
     mob = mobilisation_par_niveau(DA, region_de, departements)
     ref_mob = DA / "mobilisation_ref.json"
     if ref_mob.exists():

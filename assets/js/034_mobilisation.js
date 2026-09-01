@@ -1,13 +1,12 @@
 // ============================================================================
-// Explication des « voix à conquérir » des versions 2 et 3 : le bouton « i ».
+// Explication des « voix à conquérir » — la rentabilité du porte-à-porte : le bouton « i ».
 //
-// Le score de la version 1 est un objectif arithmétique — on peut le lire sans notice.
-// Ceux des versions 2 et 3 sortent d'un MODÈLE : les afficher sans dire d'où ils viennent
-// serait leur demander d'être crus sur parole. Chaque chiffre servi est donc accompagné :
+// Le score sort d'un MODÈLE : l'afficher sans dire d'où il vient serait lui demander d'être
+// cru sur parole. Chaque chiffre servi est donc accompagné :
 //   · au SURVOL du « i » — une définition d'une phrase (CONQ_TIP) ;
 //   · au CLIC — le volet méthodo, qui décompose le calcul AVEC LES VALEURS DE LA ZONE
-//     ouverte (mobMethodo / rendMethodo) : chaque terme affiché est celui qui a servi ;
-//   · depuis la légende de la carte — la même méthode, sans zone (mobResume, 15_version.js),
+//     ouverte (rendMethodo) : chaque terme affiché est celui qui a servi ;
+//   · depuis la légende de la carte — la même méthode, sans zone (mobResume, 15_modal.js),
 //     pour qui n'a encore cliqué nulle part.
 // Les hypothèses (ancre nationale, courbe γ, budget-temps) ne sont PAS recopiées ici : on
 // lit celles que le pipeline a réellement appliquées, servies dans values/_mobilisation.json
@@ -20,13 +19,10 @@ const _n1=v=>v==null?"—":v.toLocaleString('fr',{maximumFractionDigits:1});
 const _n2=v=>v==null?"—":v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _pct=v=>v==null?"—":_n1(v)+" %";
 
-const CONQ_TIP=VERSION===2
-  ? "Abstentionnistes de gauche mobilisables : les électeur·ices qui reviennent voter quand "+
-    "la participation monte, et qui penchent à gauche. Cliquez pour le détail du calcul."
-  : "Voix gagnables par heure de porte-à-porte : chances de convaincre à chaque porte, "+
-    "rapportées au temps qu'une porte coûte. Cliquez pour le détail du calcul.";
+const CONQ_TIP="Voix gagnables par heure de porte-à-porte : chances de convaincre à chaque "+
+  "porte, rapportées au temps qu'une porte coûte. Cliquez pour le détail du calcul.";
 
-// Rappel de provenance, commun aux deux versions : d'où sort le modèle et ce qu'il vaut.
+// Rappel de provenance : d'où sort le modèle et ce qu'il vaut.
 function mobSource(){ const r=mobRef();
   return `<p class="hypnote"><b>D'où viennent ces chiffres.</b> Modèle de prévision par bureau de vote `+
     `du dépôt <b>elections_predictions</b> (prévision des législatives 2027 : part de gauche et `+
@@ -39,37 +35,7 @@ function mobSource(){ const r=mobRef();
     `Le modèle est publié à la <b>commune</b> pour 2027 ; la répartition entre les bureaux d'une même `+
     `commune reprend celle qu'il produit sur 2024.</p>`; }
 
-// --- Version 2 : voix à conquérir --------------------------------------------------
-// Trois nombres, un produit. On les montre dans l'ordre où ils s'enchaînent, chacun avec
-// la valeur de la zone : abstention prédite → part conjoncturelle → part de gauche.
-function mobMethodo(o){ o=o||{};
-  const r=mobRef();
-  const eq=`<div class="mobeq"><b>${_n0(o.mobc)}</b> abstentionnistes conjoncturels `+
-    `× <b>${_pct(o.mobg)}</b> de gauche = <b>${_n0(o.mob)} voix</b></div>`;
-  return (o.mob!=null?eq:"")+
-    `<p><b>Ce que compte ce chiffre :</b> le nombre d'électeur·ices de cette zone qu'une campagne de `+
-    `mobilisation peut ramener aux urnes <b>et</b> qui voteraient à gauche. Ce n'est pas un objectif `+
-    `à atteindre : c'est une <b>estimation de ce qui est réellement là</b>, calculée en deux temps.</p>`+
-    `<p><b>1. Qui peut revenir voter ?</b> Pas l'abstentionniste chronique — celui qui ne vote jamais, `+
-    `quel que soit l'enjeu. On retient la frange <b>conjoncturelle</b> : l'abstention prévue pour 2027 `+
-    `ici (<b>${_pct(o.moba)}</b> des inscrit·es) <b>moins</b> le plancher jamais franchi par cette zone `+
-    `quand la mobilisation était au plus haut (<b>${_pct(o.mobf)}</b>). Soit `+
-    `<b>${_n0(o.mobc)}</b> personnes.</p>`+
-    `<p><b>2. Combien d'entre eux votent à gauche ?</b> <b>${_pct(o.mobg)}</b>. Ce n'est pas le score `+
-    `de la gauche ici : c'est la part de gauche des électeur·ices <b>qui rentrent</b> quand la `+
-    `participation monte — mesurée sur les législatives passées, et d'autant plus élevée que la zone `+
-    `est déjà à gauche (elle est ici prévue à <b>${_pct(o.mobl)}</b> des exprimés). Prendre le score `+
-    `local à la place serait circulaire, et surestimerait le gisement jusqu'à 17 points dans les bastions.</p>`+
-    `<p><b>Comment le lire.</b> Une zone à 0 n'est pas une zone perdue : c'est une zone dont `+
-    `l'abstention est déjà au plus bas, où il n'y a personne à aller rechercher. À l'inverse, un `+
-    `gros chiffre signale un réservoir, pas une victoire acquise — il faudra aller le chercher. `+
-    `Repère national : <b>${_n0(r.mob_france)} voix</b> sur toute la France.</p>`+
-    `<p>Aux échelles d'ensemble (commune, département, région), c'est la <b>somme</b> des bureaux de `+
-    `vote — France = Σ départements = Σ communes = Σ bureaux, comme partout ailleurs dans l'atlas.</p>`+
-    mobSource();
-}
-
-// --- Version 3 : rentabilité du porte-à-porte ---------------------------------------
+// --- Rentabilité du porte-à-porte ---------------------------------------------------
 // La ressource rare d'une campagne est l'HEURE de militant·e, pas la voix théorique. On
 // divise donc le gisement par le temps qu'il coûte à aller chercher, porte après porte.
 function rendMethodo(o){ o=o||{};
@@ -90,8 +56,12 @@ function rendMethodo(o){ o=o||{};
     `abriter moins mais les rendre atteignables. C'est le rapport des deux qui dit où envoyer `+
     `l'équipe en premier.</p>`+
     `<div class="sec">Les valeurs de cette zone</div>`+
+    // Le numérateur en un coup d'œil, avec les nombres de la zone : l'abstention
+    // conjoncturelle (l'abstention prévue en 2027 moins le plancher jamais franchi ici),
+    // puis la part de gauche de celles et ceux qui rentrent quand la participation monte.
     lig("Voix à conquérir",_n0(o.mobn)+" voix",
-        "abstentionnistes conjoncturels × part de gauche du votant marginal (score de la version 2)")+
+        `${_n0(o.mobc)} abstentionnistes conjoncturels (${_pct(o.moba)} d'abstention prévue `+
+        `moins un plancher de ${_pct(o.mobf)}) × ${_pct(o.mobg)} de gauche chez le votant marginal`)+
     // `insc` n'est baké qu'à la commune et au quartier ; au bureau de vote on le relit sur
     // les portes, dont il est la source exacte (portes = inscrits ÷ électeur·ices par porte).
     lig("Portes à frapper",_n0(o.mobp)+" portes",
@@ -106,7 +76,8 @@ function rendMethodo(o){ o=o||{};
                :`majoritairement <b>à pied</b>${o.mobv?` (${_pct(o.mobv)} des portes en voiture)`:""}`)+
     lig("Temps total",_n0(o.mobh)+" h",
         `pour frapper à toutes les portes de la zone (${_n0(o.mobk)} km parcourus)`)+
-    `<p><b>Comment c'est calculé.</b> Le numérateur est le score de la version 2. Le dénominateur est `+
+    `<p><b>Comment c'est calculé.</b> Le numérateur, ce sont les voix réellement mobilisables `+
+    `(détail dans le « i » de la légende). Le dénominateur est `+
     `un <b>budget-temps</b> : chaque porte coûte <b>${_n1(r.minutes_conversation)} minutes</b> de `+
     `conversation — la même partout — plus le temps d'aller à la suivante. Ce temps de trajet dépend `+
     `du terrain : on retient le mode le moins coûteux entre la <b>marche</b> (${_n0(r.kmh_marche)} km/h) `+
@@ -120,8 +91,9 @@ function rendMethodo(o){ o=o||{};
       `gagnable toutes les <b>${_n1(heuresParVoix)} heures</b> de porte-à-porte`:"Valeur indisponible ici"} — `+
     `contre <b>${_n2(r.rendement_france)} voix/h</b> en moyenne en France. Deux fois la moyenne = deux `+
     `fois moins d'heures militantes pour la même voix. C'est un <b>rendement</b>, pas un volume : une `+
-    `petite commune très rentable ne remplace pas une grande ville à gros gisement — regardez les deux `+
-    `(la version 2 donne le volume). Et c'est une <b>rentabilité relative</b> : un porte-à-porte n'est `+
+    `petite commune très rentable ne remplace pas une grande ville à gros gisement — la ligne `+
+    `« Voix à conquérir » ci-dessus en donne le volume. Et c'est une <b>rentabilité relative</b> : `+
+    `un porte-à-porte n'est `+
     `pas la seule façon d'aller chercher une voix.</p>`+
     `<p class="hypnote"><b>Limites du dénominateur.</b> Les contours de bureaux de vote sont approchés `+
     `(Voronoï) et couvrent tout le territoire, champs compris : à la campagne, la distance entre deux `+
@@ -141,10 +113,6 @@ function mobResume(){ const r=mobRef();
     `${_pct(r.gamma_moyen)} en moyenne). Soit, sur toute la France, <b>${_n0(r.mob_france)} voix</b> `+
     `réellement mobilisables — à comparer aux ${_n0(r.conj_france)} abstentionnistes conjoncturels et `+
     `aux ${_n0(r.insc_france)} inscrit·es.</p>`;
-  if(VERSION===2)return `<h3>Voix à conquérir · législatives 2027</h3>`+commun+
-    `<p>C'est une <b>mesure</b>, pas un objectif : elle dit ce qu'il y a à aller chercher ici, pas ce `+
-    `qu'il faudrait obtenir. Cliquez une zone pour voir le calcul avec ses propres chiffres.</p>`+
-    mobSource();
   return `<h3>Rentabilité du porte-à-porte · législatives 2027</h3>`+commun+
     `<p><b>Rentabilité</b> = ces voix ÷ le <b>temps</b> qu'il faut pour aller les chercher porte à `+
     `porte. Chaque porte coûte ${_n1(r.minutes_conversation)} minutes de conversation, plus le trajet `+

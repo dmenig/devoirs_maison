@@ -1,19 +1,10 @@
 const BASE="__BASE__";
-// VERSION du site (1, 2 ou 3), figée à la publication par build_site.py — pas un réglage
-// d'affichage : chaque version est une PAGE distincte (index.html, v2/, v3/), servie à sa
-// propre URL, avec le même data_app. Seule la définition des « voix à conquérir » change ;
-// tout le reste (navigation, fiches, contrôles, données) est identique d'une version à
-// l'autre. Le sélecteur en haut de carte (15_version.js) est un lien, pas un interrupteur.
-//   1 · Objectif      — déficit arithmétique : 20 % des exprimés estimés − socle LFI
-//   2 · Modèle 2027   — voix réellement gagnables (abstentionnistes conjoncturels × γ)
-//   3 · Rentabilité   — voix gagnables par HEURE de porte-à-porte
-// Ces trois définitions vivent dans 02_data_geo.js (calcul) et 034_mobilisation.js (méthode).
-const VERSION=__VERSION__;
-// [numéro, chemin sous la racine du site, libellé, description] — MIROIR de build_map.VERSIONS.
-const VERSIONS=[
-  [1,"","Objectif","Objectif arithmétique : 20 % des exprimés, moins le socle LFI déjà acquis."],
-  [2,"v2/","Modèle 2027","Voix réellement gagnables : abstentionnistes de gauche mobilisables (modèle par bureau)."],
-  [3,"v3/","Rentabilité","Voix gagnables par heure de porte-à-porte : le rendement de l'effort militant."]];
+// « Voix à conquérir » = RENTABILITÉ DU PORTE-À-PORTE : voix gagnables par heure passée à
+// frapper aux portes. Le site a publié un temps trois définitions concurrentes du score,
+// sur trois pages distinctes (index.html, v2/, v3/) : l'objectif arithmétique (20 % des
+// exprimés estimés − socle LFI) et les voix modélisées (abstentionnistes conjoncturels × γ)
+// ont été retirées, la rentabilité sert désormais seule et à la racine. Elle vit dans
+// 02_data_geo.js (calcul) et 034_mobilisation.js (méthode).
 const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
@@ -55,13 +46,9 @@ const EST_METHODO=`<p><b>Chiffre estimé, non mesuré.</b> Aucun résultat élec
   `Sources : contours de bureaux <b>Voronoï data.gouv</b> (approchés), contours IRIS <b>IGN 2025</b>, `+
   `population <b>recensement INSEE 2021</b>. Un quartier que les contours de bureaux ne recouvrent `+
   `pas à 99 % n'est pas estimé : il n'affiche aucun chiffre électoral plutôt qu'un chiffre faux.</p>`;
-// Intitulé et unité de la pastille du score, par version. La CLÉ reste `conquerir` dans les
-// trois cas : c'est le même emplacement dans l'interface (même pastille, même chiffre de
-// tête, même permalien), avec une définition différente — c'est bien ce qu'on veut comparer.
-const CONQ_PAST={1:["Voix à conquérir"," voix"],
-                 2:["Voix à conquérir"," voix"],
-                 3:["Rentabilité du porte-à-porte"," voix/h"]}[VERSION];
-const PAST=[["conquerir",CONQ_PAST[0],CONQ_PAST[1]],
+// La clé du score reste `conquerir` : c'est l'emplacement dans l'interface (pastille,
+// chiffre de tête, permalien), et les permaliens déjà partagés continuent d'y renvoyer.
+const PAST=[["conquerir","Rentabilité du porte-à-porte"," voix/h"],
             ["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
             ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
@@ -105,20 +92,10 @@ const TIP_PAUV="Part de la population vivant sous 60 % du revenu médian nationa
 //            chiffre, méthodo du volet détail (paresseuse : dépend de A/B), intitulé au long
 //            (facultatif : la pastille est à l'étroit, la fiche ne l'est pas)].
 const HEAD_INFO={
-  conquerir:{
-    1:["Présid. 2027","à trouver au-delà du socle LFI",()=>
-      `Nombre de voix manquantes, dans cette zone, pour atteindre l'objectif de <b>qualification au `+
-      `1<sup>er</sup> tour de la présidentielle 2027</b> (${Math.round(CARNET_HYP.qualif1T*100)} % des exprimés estimés), `+
-      `au-delà du <b>socle de voix LFI</b> déjà acquises (plancher des voix LFI sur Présid. 2022, Europ. 2024 `+
-      `et Légis. 2024). <b>0</b> = objectif déjà atteint. Aux échelles agrégées (région, département), somme `+
-      `des déficits commune par commune.`],
-    // Versions 2 et 3 : la méthodologie est LONGUE (c'est le cœur du changement) et dépend
-    // des valeurs de la zone ouverte — elle vit dans 034_mobilisation.js, qui la reçoit.
-    2:["Légis. 2027","abstentionnistes de gauche à ramener aux urnes",o=>mobMethodo(o),
-       "Voix à conquérir"],
-    3:["Légis. 2027","de porte-à-porte, par militant·e",o=>rendMethodo(o),
-       "Rentabilité du porte-à-porte"],
-  }[VERSION],
+  // La méthodologie du score est LONGUE et dépend des valeurs de la zone ouverte : elle
+  // vit dans 034_mobilisation.js, qui la reçoit.
+  conquerir:["Légis. 2027","de porte-à-porte, par militant·e",o=>rendMethodo(o),
+    "Rentabilité du porte-à-porte"],
   lfi:[null,"des inscrits",()=>
     `Part des inscrits ayant voté <b>LFI</b> au scrutin choisi dans le sélecteur ⚖️ `+
     `(<b>${scLab(selB)}</b>) : bulletin LFI, ou candidature d'union que LFI CONDUIT et où elle n'a pas de `+
@@ -343,7 +320,7 @@ function fillStyle(){ return map.getZoom()>=INK_MINZ?{op:.8,w:1}:{op:.85,w:.5}; 
 // là où le bureau de vote est une maille d'organisation du travail militant — resté
 // disponible d'un clic en mode avancé.
 const SOUS_DEFAUT="iris";
-const cache=window.__seed||{}; let layer=null, stack=[], indicKey="conquerir", indicLabel=CONQ_PAST[0], indicUnit=CONQ_PAST[1],
+const cache=window.__seed||{}; let layer=null, stack=[], indicKey="conquerir", indicLabel=PAST[0][1], indicUnit=PAST[0][2],
     curVals={}, busy=false, sousMode=SOUS_DEFAUT, lastInfo=null, panelDetails=[], enterColor=null;
 // Sélection multiple de communes (retour Elia, point 4) : en mode multi, un clic sur une
 // commune l'ajoute/retire de la sélection (fiche agrégée) au lieu d'y descendre.

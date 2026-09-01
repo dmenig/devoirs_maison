@@ -1,20 +1,17 @@
-"""Génère le site statique servi par GitHub Pages : `index.html`, `v2/`, `v3/`.
+"""Génère le site statique servi par GitHub Pages : `index.html`.
 
 Remplace l'ancien wrapper Streamlit : la carte étant entièrement côté client, le seul
 rôle du serveur était de recoller squelette + CSS + JS (build_map.assemble_map) et
 d'inliner l'amorce. C'est désormais fait une fois à la publication, pas à chaque visite.
 
-**Trois pages, un seul dépôt, une seule branche.** Les trois versions de l'atlas
-(cf. `build_map.VERSIONS`) ne diffèrent que par la définition des « voix à conquérir ».
-Plutôt qu'un commutateur d'affichage dans une page unique, chacune est publiée comme un
-site à part entière, à son URL, avec son numéro figé dedans : ce qu'on compare n'est pas
-un réglage mais bien deux sites, et une URL partagée décrit sans ambiguïté ce qu'a vu
-celui qui l'envoie. Le sélecteur en haut de carte n'est qu'un lien de l'une à l'autre.
+**Une seule page.** L'atlas a publié trois versions côte à côte (`index.html`, `v2/`,
+`v3/`) le temps de trancher entre trois définitions des « voix à conquérir ». La
+rentabilité du porte-à-porte l'a emporté : elle est désormais la seule, et elle est servie
+à la racine. Les permaliens `/v2/…` et `/v3/…` ne répondent plus — l'état de la vue (`?e=`,
+`?z=`, `?ll=`, `?f=`…) qu'ils portaient reste valable à la racine.
 
 Les données (`data_app/`, ~1,4 Go) dépassent la limite d'un site Pages : elles restent
-servies depuis le dépôt par raw.githubusercontent, via `--base`. Les trois versions
-partagent EXACTEMENT le même `data_app` — les clés des trois définitions du score y sont
-bakées côte à côte (cf. prep_bake), chaque version n'en colorant qu'une.
+servies depuis le dépôt par raw.githubusercontent, via `--base`.
 """
 
 from __future__ import annotations
@@ -23,7 +20,7 @@ import argparse
 import pathlib
 import shutil
 
-from build_map import VERSIONS, assemble_map
+from build_map import assemble_map
 from prep_seed import amorce
 
 RACINE = pathlib.Path(__file__).parent
@@ -47,14 +44,9 @@ def main() -> None:
     shutil.rmtree(args.sortie, ignore_errors=True)
     args.sortie.mkdir(parents=True)
     (args.sortie / ".nojekyll").touch()  # sinon Pages ignore les fichiers en `_`
-    for version, (chemin, libelle, _desc) in VERSIONS.items():
-        page = args.sortie / chemin / "index.html"
-        page.parent.mkdir(parents=True, exist_ok=True)
-        page.write_text(assemble_map(args.base, version), encoding="utf-8")
-        print(
-            f"{page} : {page.stat().st_size / 1024:.0f} Ko "
-            f"(v{version} « {libelle} »)"
-        )
+    page = args.sortie / "index.html"
+    page.write_text(assemble_map(args.base), encoding="utf-8")
+    print(f"{page} : {page.stat().st_size / 1024:.0f} Ko")
     print(f"base : {args.base}")
 
 

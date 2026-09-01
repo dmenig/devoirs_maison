@@ -87,7 +87,7 @@ async function init(){ buildSelecteur(); buildPastilles();
   Promise.all([getJSON("values/_scrutins.json"),getJSON("values/_admin_fr.json"),
                getJSON("values/_socio_fr.json"),getJSON("values/_socio_reg.json"),
                // hypothèses et repères nationaux du modèle 2027 : inlinés dans l'amorce
-               // (prep_seed), donc déjà là — les versions 2 et 3 les affichent dans le « i ».
+               // (prep_seed), donc déjà là — le « i » du score les affiche.
                getJSON("values/_mobilisation.json")])
     .then(([scr,adm,sfr,sreg,mob])=>{ window.__scr=scr; window.__adminFr=adm;
       window.__socioFr=sfr; window.__socioReg=sreg; window.__mobRef=mob; });

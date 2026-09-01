@@ -16,23 +16,28 @@ Les cartes par **bureau de vote** sont nationales et le scrutin affiché est sé
 
 ➡️ **<https://lfi-pee.github.io/devoirs_maison/>**
 
-## Trois versions du site
+## « Voix à conquérir » : la rentabilité du porte-à-porte
 
-Une même branche publie **trois sites**, qui ne diffèrent que par la définition d'un
-indicateur — les **« voix à conquérir »**. Tout le reste (données servies, navigation,
-fiches, contrôles) est rigoureusement identique. Le sélecteur en haut de carte passe de
-l'une à l'autre en gardant le territoire affiché ; ce sont de vrais liens, on peut donc
-ouvrir deux versions dans deux onglets et comparer les cartes.
+Le score que colore la carte, c'est le **nombre de voix gagnables par heure de
+porte-à-porte** — là où l'heure militante rapporte le plus, et non là où il y a le plus de
+voix : les deux ne coïncident pas.
 
-| Version | URL | « Voix à conquérir » |
-| --- | --- | --- |
-| 1 · **Objectif** | [`/`](https://lfi-pee.github.io/devoirs_maison/) | Objectif arithmétique : 20 % des exprimés estimés, moins le socle LFI déjà acquis. Ne repose sur aucune mesure de ce qui est gagnable. |
-| 2 · **Modèle 2027** | [`/v2/`](https://lfi-pee.github.io/devoirs_maison/v2/) | **Abstentionnistes conjoncturels × γ** : les électeur·ices qu'une campagne peut ramener aux urnes ET qui votent à gauche, d'après le modèle par bureau de vote de [`elections_predictions`](https://github.com/lfi-pee/elections_predictions) (législatives 2027). |
-| 3 · **Rentabilité** | [`/v3/`](https://lfi-pee.github.io/devoirs_maison/v3/) | **Voix gagnables par heure de porte-à-porte** : le score de la version 2 divisé par le temps qu'il faut pour aller le chercher (15 min de conversation par porte + trajet, à pied ou en voiture selon la densité du bureau). |
+- **Numérateur** — les **abstentionnistes conjoncturels × γ** : les électeur·ices qu'une
+  campagne peut ramener aux urnes ET qui votent à gauche, d'après le modèle par bureau de
+  vote de [`elections_predictions`](https://github.com/lfi-pee/elections_predictions)
+  (législatives 2027).
+- **Dénominateur** — un **budget-temps** : 15 min de conversation par porte, plus le
+  trajet jusqu'à la suivante, à pied ou en voiture selon la densité du bureau.
 
-Les versions 2 et 3 portent un **bouton « i »** — dans la légende de la carte pour la
-méthode générale, sur le chiffre de tête de la fiche pour le calcul détaillé avec les
-valeurs de la zone ouverte. Voir [DOCUMENTATION.md](DOCUMENTATION.md#voix-à-conquérir--trois-définitions-trois-versions-du-site).
+Un **bouton « i »** donne la méthode : dans la légende de la carte pour la méthode
+générale, sur le chiffre de tête de la fiche pour le calcul détaillé avec les valeurs de
+la zone ouverte. Voir [DOCUMENTATION.md](DOCUMENTATION.md).
+
+Le site a publié un temps **trois versions** côte à côte (`/`, `/v2/`, `/v3/`) pour
+départager trois définitions du score : l'objectif arithmétique (20 % des exprimés
+estimés moins le socle LFI, qui ne mesurait rien de ce qui est gagnable), les voix
+modélisées, et leur rentabilité. Seule la troisième subsiste, à la racine ; `/v2/` et
+`/v3/` ne répondent plus.
 
 ## Lancer en local
 
@@ -49,10 +54,9 @@ la base dessus :
 uv run python build_site.py --base /data_app && uv run python -m http.server
 ```
 
-puis <http://localhost:8000/_site/> (et `/_site/v2/`, `/_site/v3/`). La base est résolue
-par le navigateur depuis la page servie : `/data_app` (absolu) vaut pour les trois
-versions, là où un chemin relatif (`../data_app`) ne serait juste que pour la version 1,
-qui seule est à la racine du site.
+puis <http://localhost:8000/_site/>. La base est résolue par le navigateur depuis la page
+servie : `/data_app` (absolu) vaut depuis n'importe quelle profondeur, là où un chemin
+relatif dépendrait de l'emplacement de la page.
 
 ## Architecture
 
@@ -60,15 +64,15 @@ qui seule est à la racine du site.
 | --- | --- |
 | `map.html` | **squelette** de la carte servie : balisage des panneaux + marqueurs `/*__CSS__*/` et `/*__JS__*/` |
 | `assets/map.css` | thème et mise en page de la carte |
-| `assets/js/*.js` | logique de la carte, un fichier par responsabilité (config · data/geo · panneau info · panneau admin · panneau action · navigation · contrôles · recherche · **méthode des voix à conquérir** · **sélecteur de version**) ; concaténée dans l'ordre des noms (préfixe `NN_`) |
-| `build_map.py` | `assemble_map(base, version)` : recolle squelette + CSS + JS en une string, injecte `__BASE__` et le numéro de `__VERSION__` |
-| `build_site.py` | écrit les **trois** pages publiées : `_site/index.html`, `_site/v2/index.html`, `_site/v3/index.html` |
+| `assets/js/*.js` | logique de la carte, un fichier par responsabilité (config · data/geo · panneau info · panneau admin · panneau action · navigation · contrôles · recherche · **méthode des voix à conquérir** · notice modale) ; concaténée dans l'ordre des noms (préfixe `NN_`) |
+| `build_map.py` | `assemble_map(base)` : recolle squelette + CSS + JS en une string et injecte `__BASE__` |
+| `build_site.py` | écrit la page publiée : `_site/index.html` |
 | `.github/workflows/pages.yml` | publie `_site/` sur GitHub Pages à chaque push sur `master` |
 | `prepare_data.py` | construit `data_app/` depuis hexagonal (élections, socio, admin INSEE, contours) |
 | `regen_elections.py` | régénère les seules tables électorales après un correctif du pipeline — enchaîner `prep_bake.py`, qui écrit aussi `manifest.json` |
 | `prep_bake.py` | bake les valeurs JSON par échelle (recompo, réservoirs, profil admin) lues par la carte |
 | `prep_immo.py` | prix au m² (DVF) et effort d'accession par commune + références France/région |
-| `prep_mobilisation.py` | « voix à conquérir » 2027 par bureau de vote (versions 2 et 3) : reprend les sorties du modèle **elections_predictions** et y ajoute la géométrie du porte-à-porte (portes, kilomètres, budget-temps) |
+| `prep_mobilisation.py` | « voix à conquérir » 2027 par bureau de vote : reprend les sorties du modèle **elections_predictions** et y ajoute la géométrie du porte-à-porte (portes, kilomètres, budget-temps) |
 | `prep_*.py`, `regen_geo.py` | étapes de préparation (élections, socio, admin, contours) |
 | `indicators.py` | calcul des réservoirs de voix / recomposition (utilisé par le bake) |
 | `prep_index.py` | hiérarchie + index de recherche ; redirige les anciens noms de communes fusionnées vers la commune nouvelle (`code_commune_parent` du COG) |
@@ -90,7 +94,7 @@ bureau de vote), INSEE FILOSOFI 2021 (revenu/pauvreté par IRIS), COG 2025, cont
 INSEE / france-geojson. Seule exception, téléchargée directement par le pipeline : la base
 **DVF** agrégée par commune (prix au m², data.gouv.fr, ODbL).
 
-Les « voix à conquérir » des versions 2 et 3 viennent en plus d'un **second dépôt**,
+Les « voix à conquérir » viennent en plus d'un **second dépôt**,
 [`elections_predictions`](https://github.com/lfi-pee/elections_predictions), dont on lit
 les sorties déjà publiées (site statique `report_app/`) — on ne ré-estime pas son modèle.
 Cloner ce dépôt à côté de celui-ci (ou pointer `--source` dessus) puis :
@@ -102,8 +106,8 @@ uv run --project ./hexagonal python prep_mobilisation.py && uv run --project ./h
 ## Déploiement
 
 **GitHub Pages**, automatiquement : chaque push sur `master` déclenche
-[pages.yml](.github/workflows/pages.yml), qui lance `build_site.py` et publie les trois
-pages qui en sortent (`/`, `/v2/`, `/v3/`). La carte étant entièrement côté client, le
+[pages.yml](.github/workflows/pages.yml), qui lance `build_site.py` et publie la page qui
+en sort. La carte étant entièrement côté client, le
 site n'est QUE ces fichiers — aucun serveur applicatif, plus de Streamlit.
 
 Les données restent hors du site publié : `data_app/` pèse ~1,4 Go, au-delà de la limite d'1 Go

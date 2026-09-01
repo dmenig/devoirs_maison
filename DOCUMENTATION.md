@@ -71,47 +71,43 @@ réelles (région, département, commune, bureau de vote) :
 - **Différentiel de participation** (`participation_B − participation_A`, en points d'inscrits)
 - **Stock d'abstentionnistes mobilisables** (`inscrits × taux d'abstention`)
 
-### Voix à conquérir : trois définitions, trois versions du site
+### Voix à conquérir : la rentabilité du porte-à-porte
 
-Le site est publié en **trois versions**, à trois adresses, qui ne diffèrent que par la
-façon de calculer les **« voix à conquérir »** — la pastille de carte affichée par défaut.
-Tout le reste est identique : mêmes données, mêmes fiches, mêmes échelles. Le sélecteur en
-haut de carte passe de l'une à l'autre sans quitter le territoire affiché.
+La pastille affichée par défaut porte **ce que rapporte une heure** de porte-à-porte : le
+gisement de voix réellement mobilisables, divisé par le temps qu'il coûte à démarcher —
+en **voix / heure**. C'est une **estimation**, et elle le dit : un bouton « i » ouvre la
+méthode (légende de la carte pour la méthode générale, chiffre de tête de la fiche pour le
+calcul détaillé, avec les valeurs de la zone ouverte).
 
-| Version | Ce que le chiffre veut dire | Unité |
-| --- | --- | --- |
-| **1 · Objectif** (`/`) | Ce qu'il **faudrait** obtenir : 20 % des exprimés estimés (seuil de qualification au 1<sup>er</sup> tour), moins le socle de voix LFI déjà acquises (plancher sur Présid. 2022, Europ. 2024, Légis. 2024). `0` = objectif atteint. | voix |
-| **2 · Modèle 2027** (`/v2/`) | Ce qu'il y a **réellement** à aller chercher : les abstentionnistes qu'une campagne peut ramener aux urnes **et** qui votent à gauche. | voix |
-| **3 · Rentabilité** (`/v3/`) | Ce que **rapporte une heure** de porte-à-porte : le gisement de la version 2, divisé par le temps qu'il coûte à démarcher. | voix / heure |
+> **Trois définitions, une retenue.** Le site a longtemps publié trois versions à trois
+> adresses, qui ne différaient que par ce calcul : l'**objectif** arithmétique (`/`, 20 %
+> des exprimés estimés moins le socle LFI), le **modèle 2027** (`/v2/`, le gisement seul) et
+> la **rentabilité** (`/v3/`). L'objectif n'était pas une mesure — une commune où la gauche
+> plafonne depuis vingt ans y affichait le même « déficit » qu'une commune pleine
+> d'abstentionnistes de gauche. Seule la rentabilité subsiste, servie à la racine ; `/v2/`
+> et `/v3/` ne répondent plus.
 
-La version 1 est un **objectif**, pas une mesure : une commune où la gauche plafonne depuis
-vingt ans y affiche le même « déficit » qu'une commune pleine d'abstentionnistes de gauche.
-Les versions 2 et 3 sont des **estimations**, et le disent : elles portent un bouton « i »
-(légende de la carte pour la méthode générale, chiffre de tête de la fiche pour le calcul
-détaillé, avec les valeurs de la zone ouverte).
+**Aucun chiffre servi n'est calculé par l'arithmétique historique.** La règle vaut dans
+toute la fiche, pas seulement sur la carte.
 
-Le changement ne s'arrête pas à la couleur de la carte : **hors version 1, aucun chiffre servi
-n'est calculé par l'arithmétique historique**. Trois conséquences dans la fiche.
-
-- **Carnet de campagne — décomposition de l'électorat.** Le segment « Voix potentielles »
-  devient « **Voix gagnables** » et porte exactement le nombre que colore la carte (4 030 à
-  Saint-Denis, contre 20 354 pour l'heuristique de la version 1) ; la version 3 y ajoute le
-  temps de porte-à-porte que ce gisement représente. Une zone que le modèle ne couvre pas
-  perd le segment plutôt que d'afficher un `0`.
-- **Carnet de campagne — objectifs.** Les trois cartes de seuil (20 % des exprimés pour la
-  qualification, 50 % au second tour) ne sont servies **qu'en version 1** : elles sont la
-  formule dont son score est tiré (`score = cible du 1ᵉʳ tour − socle LFI`), et les afficher
-  ailleurs remettait ce calcul sous les yeux du lecteur juste au-dessus du chiffre censé le
-  remplacer. En versions 2 et 3, le Carnet s'ouvre sur les voix LFI réellement obtenues aux
-  scrutins passés, puis sur la décomposition. Son titre suit : « Carnet de campagne ·
-  **Législatives 2027** », le scrutin que le modèle projette, là où les objectifs de la
-  version 1 sont ceux d'une présidentielle.
+- **Carnet de campagne — décomposition de l'électorat.** Le segment « Voix gagnables »
+  porte exactement le numérateur du score (4 030 à Saint-Denis, contre 20 354 pour
+  l'heuristique de l'ancienne version 1), et la ligne dessous en donne le temps de
+  porte-à-porte. Une zone que le modèle ne couvre pas perd le segment plutôt que d'afficher
+  un `0`.
+- **Carnet de campagne — objectifs.** Les cartes de seuil (20 % des exprimés pour la
+  qualification, 50 % au second tour) ont disparu avec la version 1 : elles étaient la
+  formule dont son score était tiré (`score = cible du 1ᵉʳ tour − socle LFI`), et les
+  afficher remettait ce calcul sous les yeux du lecteur juste au-dessus du chiffre censé le
+  remplacer. Le Carnet s'ouvre donc sur les voix LFI réellement obtenues aux scrutins
+  passés, puis sur la décomposition. Son titre suit : « Carnet de campagne ·
+  **Législatives 2027** », le scrutin que le modèle projette.
 - **Plan d'action.** Le levier « Mobiliser les abstentionnistes » garde son stock brut (un
-  fait mesuré aux européennes 2024, identique dans les trois versions) mais lui adosse, en
-  versions 2 et 3, la part réellement mobilisable à gauche — 4 030 sur 30 729 à Saint-Denis,
-  soit 13 %, le reste étant de l'abstention chronique.
+  fait mesuré aux européennes 2024) mais lui adosse la part réellement mobilisable à
+  gauche — 4 030 sur 30 729 à Saint-Denis, soit 13 %, le reste étant de l'abstention
+  chronique.
 
-**Version 2 — le gisement.** Pour chaque bureau de vote :
+**Le numérateur — le gisement.** Pour chaque bureau de vote :
 
 ```
 voix à conquérir = abstentionnistes conjoncturels × γ(niveau de gauche prédit)
@@ -129,8 +125,8 @@ voix à conquérir = abstentionnistes conjoncturels × γ(niveau de gauche préd
 - Total national : **2,23 millions de voix**, sur 5,58 millions d'abstentionnistes
   conjoncturels et 49,3 millions d'inscrit·es.
 
-**Version 3 — la rentabilité.** La ressource rare d'une campagne n'est pas la voix théorique,
-c'est l'**heure de militant·e** :
+**Le dénominateur — le budget-temps.** La ressource rare d'une campagne n'est pas la voix
+théorique, c'est l'**heure de militant·e** :
 
 ```
 rentabilité = voix à conquérir ÷ heures de porte-à-porte
@@ -314,7 +310,7 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   **Répertoire national des élus** (data.gouv) pour le maire en exercice.
 - **Électoral par quartier (IRIS)** : **estimé** — croisement des résultats par bureau de
   vote et des contours IRIS, recalé sur les résultats communaux (voir plus haut).
-- **Voix à conquérir 2027** (versions 2 et 3) : dépôt **elections_predictions** — modèle de
+- **Voix à conquérir 2027** : dépôt **elections_predictions** — modèle de
   déviation par bureau de vote (législatives 2027), courbe γ participation → parts, plancher
   d'abstention par bureau. On lit ses **sorties publiées** (site statique `report_app/`), on ne
   ré-estime rien. Le porte-à-porte (aire du bureau, portes, kilomètres, budget-temps) est
@@ -325,7 +321,7 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 
 ## Limites connues
 
-- Les **« voix à conquérir » des versions 2 et 3** sont une **prévision**, avec trois sources
+- Les **« voix à conquérir »** sont une **prévision**, avec trois sources
   d'imprécision distinctes, à ne pas confondre. **(a)** Le modèle lui-même : R² de 0,82 sur la
   gauche et 0,56 sur l'abstention en validation hors échantillon — le classement des bureaux est
   bien plus fiable que la valeur absolue de chacun. **(b)** Le niveau **national** est posé par
@@ -334,7 +330,7 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   répartition **entre les bureaux d'une même commune** est reprise du millésime 2024 du modèle,
   le millésime 2027 n'étant publié qu'à la commune : le total communal est exactement celui du
   modèle, la dispersion interne est une reprise.
-- Le **budget-temps du porte-à-porte** (version 3) repose sur trois conventions assumées, toutes
+- Le **budget-temps du porte-à-porte** repose sur trois conventions assumées, toutes
   affichées dans le « i » : **15 minutes** par porte (ordre de grandeur d'un vrai échange, pas une
   mesure), **1,6 inscrit·e par logement** (le nombre de logements n'est pas compté, il est déduit),
   et l'aire du bureau prise pour surface à parcourir. Les contours Voronoï couvrant **tout** le
