@@ -18,6 +18,19 @@ const _n0=v=>v==null?"—":Math.round(v).toLocaleString('fr');
 const _n1=v=>v==null?"—":v.toLocaleString('fr',{maximumFractionDigits:1});
 const _n2=v=>v==null?"—":v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _pct=v=>v==null?"—":_n1(v)+" %";
+// Les bornes du barème sont servies au MILLIÈME (0,224 · 1,646) : les écrire au centième
+// afficherait « 50 × (0,22 − 0,00) ÷ (0,22 − 0,00) », une opération dont le résultat lu
+// ne serait pas celui de la note affichée. Une opération recopiée doit retomber sur son
+// résultat.
+const _n3=v=>v==null?"—":v.toLocaleString('fr',{minimumFractionDigits:3,maximumFractionDigits:3});
+
+// Pied de notice, commun aux deux « i ». Le doute sur un chiffre naît en lisant la méthode
+// qui le fabrique : c'est là, et pas dans la barre du haut, qu'il faut trouver où le dire.
+// Le clic est capté par 16_suggestion.js (délégation sur #modal et #info), à la manière du
+// « i » de la légende — aucun appel croisé entre modules.
+const SUGG_PIED=`<p class="sgfoot">Un chiffre vous paraît faux, une étape du calcul vous `+
+  `échappe ? <span class="sglink" role="button" tabindex="0">Signalez-le à l'équipe Études `+
+  `électorales</span> — le formulaire joint la zone et l'indicateur affichés.</p>`;
 
 const CONQ_TIP="Voix gagnables par heure de porte-à-porte : chances de convaincre à chaque "+
   "porte, rapportées au temps qu'une porte coûte. Cliquez pour le détail du calcul.";
@@ -34,6 +47,47 @@ function mobSource(){ const r=mobRef();
     `${_pct(r.nat&&r.nat.AB)}) — c'est une hypothèse de conjoncture, pas une prédiction du résultat. `+
     `Le modèle est publié à la <b>commune</b> pour 2027 ; la répartition entre les bureaux d'une même `+
     `commune reprend celle qu'il produit sur 2024.</p>`; }
+
+// --- Du rendement à la note sur 100 -------------------------------------------------
+// La carte, l'infobulle et le chiffre de tête de la fiche n'affichent PAS le rendement mais
+// la note « Prioritaire ». Le volet décomposait donc scrupuleusement « 0,28 voix/h » sous un
+// titre qui venait d'annoncer « 52 / 100 », sans jamais dire par quoi on passait de l'un à
+// l'autre : deux nombres sans lien apparent, et un lecteur fondé à croire la note tirée
+// d'ailleurs. Ce bloc est ce chaînon — l'échelle, la position de la zone dessus, et
+// l'opération écrite avec ses nombres, telle qu'on peut la refaire à la main.
+//
+// Les trois bornes sont celles que le pipeline SERT (`rendement_min/median/max`, cf.
+// prep_bake._reperes_rendement), lues comme le calcul les lit (`rendRep`, 02_data_geo.js) :
+// un data_app régénéré les déplace, et la notice se déplace avec lui. La note affichée est
+// celle que `scorePrioritaire` renvoie — pas une seconde formule écrite ici, qui pourrait
+// s'en écarter sans qu'on le voie.
+function noteEchelle(o){ const b=rendRep(); if(!b)return "";
+  const lo=b.rendement_min||0, md=b.rendement_median, hi=b.rendement_max;
+  if(!(md>lo)||!(hi>md))return "";
+  const r=o?rendementPorte(o):null, n=o?scorePrioritaire(o):null;
+  // Remplissage = la note elle-même ; le CURSEUR, lui, est ramené dans le rail (à 0 comme à
+  // 100, la pastille en déborderait de moitié). Deux grandeurs et non une seule : rogner
+  // aussi le remplissage donnerait 2 % de barre pleine à une zone qui note zéro.
+  const pos=n!=null?Math.max(2,Math.min(98,n)):null;
+  // L'opération du segment RÉELLEMENT emprunté, et lui seul : afficher les deux demanderait
+  // au lecteur de choisir, alors que la valeur de la zone a déjà tranché. La note est écrite
+  // ARRONDIE, comme partout ailleurs dans l'interface — et le dit, sinon l'opération recopiée
+  // (60,06) ne retombe pas sur le résultat affiché (60).
+  const rnd=n!=null&&Math.abs(n-Math.round(n))>0.005
+    ?` <span class="notescarr">(${_n2(n)}, arrondie)</span>`:"";
+  const eq=r==null?"":(r<=md
+    ?`50 × (${_n3(r)} − ${_n3(lo)}) ÷ (${_n3(md)} − ${_n3(lo)}) = <b>${_n0(n)} / 100</b>${rnd}`
+    :`50 + 50 × (${_n3(r)} − ${_n3(md)}) ÷ (${_n3(hi)} − ${_n3(md)}) = <b>${_n0(n)} / 100</b>${rnd}`);
+  const grad=(note,val,quoi)=>`<span><b>${note}</b><small>${_n3(val)} voix/h<br>${quoi}</small></span>`;
+  // Sans zone ouverte (notice de la légende), pas de curseur : la réserve de place au-dessus
+  // du rail n'a plus d'objet.
+  return `<div class="notesc${pos==null?" nocur":""}">`+
+    `<div class="notescr">`+(n!=null?`<i style="width:${Math.max(0,Math.min(100,n))}%"></i>`:"")+
+      `<u style="left:50%"></u>`+
+      (pos!=null?`<span class="notescc" style="left:${pos}%">${_n0(n)}</span>`:"")+`</div>`+
+    `<div class="notescl">`+grad(0,lo,"pire terrain")+grad(50,md,"terrain médian")+
+      grad(100,hi,"meilleur terrain")+`</div>`+
+    (eq?`<div class="notesceq">${eq}</div>`:"")+`</div>`; }
 
 // --- Rentabilité du porte-à-porte ---------------------------------------------------
 // La ressource rare d'une campagne est l'HEURE de militant·e, pas la voix théorique. On
@@ -64,8 +118,39 @@ function rendMethodo(o){ o=o||{};
   const portesVoiture=(o.mobv&&portes)?`, soit ${_n0(portes*o.mobv/100)}`:"";
   const lig=(lab,val,det)=>`<div class="row"><span>${lab}</span><b>${val}</b></div>`+
     (det?`<div class="mobdet">${det}</div>`:"");
+  const note=scorePrioritaire(o), ech=noteEchelle(o);
+  const bareme=!ech?"":
+    `<div class="sec">Du rendement à la note sur 100</div>`+ech+
+    `<p>La carte, l'infobulle et le chiffre en tête de cette fiche n'affichent pas les `+
+    `${rend!=null?`${_n2(rend)} voix/h`:"voix par heure"} ci-dessus mais cette <b>note</b> : un `+
+    `rendement ne se classe pas sans savoir d'abord ce qu'est une bonne valeur, `+
+    `${note!=null?`là où « ${_n0(note)} sur 100 » se situe`:"là où une note se situe"} tout seul. `+
+    `Elle place la zone entre le <b>pire</b> terrain de France (0), le terrain <b>médian</b> (50) `+
+    `et le <b>meilleur</b> (100), en interpolant de part et d'autre du médian.</p>`+
+    `<p><b>Deux segments, et non une règle de trois sur le maximum</b>, parce que la `+
+    `distribution est très dissymétrique : rapporté au seul sommet, le bureau médian notait `+
+    `14 sur 100 et la moitié des communes tenait entre 9 et 17 — une note qui n'utilise pas son `+
+    `échelle ne classe plus rien. L'ordre, lui, est identique : la transformation est monotone. `+
+    `Conséquence à connaître, la <b>pente casse à 50</b> : dix points de note ne valent pas le `+
+    `même écart de voix/h des deux côtés du médian. C'est pourquoi la <b>couleur</b> de la carte `+
+    `se calcule sur le rendement brut et non sur la note — le nombre dit le rang, la teinte dit `+
+    `l'écart.</p>`+
+    `<p class="hypnote">Les trois bornes sont celles des <b>${_n0(r.n_bv)} bureaux de vote</b>, `+
+    `seule maille qui découpe la France entière : la zone se situe ainsi parmi les bureaux du `+
+    `pays, quelle que soit sa taille — et une commune, qui moyenne ses bons et ses mauvais `+
+    `terrains, note donc moins que son meilleur bureau, un département moins encore. C'est `+
+    `l'information, pas un défaut d'échelle. Les bornes sont calculées sur les valeurs `+
+    `réellement servies et publiées avec elles : une régénération des données les déplace, et `+
+    `ce barème avec.</p>`;
+  // Le volet s'ouvre sur le chemin COMPLET, de la voix à la note : c'est la note qui est
+  // écrite au-dessus (chiffre de tête, infobulle, carte), et un volet qui n'ouvrirait que
+  // sur « 0,28 voix/h » expliquerait un chiffre que le lecteur n'a pas sous les yeux. Le
+  // barème lui-même est détaillé plus bas (noteEchelle) : ici, seulement le fait qu'il existe.
   return (rend!=null?`<div class="mobeq"><b>${_n0(o.mobn)} voix</b> à conquérir ÷ `+
-      `<b>${_n0(o.mobh)} h</b> de porte-à-porte = <b>${_n2(rend)} voix/h</b></div>`:"")+
+      `<b>${_n0(o.mobh)} h</b> de porte-à-porte = <b>${_n2(rend)} voix/h</b>`+
+      (note!=null?`<div class="mobeq2">→ soit une note de <b>${_n0(note)} / 100</b> sur `+
+        `l'échelle des bureaux de vote de France <span class="mobeq3">(barème plus bas)</span></div>`:"")+
+      `</div>`:"")+
     `<p><b>Ce que mesure ce chiffre :</b> le rendement de l'heure militante. Une zone peut abriter `+
     `beaucoup de voix à conquérir et coûter très cher à démarcher (habitat dispersé), une autre en `+
     `abriter moins mais les rendre atteignables. C'est le rapport des deux qui dit où envoyer `+
@@ -120,6 +205,12 @@ function rendMethodo(o){ o=o||{};
     `« Voix à conquérir » ci-dessus en donne le volume. Et c'est une <b>rentabilité relative</b> : `+
     `un porte-à-porte n'est `+
     `pas la seule façon d'aller chercher une voix.</p>`+
+    // Le barème, après le rendement et jamais avant : on ne peut situer sur une échelle
+    // qu'une grandeur déjà comprise. C'est aussi l'ordre dans lequel le lecteur arrive —
+    // il a lu la note, il veut la mesure ; il a la mesure, il veut le barème. Toute la
+    // section tombe si les bornes ne sont pas servies (noteEchelle rend ""), plutôt que
+    // d'expliquer une échelle qu'on ne peut pas montrer.
+    bareme+
     `<p class="hypnote"><b>Limites du dénominateur.</b> Les contours de bureaux de vote sont approchés `+
     `(Voronoï) et couvrent tout le territoire, champs compris : à la campagne, la distance entre deux `+
     `portes est donc <b>majorée</b>, puisque les maisons y sont groupées au village. Le nombre de `+
@@ -128,12 +219,23 @@ function rendMethodo(o){ o=o||{};
     `d'une saison. Et ${_n1(r.minutes_conversation)} minutes par `+
     `porte est une convention : c'est l'ordre de grandeur d'un vrai échange, pas une mesure. Ces `+
     `approximations déplacent l'échelle du chiffre bien plus que le classement des zones entre elles.</p>`+
-    mobSource();
+    mobSource()+SUGG_PIED;
 }
 
 // Notice sans zone, pour le « i » de la légende (aucune fiche ouverte) : la même méthode,
 // dite en trois phrases, plus les repères nationaux.
-function mobResume(){ const r=mobRef();
+function mobResume(){ const r=mobRef(), ech=noteEchelle(null);
+  const bareme=!ech?"":
+    `<p><b>Ce que la carte colore est une note sur 100</b>, pas ce rendement : la place de la `+
+    `zone entre le pire terrain de France (0), le terrain médian (50) et le meilleur (100). `+
+    `Un rendement en voix par heure ne se classe pas sans savoir d'abord ce qu'est une bonne `+
+    `valeur ; une note se situe seule.</p>`+ech+
+    `<p>La note interpole de part et d'autre du médian — deux segments de droite, parce que la `+
+    `distribution est très dissymétrique et qu'une simple règle de trois sur le maximum tassait `+
+    `le bureau médian à 14 sur 100. L'ordre est le même, l'échelle est utilisée. Les repères sont `+
+    `ceux des <b>${_n0(r.n_bv)} bureaux de vote</b>, seule maille qui découpe la France entière : `+
+    `une commune ou un département s'y situent donc parmi les bureaux du pays, et une commune, `+
+    `qui moyenne ses bons et ses mauvais terrains, note moins que son meilleur bureau.</p>`;
   const commun=`<p><b>Voix à conquérir</b> = <b>abstentionnistes conjoncturels</b> (l'abstention prévue `+
     `en 2027 moins le plancher jamais franchi par la zone) <b>×</b> la <b>part de gauche du votant `+
     `marginal</b> (la couleur politique des électeur·ices qui reviennent quand la participation monte, `+
@@ -152,7 +254,11 @@ function mobResume(){ const r=mobRef();
     `dans les communes touristiques que cela change tout. Moyenne nationale : `+
     `<b>${_n2(r.rendement_france)} voix par heure</b>, soit `+
     `${_n1(r.heures_france/1e6)} millions d'heures pour frapper à toutes les portes du pays.</p>`+
+    // Le barème AUSSI sans zone : la légende explique ce qu'on regarde avant tout clic, et
+    // ce qu'on regarde est une note — pas le rendement dont elle est tirée. Comme dans la
+    // fiche, tout le passage tombe si les bornes ne sont pas servies.
+    bareme+
     `<p>La carte montre donc <b>où l'heure militante rapporte le plus</b>, et non où il y a le plus de `+
     `voix — les deux ne coïncident pas. Cliquez une zone pour voir le calcul avec ses propres chiffres.</p>`+
-    mobSource();
+    mobSource()+SUGG_PIED;
 }

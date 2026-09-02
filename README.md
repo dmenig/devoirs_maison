@@ -40,10 +40,34 @@ dans le bouton « i ».
   la tournée et coûtent 1 min chacun sans jamais rendre de voix — de quoi faire tomber Les
   Belleville de `44` à `27` et Leucate de `47` à `34`, sans bouger Paris d'un dixième.
 
+### Du rendement à la note : le barème, écrit
+
+La note n'est pas un rang ni un quantile : c'est le **rendement remis à l'échelle** entre
+trois valeurs réelles, servies par le pipeline dans `values/_mobilisation.json`
+(`rendement_min` **0**, `rendement_median` **0,224**, `rendement_max` **1,646** voix/h).
+Deux segments de droite, la pente cassant au médian :
+
+```
+si rendement ≤ médian :  note = 50 × (rendement − min)    ÷ (médian − min)
+sinon                 :  note = 50 + 50 × (rendement − médian) ÷ (max − médian)
+```
+
+Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,646 − 0,224)` = **60 / 100**.
+La Creuse : `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **43 / 100**. Deux segments
+plutôt qu'une règle de trois sur le maximum, parce que la distribution est très
+dissymétrique : rapporté au seul sommet, le bureau médian notait `14` et la moitié des
+communes tenait entre `9` et `17`. L'ordre est le même — la transformation est monotone.
+
+Ce barème est **affiché dans l'interface**, pas seulement documenté ici : le « i » ouvre une
+règle graduée aux trois bornes, avec la zone pointée dessus et l'opération écrite avec ses
+propres nombres, telle qu'on peut la refaire à la main
+([034_mobilisation.js](assets/js/034_mobilisation.js), `noteEchelle`).
+
 Un **bouton « i »** donne la méthode — et, la note ne disant que le rang, c'est le seul
 endroit où on lit ce qui la fabrique : dans la légende de la carte pour la méthode
 générale, sur le chiffre de tête de la fiche pour le calcul détaillé (en voix par heure,
-avec les valeurs de la zone ouverte). Voir [DOCUMENTATION.md](DOCUMENTATION.md).
+puis le barème qui en fait la note, avec les valeurs de la zone ouverte). Voir
+[DOCUMENTATION.md](DOCUMENTATION.md).
 
 Le site a publié un temps **trois versions** côte à côte (`/`, `/v2/`, `/v3/`) pour
 départager trois définitions du score : l'objectif arithmétique (20 % des exprimés
@@ -63,6 +87,25 @@ dimensionne. Le registre de **chaque scrutin** est servi (il change d'une élect
 l'autre), les voix publiées par le ministère s'écrivent telles quelles et les effectifs
 *reconstitués* d'un taux arrondi portent un « ≈ ». Voir
 [DOCUMENTATION.md](DOCUMENTATION.md#les-effectifs-derrière-les-pourcentages).
+
+## Suggérer une amélioration
+
+Un bouton **💬 Suggérer** dans la barre du haut — et un lien en pied de chaque notice de
+méthode, là où naît le doute sur un chiffre — ouvre un formulaire qui prépare un courriel
+pour l'équipe **Études électorales** :
+**<etudes-electorales@franceinsoumise.org>**.
+
+Le site est statique : **rien n'est envoyé par la page**. Le formulaire compose le message
+et le remet au logiciel de courriel de la personne (`mailto:`), qui le relit et l'envoie
+elle-même — pas de service de formulaires tiers, pas d'adresses de militant·es chez un
+prestataire. Le `mailto:` n'aboutissant pas partout (webmail, poste sans client configuré)
+et échouant sans rien dire, le message se **copie** aussi d'un bouton et l'adresse est
+écrite en clair.
+
+Le formulaire joint d'office la **zone**, l'**indicateur**, la **valeur affichée** et le
+**permalien** de la vue — ce qu'une personne qui signale un chiffre faux n'a aucune raison
+de penser à recopier, et sans quoi le retour n'est pas exploitable. Ce contexte est affiché
+dans le panneau tel qu'il partira. Voir [16_suggestion.js](assets/js/16_suggestion.js).
 
 ## Lancer en local
 
@@ -89,7 +132,7 @@ relatif dépendrait de l'emplacement de la page.
 | --- | --- |
 | `map.html` | **squelette** de la carte servie : balisage des panneaux + marqueurs `/*__CSS__*/` et `/*__JS__*/` |
 | `assets/map.css` | thème et mise en page de la carte |
-| `assets/js/*.js` | logique de la carte, un fichier par responsabilité (config · data/geo · panneau info · panneau admin · panneau action · navigation · contrôles · recherche · **méthode des voix à conquérir** · notice modale) ; concaténée dans l'ordre des noms (préfixe `NN_`) |
+| `assets/js/*.js` | logique de la carte, un fichier par responsabilité (config · data/geo · panneau info · panneau admin · panneau action · navigation · contrôles · recherche · **méthode des voix à conquérir** · notice modale · **formulaire de suggestion**) ; concaténée dans l'ordre des noms (préfixe `NN_`) |
 | `build_map.py` | `assemble_map(base)` : recolle squelette + CSS + JS en une string et injecte `__BASE__` |
 | `build_site.py` | écrit la page publiée : `_site/index.html` |
 | `.github/workflows/pages.yml` | publie `_site/` sur GitHub Pages à chaque push sur `master` |

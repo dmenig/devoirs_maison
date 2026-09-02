@@ -135,7 +135,32 @@ les trois repères du pays :
 | **50** | le terrain **médian** |
 | **100** | le meilleur terrain |
 
-La note interpole linéairement de part et d'autre de la médiane (deux segments de droite).
+La note interpole linéairement de part et d'autre de la médiane (deux segments de droite) :
+
+```
+si rendement ≤ médian :  note = 50 × (rendement − min)              ÷ (médian − min)
+sinon                 :  note = 50 + 50 × (rendement − médian)      ÷ (max − médian)
+puis borné à [0, 100]
+```
+
+Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `max` 1,646 voix/h) :
+Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,646 − 0,224)` = **60,06**,
+affichée **60 / 100** ; la Creuse `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` =
+**42,86**, affichée **43 / 100**. Le rendement lui-même est `voix à conquérir ÷ heures de
+porte-à-porte`, calculé **sur des sommes** à l'échelle affichée (`rendementPorte`,
+[02_data_geo.js](assets/js/02_data_geo.js)) — jamais comme la moyenne des rendements des
+sous-zones.
+
+**Le barème est affiché, pas seulement documenté.** Le volet « i » de la fiche ouvre, sous
+le rendement, une section *« Du rendement à la note sur 100 »* : une règle graduée aux trois
+bornes servies (avec leur valeur en voix/h), la zone pointée dessus, et l'opération du
+segment réellement emprunté écrite avec ses propres nombres — telle qu'on peut la refaire à
+la main, la note non arrondie étant rappelée entre parenthèses quand elle diffère de
+l'entier affiché (`noteEchelle`, [034_mobilisation.js](assets/js/034_mobilisation.js)). La
+notice de la légende sert la même règle graduée sans curseur, avant tout clic. Sans ces
+bornes servies, toute la section disparaît plutôt que d'expliquer une échelle qu'on ne peut
+pas montrer.
+
 Une carte sert à **classer** des territoires, et « 0,28 voix/h » ne se classe pas sans qu'on
 sache d'abord ce qu'est une bonne valeur : `60 sur 100` à Saint-Denis, `52` à Paris, `43`
 dans la Creuse se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
@@ -154,7 +179,7 @@ France : une zone se situe parmi les ~67 000 bureaux du pays, quelle que soit sa
 commune note donc `44` en médiane et plafonne à `84` (Esnandes), un département tient entre
 `22` et `60` : c'est l'information, pas un défaut d'échelle — une commune moyenne ses bons
 et ses mauvais terrains, un département plus encore. Les bornes (`rendement_min` 0,
-`rendement_median` 0,229 et `rendement_max` 1,646 voix/h — un bureau de Sainte-Suzanne, à La
+`rendement_median` 0,224 et `rendement_max` 1,646 voix/h — un bureau de Sainte-Suzanne, à La
 Réunion) sont calculées par [prep_bake.py](prep_bake.py) **sur les valeurs réellement
 servies**, puis publiées dans `values/_mobilisation.json` avec les autres repères du modèle :
 elles ne sont écrites en dur nulle part et suivent une régénération de `data_app`.
@@ -423,6 +448,32 @@ commune et comparée à la moyenne France :
 
 > Agrégés à la commune depuis les **bases infracommunales (IRIS)** du recensement ; le
 > renouvellement provient du **fichier détail « individus localisés »** (variable IRAN).
+
+## Signaler une erreur, demander une donnée
+
+Un bouton **💬 Suggérer** dans la barre du haut, et un lien en **pied de chaque notice de
+méthode** (le « i » de la légende comme le volet de la fiche), ouvrent un formulaire à
+destination de l'équipe **Études électorales** :
+**etudes-electorales@franceinsoumise.org**. Le lien est placé là parce que c'est en lisant
+d'où sort un chiffre qu'on doute d'un chiffre : il ne faut alors plus rien chercher.
+
+Le formulaire demande le **type** de retour (une donnée qui paraît fausse, une donnée à
+ajouter, la méthode de calcul, l'interface, un bug), la **zone concernée**, le **message**
+et, facultativement, **qui écrit** (nom, groupe d'action). Il y joint d'office le contexte
+de la vue — **zone** ouverte, **fiche** ouverte si elle diffère, **indicateur** affiché,
+**valeur** affichée, **scrutins comparés** et **permalien** —, affiché dans le panneau tel
+qu'il partira : « le chiffre est faux » ne se corrige pas sans savoir où et lequel, et c'est
+précisément ce qu'on ne pense pas à recopier.
+
+**Rien n'est envoyé par le site.** L'atlas est une page statique sans serveur : le
+formulaire compose le courriel et le remet au **logiciel de messagerie** de la personne
+(`mailto:`), qui le relit et l'envoie elle-même. Aucun service de formulaires tiers, aucune
+adresse de militant·e chez un prestataire. Comme un `mailto:` n'aboutit pas partout (webmail
+non déclaré comme gestionnaire, poste sans client configuré) et **échoue sans rien dire**,
+le panneau offre à égalité un bouton **« Copier le message »** (objet compris) et écrit
+l'adresse **en clair**. Au-delà de ~1 900 caractères d'URL, il prévient que certains clients
+tronquent le corps et renvoie vers la copie. Voir
+[16_suggestion.js](assets/js/16_suggestion.js).
 
 ## Sources des données
 
