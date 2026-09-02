@@ -45,10 +45,17 @@ function infoInset(){ const info=$("info"); if(isMobileSheet()||info.style.displ
 // pas 0 voix). On résume donc la candidature de gauche réellement présentée — liste LFI,
 // liste d'union, ou aucune — au lieu d'un chiffre binaire (retour PEE / Elia).
 function municNote(o){ const lfi=o.lfi_M26, g=o.gauche_M26;
-  if(lfi!=null&&lfi>0){ const al=(g!=null&&g>lfi)?` ; union de la gauche à <b>${g} %</b>`:"";
-    return `<div class="mnote">Municipales 2026 · liste conduite par LFI à <b>${lfi} %</b> des inscrits${al}.</div>`; }
+  // « 6,8 % des inscrits » ne dit pas si la liste a fait cent voix ou cent mille : le
+  // nombre de voix réellement obtenues suit le score, ici comme partout ailleurs.
+  const vx=v=>v?` (${nbf(v)} voix)`:"";
+  const base=inscScr(o,"M26"), sur=base!=null?` sur ${nbf(base)} inscrit·es`:"";
+  if(lfi!=null&&lfi>0){ const al=(g!=null&&g>lfi)
+      ?` ; union de la gauche à <b>${g} %</b>${vx(o.gv_M26)}`:"";
+    return `<div class="mnote">Municipales 2026 · liste conduite par LFI à <b>${lfi} %</b>`+
+      `${vx(o.lfiv_M26)} des inscrits${al}${sur}.</div>`; }
   if(g!=null&&g>0)
-    return `<div class="mnote">Municipales 2026 · liste d'union de la gauche (sans tête de liste LFI) à <b>${g} %</b> des inscrits.</div>`;
+    return `<div class="mnote">Municipales 2026 · liste d'union de la gauche (sans tête de liste LFI) à `+
+      `<b>${g} %</b>${vx(o.gv_M26)} des inscrits${sur}.</div>`;
   return ""; }
 
 // Bandeau de transparence outre-mer (retour n°18) : à Mayotte, en Guyane, en
@@ -84,6 +91,48 @@ function regManquante(o){
     ?`<div class="hypnote">Aucune moyenne régionale disponible pour ce territoire : les valeurs `+
      `ne sont comparées qu'à la France.</div>`:""; }
 
+// Les deux nombres que la fiche ne disait NULLE PART, alors que tout le reste s'y
+// rapporte : combien d'habitant·es, combien d'inscrit·es. Sans eux, aucune ligne du
+// panneau ne se reconvertit en personnes — et c'est en personnes qu'on décide d'envoyer
+// une équipe quelque part. Le corps électoral potentiel (`maj`, majeur·es de nationalité
+// française recensé·es) complète le trio là où il est mesuré, c'est-à-dire à la commune.
+const TIP_INSC="Inscrit·es sur les listes électorales de la zone, registre des européennes "+
+  "de juin 2024 — la base de tous les « % des inscrits » du site. Chaque scrutin a le sien, "+
+  "servi à côté de son résultat : il change d'une élection à l'autre.";
+const TIP_MAJ="Majeur·es de nationalité française recensé·es dans la zone : le corps "+
+  "électoral POTENTIEL, celui qui pourrait être inscrit ici. Les résident·es étranger·es "+
+  "n'y sont pas — hors liste complémentaire européenne, elles et ils ne peuvent pas s'inscrire.";
+const TIP_RESINSC="Écart entre les majeur·es français·es recensé·es et les inscrit·es. "+
+  "Dans un sens, autant de personnes à faire inscrire (non-inscription et inscription "+
+  "restée ailleurs confondues) ; dans l'autre, la liste porte plus de monde que la zone "+
+  "n'en héberge — des gens y votent sans y habiter, et le levier devient la procuration. "+
+  "Détail au levier n°1 du plan d'action.";
+function reperes(o){ if(!o)return "";
+  const items=[];
+  if(o.pop!=null)items.push(`<b>${nbf(o.pop)}</b> habitant·es`);
+  const ins=inscRef(o);
+  if(ins!=null)items.push(`<b>${nbf(ins)}</b> inscrit·es${hint(TIP_INSC)}`);
+  if(o.maj!=null)items.push(`<b>${nbf(o.maj)}</b> majeur·es français·es${hint(TIP_MAJ)}`);
+  // Solde d'inscription : un nombre SIGNÉ, dont les deux sens n'appellent pas la même
+  // campagne (cf. actionPanel, levier n°1). On l'écrit donc en clair plutôt que de
+  // laisser un « −12 480 » que rien ne rendrait lisible.
+  if(o.resinsc)items.push(o.resinsc>0
+    ?`<b>${nbf(o.resinsc)}</b> à inscrire${hint(TIP_RESINSC)}`
+    :`<b>${nbf(-o.resinsc)}</b> inscrit·es de plus que de majeur·es français·es${hint(TIP_RESINSC)}`);
+  return items.length?`<div class="reperes">${items.map(t=>`<span>${t}</span>`).join("")}</div>`:""; }
+
+// Mensualité du crédit qui fabrique le taux d'effort — MIROIR de prep_immo._mensualite
+// (à garder synchronisé, comme IMMO_HYP l'est de ses hypothèses). Un « effort de 84 % »
+// ne dit pas combien il faut sortir chaque mois : le taux classe les communes, l'euro
+// dit si la propriété est atteignable.
+function mensualiteCredit(pxm2){ if(pxm2==null)return null;
+  const cap=pxm2*IMMO_HYP.surface*(1-IMMO_HYP.apport/100),
+    i=IMMO_HYP.taux/100/12, n=IMMO_HYP.duree*12;
+  return cap*i/(1-Math.pow(1+i,-n)); }
+// Revenu MENSUEL du ménage médian de la zone, dénominateur du taux d'effort (FILOSOFI
+// publie un revenu annuel par unité de consommation, cf. IMMO_HYP.uc).
+const revenuMenage=o=>(o&&o.rev!=null)?o.rev*IMMO_HYP.uc/12:null;
+
 // Bandeau d'estimation (quartiers IRIS) : aucun résultat électoral n'est publié à cette
 // maille, tout ce qui suit est reconstitué depuis les bureaux de vote qui la recoupent.
 // Un quartier mal recouvert par les contours de bureaux n'a AUCUNE clé électorale (filtré
@@ -99,6 +148,38 @@ function galink(nom){ const q=encodeURIComponent(nom);
     `<div class="gahint">Annuaire officiel des groupes d'action (Action Populaire).</div></div>`;
 }
 
+// Sous le chiffre de tête, l'EFFECTIF que le taux représente. C'est lui qui dit s'il faut
+// y aller : le taux classe les territoires, le nombre les dimensionne — « 9,9 % des
+// inscrits » vaut 136 509 voix à Paris et 809 à Guéret. Chaque indicateur a son effectif
+// propre (des voix, des votant·es, des personnes, des euros par mois) ; là où l'indicateur
+// n'en a pas (un revenu médian, une note sur 100 déjà décomposée dans son « i »), on
+// n'écrit rien plutôt qu'un nombre décoratif.
+function headEffectif(o,k,scForce){
+  const B=scForce||selB, A=selA, sur=sc=>{ const n=inscScr(o,sc);
+    return n==null?"":` sur ${nbf(n)} inscrit·es`; };
+  const l=(()=>{
+    switch(k){
+      case "lfi":    return effOu(o[`lfiv_${B}`],inscScr(o,B),o[`lfi_${B}`],"voix")+sur(B);
+      case "gauche": return effOu(o[`gv_${B}`],inscScr(o,B),o[`gauche_${B}`],"voix")+sur(B);
+      case "rn":     return effTxt(inscScr(o,B),o[`rn_${B}`],"voix")+sur(B);
+      case "part": { const v=votScr(o,B); return v==null?"":`${nbf(v)} votant·es`+sur(B); }
+      case "abst":   return o.abst!=null?sur("E24").replace(/^ /,""):"";
+      case "pauv":   return o.pop!=null
+        ?`${effTxt(o.pop,o.pauv,"personnes")} sur ${nbf(o.pop)} habitant·es`:"";
+      case "effort": { const m=mensualiteCredit(o.pxm2), r=revenuMenage(o);
+        return m==null?"":`${nbf(m)} € par mois`+(r!=null?` sur ${nbf(r)} € de revenu du ménage`:""); }
+      case "conquerir": return o.mob!=null
+        ?`${nbf(o.mob)} voix gagnables`+(o.mobh!=null?` pour ${nbf(o.mobh)} h de porte-à-porte`:""):"";
+      case "dyn_report": { const a=o[`lfiv_${A}`], b=o[`lfiv_${B}`];
+        return (a!=null&&b!=null)?`${nbf(b)} voix retrouvées sur ${nbf(a)}`:""; }
+      case "dyn_perte": { const a=o[`gv_${A}`], b=o[`gv_${B}`];
+        return (a!=null&&b!=null)?`${nbf(a-b)} voix de gauche perdues sur ${nbf(a)}`:""; }
+      case "dyn_dpart": { const a=votScr(o,A), b=votScr(o,B);
+        return (a!=null&&b!=null)?`${b>a?"+":""}${nbf(b-a)} votant·es`:""; }
+      default: return "";
+    } })();
+  return l?`<div class="headsub">${l}</div>`:""; }
+
 // Fiche claire : tous les chiffres clés du rapport. Chaque section est dépliable
 // (clic) pour révéler comment le chiffre est calculé, ses dates et sa source.
 function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,niveau,code}:null;
@@ -106,14 +187,18 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   if(!o){hideInfoSheet(info);return;}
   panelDetails=[];
   const w=(v,max)=>v==null?0:Math.max(2,Math.min(100,v/max*100));
-  const barRow=(lab,v,col,max=50)=> v==null?"":
-    `<div class="lab"><span>${lab}</span><b>${v} %</b></div>`+
+  const barRow=(lab,v,col,max=50,eff="")=> v==null?"":
+    `<div class="lab"><span>${lab}</span><b>${v} %${eff?` <span class="cnt">· ${eff}</span>`:""}</b></div>`+
     `<div class="bar"><i style="width:${w(v,max)}%;background:${col}"></i></div>`;
+  // Barre d'un score électoral : l'effectif est celui que la source publie quand elle le
+  // publie (voix LFI, voix de gauche), reconstitué du registre du scrutin sinon.
+  const barElec=(lab,cle,col,max,exact)=>
+    barRow(lab,o[cle],col,max,effOu(exact,baseElec(o,cle),o[cle],"voix"));
   const exp=expBlock;
   const sec=t=>`<div class="sec">${t}</div>`;
 
   const lfi=o.lfi_E24!=null?o.lfi_E24:(o.lfi_L24!=null?o.lfi_L24:o.lfi_P22);
-  let h=`<div class="t">${nom}</div>`+omBanner(niveau,code);
+  let h=`<div class="t">${nom}</div>`+reperes(o)+omBanner(niveau,code);
   // Carnet de campagne (objectifs + décomposition + plan d'action) RÉSERVÉ à la commune :
   // c'est la maille d'action de référence (cf. EVOLUTIONS.md ch.3). Aux échelles d'ensemble
   // (région/dép) et de drill-down (BV/IRIS), on ne montre que la fiche descriptive.
@@ -136,11 +221,13 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     // CETTE zone (cf. 034_mobilisation.js).
     const info=indicKey==="conquerir"?" "+hint(CONQ_TIP):"";
     headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}${info}</div>`+
-           `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,
+           `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`+
+           headEffectif(o,indicKey),
       hi[2](o)+(est?EST_METHODO:""));
   } else if(lfi!=null){
     headline=exp(`<div class="lead">Vote LFI · Europ. 2024${est?" · estimé":""}</div>`+
-           `<div class="head">${lfi} %<small> des inscrits</small></div>`,
+           `<div class="head">${lfi} %<small> des inscrits</small></div>`+
+           headEffectif(o,"lfi","E24"),
       `Part des inscrits ayant voté pour la <b>liste LFI</b> aux <b>européennes de juin 2024</b> (la liste `+
       `d'union Glucksmann/Place publique compte dans le bloc de gauche, pas ici). `+
       `On rapporte aux <b>inscrits</b> (et non aux votants) pour mesurer le poids réel sur le corps électoral. `+
@@ -166,33 +253,58 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   const NFP_RED="#E2001A",
     NFP_BAND="linear-gradient(to bottom,#00A95C 0 20%,#E2001A 20% 40%,#FFD500 40% 60%,#C8017E 60% 80%,#E2001A 80% 100%)",
     trendVal=sc=>{const v=o[`lfi_${sc}`]; return (sc==="M26"&&!v)?null:v;},
+    // Sous le taux, les VOIX du scrutin : une courbe de pourcentages monte parfois là où
+    // le nombre de voix baisse (registre en croissance), et c'est le nombre qui compte.
+    trendVx=sc=>{const v=trendVal(sc); return v==null?"":nbf(o[`lfiv_${sc}`]);},
     trendBg=sc=>sc==="L24"?NFP_BAND:"var(--cram)", trendTx=sc=>sc==="L24"?NFP_RED:"var(--cram)";
   if(SCR.some(([sc])=>trendVal(sc)!=null)){
     elec+=exp(sec("Évolution du vote LFI")+`<div class="trend">`+
       SCR.map(([sc,lab])=>{const v=trendVal(sc);
         return `<div class="tcol"><div class="tbarwrap"><div class="tbar" style="height:${w(v,45)}%;background:${trendBg(sc)}"></div></div>`+
-               `<div class="tv" style="color:${trendTx(sc)}">${v==null?"·":v}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`+
+               `<div class="tv" style="color:${trendTx(sc)}">${v==null?"·":v}</div>`+
+               `<div class="tn">${trendVx(sc)}</div><div>${lab.split(' ')[0]}</div></div>`;}).join("")+`</div>`+
       municNote(o),
-      `Vote LFI en % des inscrits à chaque scrutin : <b>Présid.</b> avril 2022 (voix Mélenchon, 1<sup>er</sup> tour) · `+
+      `Vote LFI en % des inscrits à chaque scrutin, avec le <b>nombre de voix</b> obtenues sous chaque `+
+      `barre — le taux et le nombre ne varient pas toujours dans le même sens, le registre électoral `+
+      `changeant d'un scrutin à l'autre : <b>Présid.</b> avril 2022 (voix Mélenchon, 1<sup>er</sup> tour) · `+
       `<b>Europ.</b> juin 2024 · <b>Légis.</b> juin 2024 (1<sup>er</sup> tour, candidature d'union <b>NFP</b>, barre aux couleurs du NFP) · `+
       `<b>Munic.</b> mars 2026 (1<sup>er</sup> tour). Aux municipales, « · » = pas de liste conduite par LFI ; `+
       `le score d'une éventuelle liste d'union de la gauche figure sous le graphique. « · » ailleurs = donnée indisponible.`); }
 
   if(o.part_E24!=null){ const abst=Math.round((100-o.part_E24)*10)/10;
-    elec+=exp(sec("Participation · Europ. 2024")+barRow("Participation",o.part_E24,"#2e8b57",100)+
-      `<div class="row"><span>Abstention</span><b>${abst} %</b></div>`,
-      `<b>Participation</b> = votants ÷ inscrits aux européennes de juin 2024. `+
-      `<b>Abstention</b> = 100 − participation = part des inscrits qui ne se sont pas déplacés.`); }
+    // Les trois effectifs du scrutin, en clair : un taux de participation ne dit ni la
+    // taille du corps électoral, ni combien de personnes se sont déplacées, ni combien il
+    // en reste à aller chercher — les trois nombres qui dimensionnent une campagne.
+    const ins=inscScr(o,"E24"), vot=votScr(o,"E24"),
+      nabs=(o.abst!=null)?o.abst:((ins!=null&&vot!=null)?ins-vot:null);
+    elec+=exp(sec("Participation · Europ. 2024")+
+      barRow("Participation",o.part_E24,"#2e8b57",100,vot!=null?`${nbf(vot)} votant·es`:"")+
+      `<div class="row rowc"><span>Abstention</span><b>${abst} %`+
+        (nabs!=null?` <span class="cnt">· ${nbf(nabs)} personnes</span>`:"")+`</b></div>`+
+      (ins!=null?`<div class="row"><span>Inscrit·es (registre 2024)</span><b>${nbf(ins)}</b></div>`:""),
+      `<b>Participation</b> = votants ÷ inscrits aux européennes de juin 2024`+
+      (ins!=null&&vot!=null?` — ici <b>${nbf(vot)}</b> votant·es sur <b>${nbf(ins)}</b> inscrit·es`:"")+`. `+
+      `<b>Abstention</b> = 100 − participation = part des inscrits qui ne se sont pas déplacés`+
+      (nabs!=null?`, soit <b>${nbf(nabs)}</b> personnes`:"")+`. Les effectifs sont ceux du `+
+      `registre de ce scrutin : il n'est pas celui de 2022 ni celui de 2026.`); }
 
   if([o.gauche_E24,o.em_E24,o.lr_E24,o.rn_E24].some(v=>v!=null)){
+    const insE=inscScr(o,"E24");
     elec+=exp(sec("Rapport de force · Europ. 2024")+
-      barRow("Gauche (LFI-PS-EELV-PCF)",o.gauche_E24,"#cf2e5b")+
-      barRow("Macron (Renaissance)",o.em_E24,"#e6902e")+
-      barRow("Droite (LR)",o.lr_E24,C.lr)+
-      barRow("RN / extrême droite",o.rn_E24,C.rn),
-      `Poids de chaque bloc en <b>% des inscrits</b> aux européennes 2024. `+
-      `<b>Gauche</b> = LFI + PS + EELV + PCF + divers gauche. <b>Macron</b> = Renaissance / MoDem / Horizons. `+
-      `<b>Droite</b> = LR + divers droite. <b>RN</b> = RN + Reconquête + extrême droite.`); }
+      barElec("Gauche (LFI-PS-EELV-PCF)","gauche_E24","#cf2e5b",50,o.gv_E24)+
+      barElec("Macron (Renaissance)","em_E24","#e6902e",50)+
+      barElec("Droite (LR)","lr_E24",C.lr,50)+
+      barElec("RN / extrême droite","rn_E24",C.rn,50),
+      `Poids de chaque bloc en <b>% des inscrits</b> aux européennes 2024`+
+      (insE!=null?` — <b>${nbf(insE)}</b> inscrit·es ici`:"")+`, avec le nombre de voix `+
+      `correspondant. <b>Gauche</b> = LFI + PS + EELV + PCF + divers gauche. <b>Macron</b> = `+
+      `Renaissance / MoDem / Horizons. <b>Droite</b> = LR + divers droite. <b>RN</b> = RN + `+
+      `Reconquête + extrême droite.`+
+      `<p>Le ministère publie les voix de <b>LFI</b> et de la <b>gauche</b> : ces deux lignes portent `+
+      `le compte exact. Pour les autres blocs il ne publie que des scores par liste, dont le site tire `+
+      `des parts d'inscrits arrondies au dixième de point : l'effectif y est <b>reconstitué</b> `+
+      `(taux × registre) et marqué « <b>≈</b> », arrondi à l'ordre de grandeur de ce que cet arrondi `+
+      `laisse d'incertitude — ±0,05 % du registre.</p>`); }
 
   // recomposition (slide 23) : essentiel = barre du dernier scrutin ; détail (clic) = tableau complet
   // Chaque ligne vaut [6 blocs, abstention, non ventilé], en % des inscrits. Le dernier
@@ -210,19 +322,35 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     let li=-1; window.__scr.forEach((s,i)=>{
       const rr=o.rec[i]; if(rr&&rr.slice(0,6).some(v=>v!=null))li=i; });
     if(li>=0){ const r=o.rec[li], nv=r[7];
-      const seg=r.slice(0,6).map((v,j)=> v?`<i style="width:${v}%;background:${cols[j]}" title="${full[j]} ${v}%"></i>`:"").join("")+
-        (nv?`<i style="width:${nv}%;background:${hachure}" title="Ventilation non publiée ${nv}%"></i>`:"")+
-        (r[6]?`<i style="width:${r[6]}%;background:${gris}" title="Abstention ${r[6]}%"></i>`:"");
-      const lg=full.map((n,j)=> r[j]?`<span><i style="background:${cols[j]}"></i>${n} ${r[j]}%</span>`:"").filter(Boolean).join("")+
-        (nv?`<span><i style="background:${hachure}"></i>Non ventilé ${nv}%</span>`:"")+
-        (r[6]?`<span><i style="background:${gris}"></i>Abst. ${r[6]}%</span>`:"");
+      // `inscs` porte le registre de CHAQUE scrutin recomposé (il change à chaque
+      // élection) : c'est ce qui permet de relire n'importe quelle case du tableau en
+      // voix, et pas seulement en points d'inscrits.
+      const bases=o.inscs||{}, bi=bases[li]!=null?bases[li]:null;
+      const vx=v=>{ const e=bi!=null&&v!=null?effTxt(bi,v,"voix"):""; return e?` · ${e}`:""; };
+      const seg=r.slice(0,6).map((v,j)=> v?`<i style="width:${v}%;background:${cols[j]}" title="${full[j]} ${v}%${vx(v)}"></i>`:"").join("")+
+        (nv?`<i style="width:${nv}%;background:${hachure}" title="Ventilation non publiée ${nv}%${vx(nv)}"></i>`:"")+
+        (r[6]?`<i style="width:${r[6]}%;background:${gris}" title="Abstention ${r[6]}%${vx(r[6])}"></i>`:"");
+      const lg=full.map((n,j)=> r[j]?`<span><i style="background:${cols[j]}"></i>${n} ${r[j]}%${vx(r[j])}</span>`:"").filter(Boolean).join("")+
+        (nv?`<span><i style="background:${hachure}"></i>Non ventilé ${nv}%${vx(nv)}</span>`:"")+
+        (r[6]?`<span><i style="background:${gris}"></i>Abst. ${r[6]}%${vx(r[6])}</span>`:"");
+      // Le tableau gagne une colonne « Inscrits » : la base de sa ligne. Sans elle, ses
+      // lignes de pourcentages — jusqu'à 27, un scrutin par tour depuis 2012 — n'étaient
+      // reconvertibles avec aucun nombre de la fiche.
+      const avecBase=Object.keys(bases).length>0;
       let rows="";
       window.__scr.forEach((s,i)=>{ const rr=o.rec[i]; if(!rr)return;
+        const b=bases[i];
         rows+=`<tr><td class="sc" title="${s.c}">${s.l}</td>`+
-          rr.map(v=>`<td>${v==null?"·":v}</td>`).join("")+`</tr>`; });
+          rr.map(v=>`<td title="${b!=null&&v!=null?effTxt(b,v,"voix"):""}">${v==null?"·":v}</td>`).join("")+
+          (avecBase?`<td class="ins">${b==null?"·":nbf(b)}</td>`:"")+`</tr>`; });
       elec+=exp(sec("Recomposition · "+window.__scr[li].l)+
-        `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`,
-        `Poids de chaque <b>bloc en % des inscrits</b>. Historique scrutin par scrutin (2012→2026) : `+
+        `<div class="recbar">${seg}</div><div class="reclg">${lg}</div>`+
+        (bi!=null?`<div class="hypnote">Sur ${nbf(bi)} inscrit·es à ce scrutin. `+
+          `Survolez une case du tableau pour lire son effectif.</div>`:""),
+        `Poids de chaque <b>bloc en % des inscrits</b>, avec le <b>nombre de voix</b> à côté et la `+
+        `colonne <b>Inscrits</b> qui donne la base de chaque ligne — le registre électoral change `+
+        `d'un scrutin à l'autre, donc deux lignes du tableau ne se comparent en personnes qu'à `+
+        `travers elle. Historique scrutin par scrutin (2012→2026) : `+
         `<b>FI</b>=LFI-PCF-EXG · <b>PS</b>=PS-EELV · <b>EM</b>=MoDem-Renaissance · <b>LR</b>=LR-DVD · `+
         `<b>RN</b>=RN-EXD · <b>Div</b>=autres · <b>Abs</b>=abstention · <b>NV</b>=non ventilé. `+
         `« · » = indisponible.`+
@@ -233,6 +361,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
         `<b>non mesuré</b>, pas « zéro voix ».</p>`+
         `<div class="rwrap"><table class="recompo"><thead><tr><th></th>`+
         heads.map((x,j)=>`<th style="color:${cols[j]||'#999'}">${x}</th>`).join("")+
+        (avecBase?`<th class="ins">Inscrits</th>`:"")+
         `</tr></thead><tbody>${rows}</tbody></table></div>`); } }
 
   // Réservoirs de voix entre les DEUX scrutins choisis (sélecteur A→B), recalculés à la
@@ -249,9 +378,12 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     resDet+=`<p><b>Voix perdues à gauche</b> : la gauche (LFI, PS, EELV, PCF) a perdu <b>${pm.pertev>0?nbv(pm.pertev):0}</b> voix entre `+
       `${scLab(selA)} et ${scLab(selB)} (voix réelles). Réservoir de gauche à reconquérir ; une valeur ≤ 0 = progression.</p>`; }
   if(o.abst!=null){
-    resRows+=`<div class="row"><span>Abstentionnistes à remobiliser · E24</span><b>${nbv(o.abst)} voix</b></div>`;
+    const insE=inscScr(o,"E24");
+    resRows+=`<div class="row rowc"><span>Abstentionnistes à remobiliser · E24</span><b>${nbv(o.abst)} voix`+
+      (insE?` <span class="cnt">· ${(100*o.abst/insE).toLocaleString('fr',{maximumFractionDigits:1})} % des inscrits</span>`:"")+`</b></div>`;
     resDet+=`<p><b>Abstentionnistes à remobiliser</b> : <b>nombre</b> d'inscrits n'ayant pas voté aux européennes 2024 `+
-      `(inscrits × taux d'abstention). C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
+      `(inscrits × taux d'abstention)`+(insE?`, sur <b>${nbv(insE)}</b> inscrit·es`:"")+`. `+
+      `C'est le réservoir brut de voix à ramener aux urnes.</p>`; }
   if(resRows)elec+=exp(sec(`Réservoirs de voix · ${arrow}`)+resRows,resDet);
 
   // Contexte social + déterminants du vote (FILOSOFI + recensement INSEE 2021).
@@ -259,13 +391,35 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // ne dit rien). Refs : parts exactes par région, revenu/pauvreté pondérés par la pop.
   const refFr=window.__socioFr||{}, refRg=(window.__socioReg||{})[o.reg]||{};
   const fmtv=(v,u)=> u==="€"?Math.round(v).toLocaleString('fr')+" €":v+(u||"");
+  // Base de chaque part sociale — c'est-à-dire le nombre de personnes que « 21,4 % »
+  // représente. Le recensement publie ces parts sur QUATRE dénominateurs, dont deux
+  // seulement voyagent jusqu'ici :
+  //   · la POPULATION (`pop`) : tranches d'âge et taux de pauvreté → effectif servi ;
+  //   · les 15 ans et plus (CSP) : la population moins la part des 0-14 ans, exactement
+  //     la définition de la base INSEE → effectif servi ;
+  //   · les résidences principales (logement), les non-scolarisé·es de 15 ans et plus
+  //     (diplômes) et les actif·ves de 15-64 ans (chômage) : ces effectifs ne sont pas
+  //     dans `data_app`, donc aucun nombre n'est écrit — plutôt que d'en fabriquer un
+  //     sur une base approchée. Le libellé de la rubrique dit le dénominateur.
+  const pop15p=(o.pop!=null&&o.a014!=null)?o.pop*(100-o.a014)/100:null;
+  const BASE_SOC={pauv:[()=>o.pop,"personnes"],
+    a014:[()=>o.pop,"habitant·es"],a1529:[()=>o.pop,"habitant·es"],a3044:[()=>o.pop,"habitant·es"],
+    a4559:[()=>o.pop,"habitant·es"],a6074:[()=>o.pop,"habitant·es"],a75:[()=>o.pop,"habitant·es"],
+    cad:[()=>pop15p,"personnes"],pint:[()=>pop15p,"personnes"],emp:[()=>pop15p,"personnes"],
+    ouv:[()=>pop15p,"personnes"],ret:[()=>pop15p,"personnes"]};
+  const effSoc=k=>{ const b=BASE_SOC[k]; if(!b)return "";
+    return effTxt(b[0](),o[k],b[1]); };
   // 4e élément facultatif d'une ligne : le texte du « i » d'explication (survol = définition
   // courte, clic = volet méthodo de la section). Réservé aux indicateurs qu'un libellé seul
   // ne suffit pas à comprendre — un taux d'effort, par exemple, n'est rien sans ses hypothèses.
   const srow=(lab,k,u,tip)=>{ const v=o[k]; if(v==null)return "";
-    const fr=refFr[k], rg=refRg[k], r=[];
+    const fr=refFr[k], rg=refRg[k], r=[], eff=u==="%"?effSoc(k):"";
     if(fr!=null)r.push("France "+fmtv(fr,u)); if(rg!=null)r.push("région "+fmtv(rg,u));
-    return `<div class="srow"><span class="sl">${lab}${tip?hint(tip):""}</span><span class="sv"><b>${fmtv(v,u)}</b>`+
+    // `svc` : la valeur porte un effectif en plus du taux et doit pouvoir revenir à la
+    // ligne (la valeur seule, elle, tient toujours d'un bloc — d'où le `nowrap` par défaut).
+    return `<div class="srow"><span class="sl">${lab}${tip?hint(tip):""}</span>`+
+      `<span class="sv${eff?" svc":""}"><b>${fmtv(v,u)}`+
+      (eff?` <span class="cnt">· ${eff}</span>`:"")+`</b>`+
       (r.length?`<span class="ref">${r.join(" · ")}</span>`:"")+`</span></div>`; };
   const rows=arr=>arr.map(x=>srow(x[0],x[1],x[2],x[3])).join("");
 
@@ -289,12 +443,18 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     `de <b>5 000 habitants et plus</b>, et retire les valeurs trop peu nombreuses pour rester `+
     `anonymes : <b>70 % des quartiers</b> et le taux de pauvreté de <b>87 % des communes</b> `+
     `n'existent pas dans la source. Aucune estimation n'est fabriquée à la place.`);
-  if(soc)socio+=exp(sec("Contexte social · 2021")+distBand(o)+soc+regManquante(o),
+  if(soc)socio+=exp(sec("Contexte social · 2021")+distBand(o)+soc+
+    (o.pop!=null?`<div class="hypnote">Population de la zone : ${nbf(o.pop)} habitant·es `+
+      `(recensement 2021) — la base du taux de pauvreté.</div>`:"")+regManquante(o),
     `<b>Revenu médian</b> (après impôts et aides) par personne, corrigé de la taille du foyer, et `+
     `<b>taux de pauvreté</b> (part vivant sous 60 % du revenu médian national). Chaque valeur est `+
     `comparée à la <b>moyenne France</b> et à la <b>moyenne de la région</b>. La barre montre la `+
     `répartition des revenus (barre épaisse = moitié des foyers autour de la médiane). Source : INSEE `+
     `FILOSOFI 2021. À l'échelle commune : médiane et seuils (moyenne des quartiers).`+
+    (o.pop!=null&&o.pauv!=null
+      ?`<p>Le taux de pauvreté est servi avec son <b>effectif</b> : ${effTxt(o.pop,o.pauv,"personnes")} `+
+       `sur les <b>${nbf(o.pop)}</b> habitant·es de la zone. Un taux situe la zone, un nombre la `+
+       `dimensionne.</p>`:"")+
     refCouverture());
   // Prix du logement (DVF) et effort d'accession — cf. prep_immo.py. Publiés à la commune,
   // et par ARRONDISSEMENT à Paris/Lyon/Marseille : l'intitulé nomme l'échelle lue au lieu
@@ -303,8 +463,16 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // la France et à la région, et doublé de l'effort qu'il représente pour le revenu local.
   const ech=immoEchelle(niveau,code), dans=ech==="arrondissement"?"l'arrondissement":"la commune";
   const per=(o&&o.pxw===5)?IMMO_HYP.anneesLarge:IMMO_HYP.annees;
+  const mens=mensualiteCredit(o.pxm2), revm=revenuMenage(o);
   const immo=rows([["Prix moyen au m²","pxm2","€",TIP_PXM2],
-    ["Effort d'accession","effort","%",TIP_EFFORT]]);
+    ["Effort d'accession","effort","%",TIP_EFFORT]])+
+    // Un taux d'effort ne dit pas combien il faut sortir chaque mois : les deux termes du
+    // rapport sont écrits en euros, puisque c'est la forme sous laquelle un ménage le vit.
+    (o.effort!=null&&mens!=null
+      ?`<div class="srow"><span class="sl">Mensualité du crédit (${IMMO_HYP.surface} m²)</span>`+
+       `<span class="sv"><b>${nbf(mens)} € / mois</b>`+
+       (revm!=null?`<span class="ref">revenu du ménage ${nbf(revm)} € / mois</span>`:"")+
+       `</span></div>`:"");
   // Pas de prix : deux raisons bien distinctes, et les confondre trompait. Le champ de DVF
   // exclut l'Alsace-Moselle et l'outre-mer — Strasbourg n'a pas « trop peu de ventes », elle
   // en a des milliers que la source ne voit pas. Ailleurs, c'est bien la rareté des ventes.
@@ -325,14 +493,24 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     IMMO_METHODO());
   const age=rows([["0-14 ans","a014","%"],["15-29 ans","a1529","%"],["30-44 ans","a3044","%"],
     ["45-59 ans","a4559","%"],["60-74 ans","a6074","%"],["75 ans et +","a75","%"]]);
-  if(age)socio+=exp(sec("Âge de la population · 2021")+age,
-    `Répartition par tranche d'âge (INSEE 2021), comparée à la France et à la région. L'âge est `+
+  if(age)socio+=exp(sec("Âge de la population · 2021")+age+
+    (o.pop!=null?`<div class="hypnote">Sur ${nbf(o.pop)} habitant·es.</div>`:""),
+    `Répartition par tranche d'âge (INSEE 2021), comparée à la France et à la région, avec `+
+    `l'<b>effectif</b> de chaque tranche`+
+    (o.pop!=null?` — la base est la population de la zone, <b>${nbf(o.pop)}</b> habitant·es`:"")+`. L'âge est `+
     `l'un des principaux déterminants du vote et de la participation.`);
   const csp=rows([["Cadres / prof. sup.","cad","%"],["Professions intermédiaires","pint","%"],
     ["Employés","emp","%"],["Ouvriers","ouv","%"],["Retraités","ret","%"],["Taux de chômage (15-64 ans)","chom","%"]]);
-  if(csp)socio+=exp(sec("Catégories sociales · 2021")+csp,
+  if(csp)socio+=exp(sec("Catégories sociales · 2021")+csp+
+    (pop15p!=null?`<div class="hypnote">Sur ${nbf(pop15p)} habitant·es de 15 ans et plus `+
+      `(population − 0-14 ans). Le taux de chômage porte sur les actif·ves de 15-64 ans, `+
+      `effectif que la source ne publie pas ici : aucun nombre n'y est écrit.</div>`:""),
     `Composition socioprofessionnelle des 15 ans et plus (en % de cette population) et taux de chômage `+
     `des actifs (INSEE 2021), comparés à la France et à la région. Le métier (PCS) structure fortement le vote. `+
+    (pop15p!=null?`<p>Les effectifs affichés portent sur les <b>${nbf(pop15p)}</b> habitant·es de 15 ans et `+
+      `plus de la zone (population totale moins les 0-14 ans, exactement la base INSEE de ces parts). `+
+      `Le <b>taux de chômage</b> a une autre base — les actif·ves de 15 à 64 ans — que `+
+      `<code>data_app</code> ne porte pas : il reste sans effectif plutôt que d'en recevoir un faux.</p>`:"")+
     `Nomenclature INSEE des professions et catégories socioprofessionnelles (PCS) :`+
     `<ul class="defs">`+
     `<li><b>Cadres / prof. sup.</b> — cadres d'entreprise, professions libérales, ingénieur·es, professeur·es, `+
@@ -350,13 +528,18 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   const dip=rows([["Sans diplôme ou brevet seul","dipl0","%"],["Diplômé·e du supérieur","diplsup","%"]]);
   if(dip)socio+=exp(sec("Diplômes · 2021")+dip,
     `Part des 15 ans et plus non scolarisés sans diplôme (ou brevet seul) et diplômés du supérieur `+
-    `(INSEE 2021), comparée à la France et à la région.`);
+    `(INSEE 2021), comparée à la France et à la région. La base est ici la population `+
+    `<b>non scolarisée</b> de 15 ans et plus — un effectif que la source ne publie pas à cette `+
+    `échelle : ces deux parts restent donc sans nombre, là où les tranches d'âge et les catégories `+
+    `sociales en portent un.`);
   // « dont » et non une quatrième part : le recensement compte les HLM DANS les
   // locataires (prop + loc + logé gratuitement = 100 %). Les empiler faisait dépasser
   // les 100 % dans 45 % des communes, jusqu'à 167 %.
   const log=rows([["Propriétaires","logprop","%"],["Locataires","logloc","%"],["dont logement social (HLM)","loghlm","%"]]);
   if(log)socio+=exp(sec("Logement · 2021")+log,
     `Statut d'occupation des résidences principales (INSEE 2021), comparé à la France et à la région. `+
+    `La base est le nombre de <b>résidences principales</b> — des ménages, pas des habitant·es — que la `+
+    `source ne publie pas ici : ces parts restent sans effectif. `+
     `Le mode d'habitat est un déterminant du vote. <b>Propriétaires + locataires + logé·es à titre `+
     `gratuit = 100 %</b> ; le <b>logement social est un sous-ensemble des locataires</b>, pas une `+
     `part supplémentaire.`);

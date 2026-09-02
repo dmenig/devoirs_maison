@@ -47,6 +47,9 @@ function rendMethodo(o){ o=o||{};
   const heuresParVoix=rend?1/rend:null;
   const uneSur=parPorte?Math.round(1/parPorte):null;
   const voiture=o.mobv!=null&&o.mobv>=50;
+  // Part des portes en voiture : servie aussi en NOMBRE de portes, comme le reste de cette
+  // notice — un pourcentage de portes ne se planifie pas, un nombre si.
+  const portesVoiture=(o.mobv&&o.mobp)?`, soit ${_n0(o.mobp*o.mobv/100)}`:"";
   const lig=(lab,val,det)=>`<div class="row"><span>${lab}</span><b>${val}</b></div>`+
     (det?`<div class="mobdet">${det}</div>`:"");
   return (rend!=null?`<div class="mobeq"><b>${_n0(o.mobn)} voix</b> à conquérir ÷ `+
@@ -62,18 +65,19 @@ function rendMethodo(o){ o=o||{};
     lig("Voix à conquérir",_n0(o.mobn)+" voix",
         `${_n0(o.mobc)} abstentionnistes conjoncturels (${_pct(o.moba)} d'abstention prévue `+
         `moins un plancher de ${_pct(o.mobf)}) × ${_pct(o.mobg)} de gauche chez le votant marginal`)+
-    // `insc` n'est baké qu'à la commune et au quartier ; au bureau de vote on le relit sur
-    // les portes, dont il est la source exacte (portes = inscrits ÷ électeur·ices par porte).
+    // Le registre est désormais baké à TOUTES les échelles (`insc_E24`), bureau de vote
+    // compris : la ligne l'écrit tel quel au lieu de le relire sur les portes, dont il
+    // était la source (portes = inscrits ÷ électeur·ices par porte).
     lig("Portes à frapper",_n0(o.mobp)+" portes",
-        `${_n0(o.insc!=null?o.insc:(o.mobp||0)*(r.electeurs_par_porte||1))} inscrit·es `+
+        `${_n0(inscRef(o)!=null?inscRef(o):(o.mobp||0)*(r.electeurs_par_porte||1))} inscrit·es `+
         `÷ ${_n1(r.electeurs_par_porte)} électeur·ice par logement`)+
     lig("Chance par porte",parPorte!=null?_n2(100*parPorte)+" %":"—",
         uneSur?`une porte sur ${_n0(uneSur)} cache une voix à gagner`:"")+
     lig("Temps par porte",minPorte!=null?_n1(minPorte)+" min":"—",
         `${_n1(r.minutes_conversation)} min de conversation + ${_n1(trajet)} min de trajet`)+
     lig("Déplacement",pasM!=null?_n0(pasM)+" m entre deux portes":"—",
-        voiture?`majoritairement <b>en voiture</b> (${_pct(o.mobv)} des portes)`
-               :`majoritairement <b>à pied</b>${o.mobv?` (${_pct(o.mobv)} des portes en voiture)`:""}`)+
+        voiture?`majoritairement <b>en voiture</b> (${_pct(o.mobv)} des portes${portesVoiture})`
+               :`majoritairement <b>à pied</b>${o.mobv?` (${_pct(o.mobv)} des portes en voiture${portesVoiture})`:""}`)+
     lig("Temps total",_n0(o.mobh)+" h",
         `pour frapper à toutes les portes de la zone (${_n0(o.mobk)} km parcourus)`)+
     `<p><b>Comment c'est calculé.</b> Le numérateur, ce sont les voix réellement mobilisables `+
@@ -117,7 +121,8 @@ function mobResume(){ const r=mobRef();
     `<p><b>Rentabilité</b> = ces voix ÷ le <b>temps</b> qu'il faut pour aller les chercher porte à `+
     `porte. Chaque porte coûte ${_n1(r.minutes_conversation)} minutes de conversation, plus le trajet `+
     `jusqu'à la suivante — à pied en ville, en voiture dès que les portes s'éloignent de plus de `+
-    `${_n0(r.pas_bascule_m)} m (${_pct(r.part_voiture)} des portes de France). Moyenne nationale : `+
+    `${_n0(r.pas_bascule_m)} m (${_pct(r.part_voiture)} des portes de France, soit `+
+    `${_n0((r.portes_france||0)*(r.part_voiture||0)/100)} portes sur ${_n0(r.portes_france)}). Moyenne nationale : `+
     `<b>${_n2(r.rendement_france)} voix par heure</b>, soit `+
     `${_n1(r.heures_france/1e6)} millions d'heures pour frapper à toutes les portes du pays.</p>`+
     `<p>La carte montre donc <b>où l'heure militante rapporte le plus</b>, et non où il y a le plus de `+

@@ -194,6 +194,24 @@ def _recompo_par_code(
     return out
 
 
+def _inscrits_par_code(
+    df: pd.DataFrame, ordre: list[str], fiables: set[str]
+) -> dict[str, dict[str, int]]:
+    """Par code : {position scrutin -> inscrits}, la BASE des pourcentages du tableau de
+    recomposition. Le corps électoral n'est pas le même d'un scrutin à l'autre (Paris :
+    1 368 025 inscrit·es en avril 2022, 1 378 896 en juin 2024, 1 405 332 en mars 2026) :
+    servir un seul registre laisserait reconvertir les lignes du tableau avec la
+    mauvaise base — et les municipales à deux tours ne portent même pas sur les mêmes
+    communes d'un tour à l'autre."""
+    pos = {cle: i for i, cle in enumerate(ordre) if cle in fiables}
+    sub = df[df["scrutin"].isin(pos)][["code", "scrutin", "inscrits"]]
+    out: dict[str, dict[str, int]] = {}
+    for code, scrutin, ins in sub.itertuples(index=False):
+        if pd.notna(ins):
+            out.setdefault(str(code), {})[str(pos[scrutin])] = int(ins)
+    return out
+
+
 def _valeurs_niveau(
     df: pd.DataFrame, ordre: list[str], fiables: set[str]
 ) -> dict[str, dict[str, float]]:
@@ -212,11 +230,29 @@ def _valeurs_niveau(
                 o[f"lfiv_{sc}"] = int(lv)
             if pd.notna(gv):
                 o[f"gv_{sc}"] = int(gv)
+        # Effectifs du REGISTRE, scrutin par scrutin. Tout le socle électoral du site est
+        # en « % des inscrits » : sans le nombre d'inscrit·es servi à côté, aucun de ces
+        # pourcentages ne se relit en personnes — et c'est en personnes qu'une campagne
+        # compte. `vot_` (votants) évite de reconstituer la participation à partir d'un
+        # taux arrondi au dixième de point, qui vaut ±690 voix à Paris.
+        for code, ins, vot in zip(sub["code"], sub["inscrits"], sub["votants"]):
+            o = out.setdefault(str(code), {})
+            if pd.notna(ins):
+                o[f"insc_{sc}"] = int(ins)
+            if pd.notna(vot):
+                o[f"vot_{sc}"] = int(vot)
     for key, (metr, sa, sb) in RESERVOIRS.items():
         for code, v in ind.reservoirs_par_code(df, sa, sb, metr).items():
             out.setdefault(str(code), {})[key] = v
+    inscrits = _inscrits_par_code(df, ordre, fiables)
     for code, rec in _recompo_par_code(df, ordre, fiables).items():
-        out.setdefault(code, {})["rec"] = rec
+        o = out.setdefault(code, {})
+        o["rec"] = rec
+        # `inscs` reste PARALLÈLE à `rec` : une base sans ligne de blocs ne servirait
+        # à rien, une ligne de blocs sans base ne se reconvertirait pas.
+        bases = {p: n for p, n in inscrits.get(code, {}).items() if p in rec}
+        if bases:
+            o["inscs"] = bases
     return out
 
 
@@ -346,9 +382,14 @@ def _socio_champs(row: dict) -> dict:
     return out
 
 
-SCRUTIN_REGISTRE = (
-    "2024-europeenne"  # registre de référence (taille du corps électoral)
-)
+# Registre de RÉFÉRENCE, celui dont le site tire partout la taille du corps électoral :
+# les européennes 2024. Il est servi par `_valeurs_niveau` sous le nom `insc_E24`, comme
+# les trois autres scrutins — il n'y a plus de champ `insc` séparé. Ce dernier répétait la
+# même valeur sous un second nom, et seuls la commune et le quartier le portaient : le
+# volet méthodo du porte-à-porte devait donc DEVINER les inscrit·es d'un bureau de vote à
+# partir de ses portes, et l'aperçu par arrondissement les reconstituer du stock
+# d'abstention. Les deux lisent maintenant le registre.
+CLE_REGISTRE = "E24"
 
 
 # Colonnes d'admin_commune qui sont des EFFECTIFS : elles se somment sur les
@@ -386,9 +427,10 @@ def _agreger_plm(adm: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame.from_dict(lignes, orient="index")
 
 
-def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
-    """Champs du Carnet de campagne (chantier 3) : inscrits (registre), population, et le
-    RÉSERVOIR D'INSCRIPTION — le levier n°1 du plan d'action.
+def _baker_carnet(com: dict[str, dict], da: Path) -> None:
+    """Champs du Carnet de campagne (chantier 3) : population et RÉSERVOIR D'INSCRIPTION
+    — le levier n°1 du plan d'action. Les inscrit·es viennent désormais du socle électoral
+    (`insc_E24`, cf. CLE_REGISTRE) et non d'un champ propre au Carnet.
 
     Ce réservoir est un solde, servi dans les deux sens :
 
@@ -430,10 +472,6 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
     Français·es majeur·es) et 7,7 M de mal-inscrit·es (16,5 % des inscrit·es). Somme des
     soldes positifs après correction : 3,13 M (contre 5,92 M avant) ; solde net national :
     1,71 M."""
-    insc = rc[rc["scrutin"] == SCRUTIN_REGISTRE].groupby("code")["inscrits"].first()
-    for code, v in insc.items():
-        if pd.notna(v):
-            com.setdefault(str(code), {})["insc"] = int(v)
     f = da / "admin_commune.parquet"
     if not f.exists():
         return
@@ -445,7 +483,8 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
         if o is None or pd.isna(row.get("pop")):
             continue
         o["pop"] = int(float(row["pop"]))
-        pop18, part_fr, ins = row.get("pop18"), row.get("part_fr"), o.get("insc")
+        pop18, part_fr = row.get("pop18"), row.get("part_fr")
+        ins = o.get(f"insc_{CLE_REGISTRE}")
         if ins is None or pd.isna(pop18) or pd.isna(part_fr):
             continue
         # Corps électoral POTENTIEL de la commune : les majeur·es qui pourraient être
@@ -458,6 +497,70 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
         o["resinsc"] = int(maj - ins)
         servis += 1
     print(f"  ✓ réservoir d'inscription sur {servis} communes (solde signé)")
+
+
+def _baker_effectifs_agreges(
+    niveaux: dict[str, dict[str, dict]],
+    com: dict[str, dict],
+    da: Path,
+    region_de,
+) -> None:
+    """Population, corps électoral potentiel et réservoir d'inscription des régions et
+    départements. Les deux échelons n'avaient AUCUN effectif servi : leur fiche annonçait
+    « Participation 52,3 % » sans jamais dire de combien de personnes on parlait, alors que
+    le nombre est ce qui décide d'envoyer une équipe. (Les inscrit·es et les votant·es, eux,
+    viennent de leurs propres tables électorales, cf. `_valeurs_niveau`.)
+
+    Deux sources, et le choix n'est pas indifférent :
+
+    - la **population** somme `admin_commune` TEL QUEL, c'est-à-dire ventilé par
+      arrondissement à Paris, Lyon et Marseille : c'est la seule forme qui PARTITIONNE le
+      territoire. Sommer les valeurs communales déjà bakées compterait Paris deux fois —
+      une fois par ses vingt arrondissements, une fois par la ligne 75056 que
+      `_agreger_plm` y ajoute ;
+    - `maj` et `resinsc` somment les valeurs COMMUNALES, qui n'existent que là où il y a un
+      registre électoral — donc sur 75056 et jamais sur ses arrondissements, où le
+      double-comptage ne peut pas se produire. `resinsc` est un solde SIGNÉ : le sommer
+      donne le solde NET du territoire, les communes d'origine des mal-inscrit·es
+      compensant les villes qui les accueillent."""
+    par_dep: dict[str, dict[str, float]] = {}
+    par_reg: dict[str, dict[str, float]] = {}
+
+    def ajouter(code: str, cle: str, v: float) -> None:
+        par_dep.setdefault(_dep(code), {})[cle] = (
+            par_dep.setdefault(_dep(code), {}).get(cle, 0.0) + v
+        )
+        reg = region_de(code)
+        if reg is not None:
+            par_reg.setdefault(reg, {})[cle] = (
+                par_reg.setdefault(reg, {}).get(cle, 0.0) + v
+            )
+
+    f = da / "admin_commune.parquet"
+    if f.exists():
+        adm = (
+            pd.read_parquet(f)
+            .set_index("code_commune")
+            .drop(index="FRANCE", errors="ignore")
+        )
+        for code, v in adm["pop"].astype(float).items():
+            if pd.notna(v):
+                ajouter(str(code), "pop", float(v))
+    for code, o in com.items():
+        for cle in ("maj", "resinsc"):
+            if o.get(cle) is not None:
+                ajouter(str(code), cle, float(o[cle]))
+
+    for niveau, totaux in (("departement", par_dep), ("region", par_reg)):
+        servis = 0
+        for code, cumuls in totaux.items():
+            o = niveaux[niveau].get(code)
+            if o is None:
+                continue
+            for cle, v in cumuls.items():
+                o[cle] = round(v)
+            servis += 1
+        print(f"  ✓ effectifs {niveau} (population, majeur·es, solde d'inscription : {servis})")
 
 
 def _baker_iris_elec(
@@ -479,11 +582,6 @@ def _baker_iris_elec(
         o = iris_vals.setdefault(code, {})
         o.update(vals)
         o["est"] = 1
-    insc = ri[ri["scrutin"] == SCRUTIN_REGISTRE].set_index("code")["inscrits"]
-    for code, v in insc.items():
-        o = iris_vals.get(str(code))
-        if o is not None and pd.notna(v):
-            o["insc"] = int(v)
     print(
         f"  ✓ électoral estimé sur {ri['code'].nunique()} quartiers (intersection BV)"
     )
@@ -763,7 +861,7 @@ def main() -> None:
     for code, v in immo.items():
         com.setdefault(code, {}).update(v)
     _baker_admin(com, DA)
-    _baker_carnet(com, rc_commune, DA)
+    _baker_carnet(com, DA)
     region_de = _rattachement_region(DA)
     # `_dep()` découpe un préfixe, pas un département : appliqué aux Français·es de
     # l'étranger et aux collectivités du Pacifique il fabriquait les clés « ZZ », « 98 »,
@@ -792,6 +890,7 @@ def main() -> None:
     _fusionner(com, mob.get("commune", {}))
     _fusionner(niveaux_agr["region"], mob.get("region", {}))
     _fusionner(niveaux_agr["departement"], mob.get("departement", {}))
+    _baker_effectifs_agreges(niveaux_agr, com, DA, region_de)
     for niveau, vals in niveaux_agr.items():
         _ecrire(niveau, vals)
         print(f"  ✓ values {niveau}")
@@ -833,6 +932,15 @@ def main() -> None:
             cur.setdefault(cle, val)
         for cle, val in immo.get(str(r.code_commune), {}).items():
             cur.setdefault(cle, val)
+    # Population du quartier : c'est la BASE des parts d'âge et du taux de pauvreté du
+    # quartier (même colonne `pop` du recensement que celle dont prep_socio tire ses
+    # parts). Sans elle, « 21,4 % de 15-29 ans » ne se lit jamais en nombre de jeunes.
+    fpop = DA / "pop_iris.parquet"
+    if fpop.exists():
+        for code, v in pd.read_parquet(fpop).set_index("code_iris")["pop"].items():
+            o = iris_vals.get(str(code))
+            if o is not None and pd.notna(v):
+                o["pop"] = round(float(v))
     _baker_iris_elec(iris_vals, DA, ordre, fiables)
     _fusionner(iris_vals, mob.get("iris", {}))
     iris_vals = _filtrer_sur_contours(iris_vals, DA / "geo" / "iris", "code_iris")

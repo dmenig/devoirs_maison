@@ -140,7 +140,10 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
     // un chiffre estimé (quartier) ne doit jamais se lire comme un chiffre mesuré, même
     // dans une infobulle survolée à la volée.
     const est=estime(curVals[p.__code])?" <i>(estimé)</i>":"";
-    return `<b>${p.__nom}</b><br>${indicLabel} : ${fmtVal(valOf(p),indicUnit)}${est}`; },{sticky:true});
+    // Un survol sert à comparer : le taux classe, l'effectif dit la taille. On l'ajoute
+    // dès que la zone porte le registre du scrutin lu (cf. effEtiquette, 02_data_geo.js).
+    return `<b>${p.__nom}</b><br>${indicLabel} : ${fmtVal(valOf(p),indicUnit)}${est}`+
+      effEtiquette(curVals[p.__code]); },{sticky:true});
   layer.on("mouseover",e=>{ const ly=e.layer; if(!ly||!ly.feature)return;
     ly.setStyle({weight:2.6,color:C.geosel});
     prefetchEnfants(niveau,ly.feature.properties.__code); });

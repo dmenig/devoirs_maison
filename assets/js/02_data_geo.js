@@ -137,3 +137,23 @@ function rawVal(o,k){ if(!o)return null;
 const valOf=p=>rawVal(curVals[p.__code],indicKey);
 const colValOf=p=>colVal(curVals[p.__code]);
 
+// Effectif de l'indicateur actif, pour l'infobulle de la carte : un survol sert à
+// comparer, et deux zones au même pourcentage ne pèsent pas le même nombre de voix.
+// Les indicateurs qui SONT déjà un effectif (stock d'abstention) ou qui n'en ont pas
+// (note sur 100, revenu médian, effort d'accession) ne reçoivent rien.
+function effEtiquette(o){ if(!o)return "";
+  const k=indicKey;
+  if(STAT.has(k)){
+    const base=inscScr(o,selB);
+    const exact=k==="lfi"?o[`lfiv_${selB}`]:k==="gauche"?o[`gv_${selB}`]
+      :k==="part"?votScr(o,selB):null;
+    const t=k==="part"
+      ?(exact!=null?`${nbf(exact)} votant·es`:"")
+      :effOu(exact,base,o[`${k}_${selB}`],"voix");
+    return t?`<br><span class="ttn">${t}${base!=null?` sur ${nbf(base)} inscrit·es`:""}</span>`:""; }
+  if(k==="pauv"&&o.pop!=null){ const t=effTxt(o.pop,o.pauv,"personnes");
+    return t?`<br><span class="ttn">${t} sur ${nbf(o.pop)} habitant·es</span>`:""; }
+  if(k==="conquerir"&&o.mob!=null)
+    return `<br><span class="ttn">${nbf(o.mob)} voix gagnables`+
+      (o.mobh!=null?` · ${nbf(o.mobh)} h de porte-à-porte`:"")+`</span>`;
+  return ""; }

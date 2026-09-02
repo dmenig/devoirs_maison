@@ -39,8 +39,12 @@ function apercuCartes(geo,vals,code){
     if(!series.some(v=>v!=null))return "";
     const fc=colorer(series);
     const svg=paths.map((p,i)=>{ const v=series[i], cu=p.code===code;
+      // L'infobulle porte l'effectif autant que le taux : comparer une commune à ses
+      // voisines, c'est comparer des tailles avant de comparer des pourcentages.
+      const ov=vals[p.code], base=ov?inscScr(ov,APERCU_SCR):null,
+        eff=(v!=null&&base!=null)?" · "+effTxt(base,v,"voix"):"";
       return `<path d="${p.d}" fill="${v==null?C.geonodata:fc(v)}" stroke="${cu?C.geosel:C.bg}" `+
-        `stroke-width="${cu?1.6:.4}"><title>${p.nom} — ${v==null?'—':v+'%'}</title></path>`; }).join("");
+        `stroke-width="${cu?1.6:.4}"><title>${p.nom} — ${v==null?'—':v+'%'+eff}</title></path>`; }).join("");
     return `<figure class="amini"><figcaption>${lab}</figcaption>`+
       `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">${svg}</svg></figure>`;
   }).filter(Boolean).join("");
@@ -55,7 +59,9 @@ function apercuCartes(geo,vals,code){
 // participation / RN, Europ. 2024). Chaque indicateur étant un % d'inscrits, l'agrégat exact
 // est la moyenne pondérée par les inscrits (inscrits du bureau = abstention ÷ (1 − participation)).
 const arrLabel=a=>{ const n=+a; return n+(n===1?"ᵉʳ":"ᵉ")+" arr."; };
-const _inscrits=o=>(o.abst==null||o.part_E24==null||o.part_E24>=100)?null:o.abst/(1-o.part_E24/100);
+// `insc_E24` est désormais baké jusqu'au bureau de vote : on lit le registre au lieu de
+// le déduire du stock d'abstention (repli conservé pour les vieilles copies en cache).
+const _inscrits=o=>inscRef(o);
 function apercuArrond(plmCode,bv){
   const groups={};
   for(const full in bv){ const i=full.indexOf("_"); if(i<0)continue;
@@ -65,18 +71,27 @@ function apercuArrond(plmCode,bv){
   const arrs=Object.keys(groups).sort(); if(!arrs.length)return "";
   const aggr=(list,key)=>{ let sw=0,sv=0; list.forEach(o=>{ const w=_inscrits(o),v=o[key];
     if(w!=null&&v!=null){ sw+=w; sv+=w*v; } }); return sw?sv/sw:null; };
+  // Registre de l'arrondissement : la somme des registres de ses bureaux. C'est le
+  // dénominateur du taux affiché, donc de quoi l'écrire aussi en voix.
+  const inscArr=list=>{ let t=0,n=0; list.forEach(o=>{ const w=inscScr(o,APERCU_SCR);
+    if(w!=null){ t+=w; n++; } }); return n?t:null; };
+  const bases=arrs.map(a=>inscArr(groups[a]));
   const cols=APERCU_IND.map(([k,lab])=>{ const key=`${k}_${APERCU_SCR}`;
     const series=arrs.map(a=>aggr(groups[a],key));
     if(!series.some(v=>v!=null))return "";
     const max=Math.max(1,...series.map(v=>v==null?0:v));
-    const rows=arrs.map((a,i)=>{ const v=series[i];
+    const rows=arrs.map((a,i)=>{ const v=series[i], b=bases[i];
+      const eff=(v!=null&&b!=null)?effTxt(b,v,"voix"):"";
       return `<div class="arow"><span class="al">${arrLabel(a)}</span>`+
         `<span class="ab"><i style="width:${v==null?0:Math.max(2,100*v/max).toFixed(0)}%"></i></span>`+
-        `<b>${v==null?'—':v.toFixed(1)+'%'}</b></div>`; }).join("");
+        `<b>${v==null?'—':v.toFixed(1)+'%'}</b>`+
+        `<span class="an">${eff}</span></div>`; }).join("");
     return `<figure class="amini wide"><figcaption>${lab}</figcaption>${rows}</figure>`; }).filter(Boolean).join("");
   if(!cols)return "";
+  const tot=bases.reduce((a,b)=>b!=null?a+b:a,0);
   return `<div class="aminis">${cols}</div>`+
-    `<div class="ahint">Par arrondissement (bureaux agrégés, pondérés par les inscrits) — la maille d'un Groupe d'action · Europ. 2024.</div>`;
+    `<div class="ahint">Par arrondissement (bureaux agrégés, pondérés par les inscrits) — la maille d'un `+
+    `Groupe d'action · Europ. 2024${tot?` · ${nbf(tot)} inscrit·es au total`:""}.</div>`;
 }
 
 // rendu asynchrone : la fiche est posée en HTML synchrone (placeholder #apercu), puis remplie

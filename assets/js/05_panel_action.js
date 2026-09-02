@@ -24,21 +24,25 @@ function actionPanel(o){ if(!o)return "";
   // déjà dans le premier — double compte qui, avec une population majeure toutes
   // nationalités, portait Montpellier à 87 577 pour 42 086. Le flux d'arrivées récentes
   // (IRAN, `adm.mig`) reste affiché comme TEXTURE du levier, jamais comme un addend.
-  const res=o.resinsc, maj=o.maj, insc=o.insc;
+  const res=o.resinsc, maj=o.maj, insc=inscRef(o);
   const mig=o.adm&&o.adm.mig;
   // arrivé·es d'une autre commune ou de l'étranger dans l'année : catégories 2 à 4 d'IRAN.
   const arriv=(mig&&mig.slice(2).every(v=>v!=null))?Math.round(mig[2]+mig[3]+mig[4]):null;
+  // Le flux d'arrivées est servi en nombre autant qu'en part : « 9 % des habitant·es »
+  // se travaille autrement selon qu'il s'agit de 40 personnes ou de 27 000.
+  const nArriv=(arriv!=null&&o.pop!=null)?effTxt(o.pop,arriv,"habitant·es"):"";
   const flux=arriv!=null
-    ? ` <b>${arriv} %</b> des habitant·es ont changé de commune dans l'année (recensement) : `+
-      `c'est le vivier le plus mobile du réservoir, et le plus facile à convaincre.`
+    ? ` <b>${arriv} %</b> des habitant·es${nArriv?` (<b>${nArriv}</b>)`:""} ont changé de commune `+
+      `dans l'année (recensement) : c'est le vivier le plus mobile du réservoir, et le plus `+
+      `facile à convaincre.`
     : "";
   // Un solde négatif ne veut pas dire qu'il n'y a personne à inscrire : il veut dire que
   // les inscrit·es partis sont plus nombreux que les résident·es non inscrit·es. Le flux
   // d'arrivées reste donc une cible, mais ce n'est plus « le vivier du réservoir ».
   const fluxNeg=arriv!=null
-    ? ` <b>${arriv} %</b> des habitant·es ont malgré tout changé de commune dans l'année `+
-      `(recensement) : il y a bien des résident·es à inscrire ici, simplement moins que `+
-      `d'inscrit·es qui n'y habitent plus.`
+    ? ` <b>${arriv} %</b> des habitant·es${nArriv?` (<b>${nArriv}</b>)`:""} ont malgré tout changé `+
+      `de commune dans l'année (recensement) : il y a bien des résident·es à inscrire ici, `+
+      `simplement moins que d'inscrit·es qui n'y habitent plus.`
     : "";
   const pct=(res!=null&&maj)?` — <b>${(100*res/maj).toLocaleString('fr',{maximumFractionDigits:1})} %</b> `+
     `des majeur·es français·es de la zone` : "";
@@ -90,12 +94,22 @@ function actionPanel(o){ if(!o)return "";
         `réellement mobilisables à gauche (${(100*o.mob/o.abst).toLocaleString('fr',{maximumFractionDigits:1})} %) : `+
         `le reste est de l'abstention chronique, que la campagne ne ramène pas.`
       : "";
+    // Le stock d'abstention est servi en nombre ; on lui adosse sa part du registre, pour
+    // que le levier se lise dans les deux unités (« 556 109 personnes, soit 40,3 % »).
+    const pctAbst=(insc!=null&&insc>0)
+      ? ` — <b>${(100*o.abst/insc).toLocaleString('fr',{maximumFractionDigits:1})} %</b> des `+
+        `<b>${insc.toLocaleString('fr')}</b> inscrit·es`
+      : "";
     items.push(lever("3","Mobiliser les abstentionnistes","févr.→avr.",o.abst,
-      `${o.abst.toLocaleString('fr')} inscrit·es n'ont pas voté aux européennes 2024.${part} Plutôt tractage marchés / `+
+      `${o.abst.toLocaleString('fr')} inscrit·es n'ont pas voté aux européennes 2024${pctAbst}.${part} Plutôt tractage marchés / `+
       `lieux publics (le porte-à-porte y est moins efficace, disponibilités contraintes).`));
   }
 
-  const primo=(o.a1529!=null)?`Part des 15-29 ans : <b>${o.a1529}%</b>. `:"";
+  // Une part de jeunes ne dit pas combien il y en a : le nombre est ce qui décide d'un
+  // déplacement devant un lycée (cf. `effectif`, base = population recensée).
+  const nJeunes=(o.a1529!=null&&o.pop!=null)?effTxt(o.pop,o.a1529,"habitant·es"):"";
+  const primo=(o.a1529!=null)
+    ?`Part des 15-29 ans : <b>${o.a1529}%</b>${nJeunes?` — <b>${nJeunes}</b>`:""}. `:"";
   items.push(lever("4","Aller vers les primo-votant·es","en continu",null,
     `${primo}Présence devant lycées / facs / résidences étudiantes (CROUS), inscription d'office à vérifier.`));
 
@@ -105,7 +119,13 @@ function actionPanel(o){ if(!o)return "";
   // levier disparaissait là où il est justement le plus lisible. Aux municipales, « gauche
   // hors LFI » est de surcroît surtout composée de listes locales, pas d'un électorat PS.
   const ps=o.gauche_L24!=null&&o.lfi_L24!=null?Math.round((o.gauche_L24-o.lfi_L24)*10)/10:null;
-  const marg=ps!=null&&ps>0?`<div class="inv">Levier marginal : électorats proches (type PS, législatives 2024 : ≈ ${ps} pts d'inscrits hors LFI à gauche) — à ne travailler qu'après les priorités ci-dessus.</div>`:"";
+  // Le levier marginal se chiffrait en POINTS d'inscrits, la seule ligne du panneau qui
+  // n'était pas en personnes. Les voix de la gauche et de LFI étant publiées, la
+  // soustraction se fait sur elles.
+  const psv=(o.gv_L24!=null&&o.lfiv_L24!=null)?Math.max(0,o.gv_L24-o.lfiv_L24):null;
+  const marg=ps!=null&&ps>0?`<div class="inv">Levier marginal : électorats proches (type PS, législatives 2024 : `+
+    `${psv!=null?`<b>${psv.toLocaleString('fr')}</b> voix de gauche hors LFI, soit `:"≈ "}${ps} pts d'inscrits`+
+    `${psv!=null?"":" hors LFI à gauche"}) — à ne travailler qu'après les priorités ci-dessus.</div>`:"";
 
   return `<div class="act"><div class="ah">🎯 Plan d'action — par ordre de priorité</div>`+
     `<ul class="levers">${items.join("")}</ul>${marg}`+

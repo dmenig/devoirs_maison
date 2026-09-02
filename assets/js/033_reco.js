@@ -54,14 +54,26 @@ function socioRecos(o){ const fr=window.__socioFr||{}; if(!o)return [];
     const d=(v-f)*r.sens; if(d<r.ec)continue; out.push({...r,v,f,force:d/r.ec}); }
   return out.sort((a,b)=>b.force-a.force).slice(0,4); }
 
+// Base de chaque signal, pour écrire le constat en PERSONNES et pas seulement en points
+// d'écart : la population recensée pour la pauvreté et les tranches d'âge, les 15 ans et
+// plus pour les catégories sociales. Les signaux de logement (`logloc`, `loghlm`) et le
+// chômage portent sur des dénominateurs que `data_app` ne sert pas (résidences
+// principales, actif·ves de 15-64 ans) : leur constat reste en pourcentage.
+const RECO_BASE={pauv:"pop",a1529:"pop",a75:"pop",ouv:"pop15p"};
+
 // Bloc « Conclusions opérationnelles » : recos en tête de fiche, mesures visibles,
 // pourquoi + constat chiffré dépliables au clic. Renvoie "" si aucun signal marquant.
 function recoPanel(o){ const rs=socioRecos(o); if(!rs.length)return "";
   const fr=window.__socioFr||{};
+  const bases={pop:o.pop!=null?o.pop:null,
+    pop15p:(o.pop!=null&&o.a014!=null)?o.pop*(100-o.a014)/100:null};
+  const unite={pop:"habitant·es",pop15p:"habitant·es de 15 ans et plus"};
   const items=rs.map(r=>{
     const mes=`<ul class="rcom">${r.mes.map(m=>`<li>${m}</li>`).join("")}</ul>`;
-    const det=`<p>${r.pq}</p><p class="rcoc"><b>Constat :</b> ${r.lab} ${r.v}${r.u} ici, `+
-      `contre ${fr[r.k]}${r.u} en moyenne en France.</p>`;
+    const bk=RECO_BASE[r.k], b=bk?bases[bk]:null;
+    const eff=b!=null?effTxt(b,r.v,unite[bk]):"";
+    const det=`<p>${r.pq}</p><p class="rcoc"><b>Constat :</b> ${r.lab} ${r.v}${r.u} ici`+
+      `${eff?` — <b>${eff}</b>`:""}, contre ${fr[r.k]}${r.u} en moyenne en France.</p>`;
     return expBlock(`<div class="rco"><div class="rcot">${r.t}</div>${mes}</div>`,det); }).join("");
   return `<div class="act recos"><div class="ah">🧭 Conclusions opérationnelles</div>`+
     `<div class="rcohint">Priorités déduites du profil de la commune — cliquez pour le pourquoi et le chiffre.</div>`+

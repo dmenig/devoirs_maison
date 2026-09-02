@@ -44,12 +44,11 @@ async function syncCircoSelect(){ const sel=$("selcirco"), btn=$("seladdcirco");
   btn.disabled=!circos.length; }
 
 // Agrégat de la sélection : voix/effectifs sommés, pourcentages pondérés par les inscrits
-// (dérivés de l'abstention E24 quand le champ insc n'est pas baké). On exclut tout *_M26
+// (registre `insc_E24`, reconstitué du stock d'abstention en repli). On exclut tout *_M26
 // (score municipales retiré) et le contexte social (une médiane de médianes n'a pas de sens).
 function aggregateSelection(){
   const os=[...selCodes].map(c=>curVals[c]).filter(Boolean); if(!os.length)return null;
-  const inscOf=o=>o.insc!=null?o.insc
-    :(o.abst!=null&&o.part_E24!=null&&o.part_E24<100)?Math.round(o.abst/(1-o.part_E24/100)):null;
+  const inscOf=inscRef;
   // Voix à conquérir 2027 : extensif (voix, conjoncturels, portes, heures, km) → somme ;
   // intensif (abstention prédite, plancher, gauche prédite) → moyenne pondérée par les
   // inscrits ; γ → moyenne pondérée par les CONJONCTURELS, sur lesquels il s'applique ;
@@ -60,8 +59,12 @@ function aggregateSelection(){
   // `resinsc` est un solde SIGNÉ : le sommer sur une sélection donne le solde net du
   // territoire, où les communes d'origine des mal-inscrit·es compensent les villes qui les
   // accueillent. C'est la bonne agrégation, et elle n'était pas possible tant que les
-  // écarts négatifs n'étaient pas servis. `maj` est un effectif.
-  const isCount=k=>/^(lfiv_|gv_)/.test(k)||k==="abst"||k==="resinsc"||k==="maj"||MOB_CNT.has(k);
+  // écarts négatifs n'étaient pas servis. Tous les autres EFFECTIFS se somment aussi :
+  // voix, registres et votant·es de chaque scrutin (`insc_`, `vot_` — ce sont eux qui
+  // permettent de relire en personnes les pourcentages pondérés de la fiche agrégée),
+  // population (`pop`) et corps électoral potentiel (`maj`).
+  const isCount=k=>/^(lfiv_|gv_|insc_|vot_)/.test(k)||k==="abst"||k==="resinsc"
+    ||k==="maj"||k==="pop"||MOB_CNT.has(k);
   const isPct=k=>/^(part|lfi|gauche|rn|em|lr)_/.test(k)||k==="moba"||k==="mobf"||k==="mobl";
   const agg={}, wsum={}, wnum={}; let inscTot=0;
   os.forEach(o=>{ const insc=inscOf(o); if(insc)inscTot+=insc;
@@ -71,7 +74,11 @@ function aggregateSelection(){
       else if(pk){ if(p){ wsum[k]=(wsum[k]||0)+o[k]*p; wnum[k]=(wnum[k]||0)+p; } }
       else if(isPct(k)&&insc){ wsum[k]=(wsum[k]||0)+o[k]*insc; wnum[k]=(wnum[k]||0)+insc; } } });
   for(const k in wsum)if(wnum[k])agg[k]=Math.round(wsum[k]/wnum[k]*10)/10;
-  if(inscTot)agg.insc=inscTot; agg.reg=os[0].reg;
+  // Repli : là où aucune commune de la sélection ne porte `insc_E24`, le registre reste
+  // reconstitué du stock d'abstention (cf. inscRef) — on le sert sous le même nom pour
+  // que la fiche agrégée n'ait rien de particulier à savoir.
+  if(inscTot&&agg[`insc_${SC_REGISTRE}`]==null)agg[`insc_${SC_REGISTRE}`]=inscTot;
+  agg.reg=os[0].reg;
   return agg;
 }
 

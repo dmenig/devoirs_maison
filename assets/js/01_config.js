@@ -427,6 +427,57 @@ const fmtVal=(v,u)=> (v==null||(typeof v==="number"&&isNaN(v)))?"—":(u==="€"
   (u===" voix/h"?v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})+" voix/h":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")))));
 
+// ── Les effectifs derrière les pourcentages ─────────────────────────────────────────
+// Tout le socle électoral du site est en « % des inscrits » et le socle social en « % de
+// la population » : lus seuls, ces taux ne se comparent qu'entre eux, alors qu'une
+// campagne raisonne en PERSONNES — « 12 % » ne remplit pas une salle et ne se répartit
+// pas entre des équipes de porte-à-porte. Chaque pourcentage est donc désormais servi
+// avec son effectif, et le nombre d'inscrit·es — qui n'apparaissait nulle part — est
+// écrit en tête de fiche.
+const nbf=v=>(v==null||(typeof v==="number"&&isNaN(v)))?"—":Math.round(v).toLocaleString('fr');
+// Effectif RECONSTITUÉ d'un taux (base × taux). Les taux sont servis arrondis au dixième
+// de point : le produit n'est juste qu'à ±0,05 % de la base près — ±690 personnes à Paris,
+// ±0,5 dans un bureau de vote. On arrondit donc à l'ORDRE DE GRANDEUR de cette incertitude
+// (puissance de dix la plus proche) plutôt que d'écrire des unités qui n'existent pas :
+// 123 000 voix à Paris, 46 600 habitant·es à Montpellier, le compte juste dans un bureau.
+// Cran d'affichage = l'ordre de grandeur de cette incertitude, arrondi à la puissance de
+// dix la plus proche : 1 dans un bureau de vote, 100 dans une commune moyenne, 1 000 à
+// Paris, 10 000 dans une région.
+const granEff=base=>{ const prec=Math.abs(base)*5e-4;
+  return prec<=1?1:Math.pow(10,Math.max(0,Math.round(Math.log10(prec)))); };
+function effectif(base,pct){
+  if(base==null||pct==null||isNaN(base)||isNaN(pct))return null;
+  const g=granEff(base);
+  return Math.round(base*pct/100/g)*g; }
+// Le « ≈ » n'est pas décoratif : il distingue un effectif RECONSTITUÉ d'un taux (celui-ci)
+// d'un effectif PUBLIÉ par la source (voix LFI, voix de gauche, votant·es, stock
+// d'abstention, voix du modèle 2027), qui s'écrit sans réserve. Un lecteur peut donc
+// savoir, à l'œil, lesquels des nombres de la fiche sont des mesures.
+// Cas limite : un taux non nul dont l'effectif retombe à zéro. Écrire « ≈ 0 » dirait
+// « personne », alors que la source dit seulement « moins d'un cran » — un bloc à 0,0 %
+// des inscrits d'une région, c'est encore jusqu'à 2 000 voix. On écrit donc la borne.
+const effTxt=(base,pct,unite)=>{ const n=effectif(base,pct); if(n==null)return "";
+  const u=unite?" "+unite:"";
+  return (n===0&&pct>0)?"< "+nbf(granEff(base))+u:"≈ "+nbf(n)+u; };
+// Effectif EXACT quand la source le publie, reconstitué sinon : le ministère publie les
+// voix de LFI et de la gauche (`lfiv_`/`gv_`), les autres blocs seulement en pourcentage.
+const effOu=(exact,base,pct,unite)=>
+  exact!=null?nbf(exact)+(unite?" "+unite:""):effTxt(base,pct,unite);
+// Registre du scrutin demandé, et registre de RÉFÉRENCE (européennes 2024, dont le site
+// tire partout la taille du corps électoral). Le repli reconstitue le registre à partir
+// du stock d'abstention et du taux de participation, pour les valeurs agrégées d'une
+// sélection multiple qui ne portent pas toujours les champs par scrutin.
+const SC_REGISTRE="E24";
+const inscScr=(o,sc)=>(o&&o[`insc_${sc}`]!=null)?o[`insc_${sc}`]:null;
+const votScr=(o,sc)=>(o&&o[`vot_${sc}`]!=null)?o[`vot_${sc}`]:null;
+const inscRef=o=>{ if(!o)return null;
+  if(o[`insc_${SC_REGISTRE}`]!=null)return o[`insc_${SC_REGISTRE}`];
+  return (o.abst!=null&&o.part_E24!=null&&o.part_E24<100)
+    ?Math.round(o.abst/(1-o.part_E24/100)):null; };
+// Base d'un pourcentage électoral : le registre du scrutin qui le porte (« part_M26 » se
+// lit sur les inscrit·es de mars 2026, pas sur ceux de 2024 — 250 000 de plus en Île-de-France).
+const baseElec=(o,cle)=>{ const m=/_([A-Z]\d\d)$/.exec(cle); return m?inscScr(o,m[1]):null; };
+
 // values/* : cache:"no-cache" force le navigateur à revalider auprès de GitHub (requête
 // conditionnelle ETag → 304 si inchangé, sinon contenu frais) au lieu de servir aveuglément
 // sa copie en cache : sans ça, après une mise à jour de data_app, la carte gardait les

@@ -21,9 +21,10 @@ const _nb=v=>Math.round(v).toLocaleString('fr');
 // Là où la liste électorale est plus large que la population résidente (communes
 // d'origine des mal-inscrit·es, la moitié d'entre elles), c'est la liste qui fait la base.
 function carnetBase(o){
-  let insc=o.insc;
-  if(insc==null&&o.abst!=null&&o.part_E24!=null&&o.part_E24<100)
-    insc=Math.round(o.abst/(1-o.part_E24/100));
+  // `inscRef` lit le registre des européennes 2024 (`insc_E24`, servi à toutes les
+  // échelles depuis que le socle électoral porte le registre de chaque scrutin) et
+  // retombe sur le stock d'abstention là où il manque.
+  const insc=inscRef(o);
   if(insc==null)return null;
   const elig=o.maj!=null?Math.max(insc,o.maj):insc;
   const pp=o.part_P22!=null?o.part_P22:o.part_E24;
@@ -101,6 +102,10 @@ function carnetCompo(o,b){
   const bar=segs.map(s=>s[1]?`<i style="width:${(100*s[1]/tot).toFixed(1)}%;background:${s[2]}" title="${s[0]} ${_nb(s[1])}"></i>`:"").join("");
   const lg=segs.map(s=>`<div class="crow"><span><i style="background:${s[2]}"></i>${s[0]}</span><b>${_nb(s[1])}</b></div>`).join("");
   return `<div class="recbar">${bar}</div><div class="compo">${lg}</div>`+
+    // La barre est une décomposition d'EFFECTIFS : on écrit le total qu'elle partage,
+    // sans quoi trois nombres empilés ne disent pas de quel ensemble ils sont les parts.
+    `<div class="hypnote">Sur ${_nb(b.elig)} électeur·ices potentiel·les `+
+    `(${_nb(b.insc)} inscrit·es`+(o.maj!=null?`, ${_nb(o.maj)} majeur·es français·es recensé·es`:"")+`).</div>`+
     carnetGagnablesNote(o,gagnables);
 }
 

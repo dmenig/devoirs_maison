@@ -47,6 +47,19 @@ estimés moins le socle LFI, qui ne mesurait rien de ce qui est gagnable), les v
 modélisées, et leur rentabilité. Seule la troisième subsiste, à la racine ; `/v2/` et
 `/v3/` ne répondent plus.
 
+## Chaque pourcentage avec son nombre
+
+Le socle électoral est en **% des inscrits**, le socle social en **% de la population** :
+lus seuls, ces taux ne se comparent qu'entre eux. Chaque taux de la fiche est donc servi
+avec l'**effectif** qu'il représente, et le **nombre d'inscrit·es** — qui n'apparaissait
+nulle part — est écrit en tête de fiche avec la **population**, les **majeur·es
+français·es** et le **solde d'inscription**. « 9,9 % des inscrits »,
+c'est 136 509 voix à Paris et 809 à Guéret : le taux classe les territoires, le nombre les
+dimensionne. Le registre de **chaque scrutin** est servi (il change d'une élection à
+l'autre), les voix publiées par le ministère s'écrivent telles quelles et les effectifs
+*reconstitués* d'un taux arrondi portent un « ≈ ». Voir
+[DOCUMENTATION.md](DOCUMENTATION.md#les-effectifs-derrière-les-pourcentages).
+
 ## Lancer en local
 
 ```bash

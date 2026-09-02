@@ -52,6 +52,12 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 > les empiler avec l'abstention jusqu'à 100 %, et de comparer deux territoires entre eux.
 > Un bloc « non mesuré » s'affiche « · » et pèse dans la part **non ventilée**, pas zéro.
 
+> **Et jamais un pourcentage seul** : chaque taux est servi avec l'**effectif** qu'il
+> représente, et le **nombre d'inscrit·es** est écrit en tête de fiche avec la
+> **population**. Un taux classe les territoires, un nombre les dimensionne — « 9,9 % des
+> inscrits » vaut 136 509 voix à Paris et 809 à Guéret, et ce n'est pas la même campagne.
+> Voir « Les effectifs derrière les pourcentages » ci-dessous.
+
 | Échelle | Données électorales | Réservoirs de voix | Socio-éco / administratif |
 | --- | --- | --- | --- |
 | **France** | blocs + participation, tous scrutins ; tableau de recomposition | différentiels nationaux présidentielle→européenne→municipale, taux de perte | — |
@@ -61,6 +67,49 @@ comme dans la prez), pour **chaque scrutin disponible** (2012 → 2026) :
 | **IRIS** (quartier) — *vue par défaut sous la commune* | blocs + participation + recomposition, **estimés** par intersection avec les bureaux de vote (voir ci-dessous) | différentiels, reports, taux de perte, stock d'abstention — estimés eux aussi | **revenu médian**, **taux de pauvreté**, **quartiles (Q1/Q3)**, **déciles (D1/D9)**, **rapport interdécile**, **indice de Gini** par IRIS (carte choroplèthe + barre de dispersion dans la fiche) ; **prix au m²** et **effort d'accession** hérités de la commune — de l'**arrondissement** à Paris/Lyon/Marseille (échelle et période dites dans l'intitulé, en fiche seulement) |
 | **Bureau de vote** | blocs + participation par BV, **carte choroplèthe nationale** ; le scrutin affiché (Vote LFI / Participation / RN / Gauche) suit le sélecteur ⚖️ → reproduit les cartes BV de la prez (LFI Europ. 2024, LFI Munic. 2026, Présid. 2022…) | **report LFI entre scrutins** (P22→E24, E24→M26…), **différentiel de participation**, **stock d'abstentionnistes** | — |
 
+### Les effectifs derrière les pourcentages
+
+Le socle électoral est en **% des inscrits** et le socle social en **% de la population** :
+lus seuls, ces taux ne se comparent qu'entre eux. La fiche sert donc systématiquement le
+nombre à côté du taux, et, en tête, les effectifs dont tout le reste est une part.
+
+- **En tête de chaque fiche** — un bandeau de repères : **habitant·es** (recensement 2021),
+  **inscrit·es** (registre des européennes 2024, la base de tous les « % des inscrits » du
+  site), **majeur·es de nationalité française recensé·es** (le corps électoral potentiel) et
+  le **solde d'inscription**, écrit dans son sens — « *N* à inscrire » ou « *N* inscrit·es de
+  plus que de majeur·es français·es ». La **région** et le **département**, qui n'avaient
+  jusqu'ici aucun effectif servi, reçoivent la population sommée depuis `admin_commune`
+  (ventilé par arrondissement à Paris, Lyon et Marseille : la seule forme qui *partitionne*
+  le territoire) et les majeur·es / le solde sommés depuis les valeurs communales — un solde
+  agrégé est le **net** du territoire, les communes d'origine des mal-inscrit·es compensant
+  les villes qui les accueillent.
+- **Le registre de CHAQUE scrutin**, et non un seul. Le corps électoral change d'une
+  élection à l'autre — Paris : 1 368 025 inscrit·es en avril 2022, 1 378 896 en juin 2024,
+  1 405 332 en mars 2026 — si bien qu'un même pourcentage n'y pèse pas le même nombre de
+  voix. Les champs `insc_P22 / E24 / L24 / M26` et les votant·es correspondants (`vot_*`)
+  sont servis à toutes les échelles, et le tableau de recomposition porte une colonne
+  **Inscrits** qui donne la base de chacune de ses lignes — jusqu'à **27**, un scrutin par
+  tour de 2012 à 2026 (`inscs`, un dict parallèle à `rec`).
+- **Voix publiées vs effectifs reconstitués.** Le ministère publie les **voix de LFI** et
+  celles de la **gauche** (`lfiv_*`, `gv_*`), les **votant·es** et les **inscrit·es** : ces
+  nombres s'écrivent tels quels. Les autres blocs ne sont publiés qu'en pourcentage,
+  arrondi au dixième de point : leur effectif est alors *reconstitué* (taux × registre),
+  arrondi à l'ordre de grandeur de l'incertitude que cet arrondi porte (±0,05 % de la base,
+  soit ±690 personnes à Paris et ±0,5 dans un bureau de vote) et **marqué « ≈ »**. Le signe
+  n'est pas décoratif : il dit, à l'œil, lesquels des nombres de la fiche sont des mesures.
+  Un taux non nul dont l'effectif retombe sous ce cran s'écrit « **< 1 000 voix** » plutôt
+  que « ≈ 0 » : la source dit « moins d'un cran », pas « personne ».
+- **Côté social**, l'effectif n'est écrit que là où sa base est connue : la **population**
+  pour le taux de pauvreté, les tranches d'âge et le renouvellement de population ; les
+  **15 ans et plus** (population moins les 0-14 ans, exactement la base INSEE) pour les
+  catégories sociales. Le chômage (actif·ves de 15-64 ans), les diplômes (non-scolarisé·es
+  de 15 ans et plus) et le logement (résidences principales) portent sur des effectifs que
+  `data_app` ne contient pas : ils restent en pourcentage, et la rubrique **dit** de quoi.
+- **Ailleurs qu'en fiche** : l'infobulle de la carte ajoute l'effectif au taux survolé, les
+  petites cartes de voisinage le donnent au survol, la vue par arrondissement l'affiche en
+  bout de ligne, et l'**effort d'accession** est doublé de la **mensualité de crédit en
+  euros** qui le fabrique, en regard du revenu mensuel du ménage médian.
+
 ### Détail des réservoirs de voix (section « Aider à définir la stratégie »)
 
 Calculés dynamiquement entre deux scrutins choisis, à **chaque échelle** disposant des voix
@@ -69,7 +118,9 @@ réelles (région, département, commune, bureau de vote) :
 - **Taux de perte** de la gauche entre deux scrutins (`(voix_A − voix_B) / voix_A`)
 - **Report LFI** entre deux scrutins (`voix_LFI_B / voix_LFI_A`)
 - **Différentiel de participation** (`participation_B − participation_A`, en points d'inscrits)
-- **Stock d'abstentionnistes mobilisables** (`inscrits × taux d'abstention`)
+- **Stock d'abstentionnistes mobilisables** (`inscrits − votants`, la soustraction et non
+  le taux : celui-ci est arrondi au centième de point, ce qui écartait le stock de 31 voix
+  à Paris — de quoi contredire les deux termes que la fiche écrit désormais à côté)
 
 ### « Prioritaire » : la rentabilité du porte-à-porte, notée sur 100
 
@@ -385,6 +436,25 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
 
 ## Limites connues
 
+- Les **effectifs marqués « ≈ »** sont **reconstitués**, pas publiés : le ministère ne
+  publie les voix que pour LFI et la gauche, les autres blocs n'existent qu'en part
+  d'inscrits arrondie au dixième de point. Le produit `taux × registre` est donc juste à
+  ±0,05 % de la base — ±690 personnes à Paris, moins d'une voix dans un bureau de vote — et
+  l'affichage est arrondi à cet ordre de grandeur. **Contrôle** : en rejouant la
+  reconstruction sur le vote LFI, dont les voix *sont* publiées (454 851 couples
+  zone × scrutin), elle retrouve le compte **exact** dans **96,1 %** des bureaux de vote,
+  **87,2 %** des communes et **81,1 %** des quartiers, et l'écart reste sous **2,1 %** de la
+  valeur au 99ᵉ centile communal. Il n'est grand qu'en **relative**, et seulement pour les
+  **taux minuscules** : 0,05 point d'incertitude sur un bloc à 0,3 % des inscrits, c'est
+  17 % de sa valeur. Sous le dixième de point, l'effectif ne donne donc qu'un **ordre de
+  grandeur** — les blocs qui pèsent vraiment dans une campagne sont, eux, tous au-dessus.
+  Trois dénominateurs du recensement
+  manquent par ailleurs dans `data_app` (actif·ves de 15-64 ans pour le chômage,
+  non-scolarisé·es de 15 ans et plus pour les diplômes, résidences principales pour le
+  logement) : ces parts restent **sans effectif**, la rubrique disant leur base, plutôt que
+  d'en recevoir un calculé sur une base approchée. Mayotte n'a **pas de population servie**
+  (le recensement n'y descend pas assez) : la région 06 et le département 976 n'affichent
+  donc pas de repère « habitant·es », et rien de ce qui s'en déduit.
 - Les **« voix à conquérir »** sont une **prévision**, avec trois sources
   d'imprécision distinctes, à ne pas confondre. **(a)** Le modèle lui-même : R² de 0,82 sur la
   gauche et 0,56 sur l'abstention en validation hors échantillon — le classement des bureaux est

@@ -132,18 +132,36 @@
   #info .cols>.exp{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;margin:0 0 4px}
   #info .cols>.exp .sec{margin-top:0}
   #info .t{font-weight:800;font-size:16px;color:var(--lav);margin-bottom:2px}
+  /* Effectif accolé à un pourcentage (« 12,3 % · 4 567 voix ») : gris, non gras, jamais
+     coupé — c'est un complément de lecture, pas la valeur principale. */
+  #info .cnt{font-weight:400;color:var(--mut);white-space:nowrap}
+  /* Bandeau de repères sous le titre : les deux nombres absolus dont tout le reste de la
+     fiche est un pourcentage (habitant·es, inscrit·es), plus le corps électoral potentiel. */
+  #info .reperes{display:flex;flex-wrap:wrap;gap:2px 14px;margin:1px 0 6px;
+                 font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums}
+  #info .reperes span{display:inline-flex;align-items:center;white-space:nowrap}
+  #info .reperes b{color:var(--txt);font-weight:800;margin-right:4px}
   #info .lead{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
   #info .head{font-size:30px;font-weight:800;color:var(--cram);line-height:1;margin:2px 0 8px}
   #info .head small{font-size:13px;color:var(--mut);font-weight:600}
+  /* Effectif sous le chiffre de tête : ce que le taux représente en personnes. */
+  #info .headsub{font-size:11.5px;color:var(--mut);margin:-5px 0 8px;
+                 font-variant-numeric:tabular-nums}
   #info .sec{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;
              margin:11px 0 5px;border-top:1px solid var(--bord);padding-top:7px}
   #info .row{display:flex;justify-content:space-between;gap:10px;margin:4px 0;font-size:13px;align-items:baseline}
   #info .row span{color:var(--mut);min-width:0}
   #info .row b{color:var(--txt);font-variant-numeric:tabular-nums;white-space:nowrap;flex:none;text-align:right}
+  /* Ligne dont la valeur porte un effectif en plus du taux : elle a besoin de pouvoir
+     revenir à la ligne, là où une valeur seule tient toujours sur une ligne. */
+  #info .row.rowc b{white-space:normal;flex:0 1 auto}
   #info .srow{display:flex;justify-content:space-between;gap:10px;margin:5px 0;font-size:13px;align-items:baseline}
   #info .srow .sl{color:var(--mut);min-width:0}
   #info .srow .sv{flex:none;text-align:right;white-space:nowrap}
   #info .srow .sv b{color:var(--txt);font-variant-numeric:tabular-nums}
+  /* Valeur doublée de son effectif : elle peut revenir à la ligne, l'effectif lui-même
+     restant insécable (cf. .cnt). */
+  #info .srow .sv.svc{flex:0 1 auto;white-space:normal}
   #info .srow .sv .ref{display:block;font-size:11px;color:var(--mut);opacity:.8;font-variant-numeric:tabular-nums}
   /* « i » d'explication accolé à un libellé (cf. hint() dans 01_config.js) : au SURVOL une
      définition courte, au CLIC le volet méthodo de la section (le clic remonte à .exph).
@@ -158,7 +176,10 @@
         width:230px;padding:7px 9px;border-radius:8px;z-index:5;pointer-events:none;
         background:var(--pbgs);border:1px solid var(--detbd);color:var(--dettx);
         font-size:11px;font-weight:400;line-height:1.45;text-align:left;
-        letter-spacing:normal;text-transform:none;
+        /* `white-space` : l'infobulle est un paragraphe, elle doit revenir à la ligne dans
+           ses 230 px — y compris quand le libellé qui la porte est `nowrap` (bandeau de
+           repères, valeur d'une ligne socio), où elle sortait en une seule ligne. */
+        white-space:normal;letter-spacing:normal;text-transform:none;
         box-shadow:0 3px 12px var(--sh);opacity:0;visibility:hidden;transition:opacity .12s ease}
   #info .hint:hover::after{opacity:1;visibility:visible}
   @media (hover:none){ #info .hint::after{display:none} }
@@ -171,6 +192,10 @@
   #info .tbarwrap{height:38px;display:flex;align-items:flex-end;justify-content:center}
   #info .tbar{width:60%;background:var(--cram);border-radius:3px 3px 0 0;min-height:2px}
   #info .tv{font-weight:700;color:var(--cram);font-size:11px}
+  /* Voix obtenues sous le taux, dans la frise « Évolution du vote LFI » : le pourcentage
+     et le nombre ne varient pas toujours dans le même sens (le registre bouge). */
+  #info .tn{font-size:9px;color:var(--mut2);font-variant-numeric:tabular-nums;
+            line-height:1.2;min-height:11px}
   #info .mnote{margin-top:7px;font-size:11px;line-height:1.4;color:var(--mut);border-left:2px solid var(--cram);padding-left:7px}
   #info .bal{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;color:var(--onacc);font-weight:700}
   #info .bal .bg{background:var(--cram);display:flex;align-items:center;justify-content:center;min-width:30px}
@@ -238,6 +263,10 @@
   #info table.recompo th,#info table.recompo td{padding:1px 3px;text-align:right;white-space:nowrap}
   #info table.recompo td{color:var(--txt)}
   #info table.recompo td.sc{text-align:left;color:var(--mut)}
+  /* Base de la ligne : sans elle, deux lignes de pourcentages ne se comparent pas en
+     personnes — le corps électoral n'est pas le même d'un scrutin à l'autre. */
+  #info table.recompo th.ins,#info table.recompo td.ins{color:var(--mut);
+    border-left:1px solid var(--bord);padding-left:6px}
   #info table.recompo tbody tr:nth-child(odd){background:var(--soft)}
   /* Carnet de campagne (chantier 3) : en-tête de la fiche commune. */
   #info .carnet{margin:6px 0 4px}
@@ -305,6 +334,8 @@
   #info .amini .arow .ab{flex:1;height:8px;background:var(--track);border-radius:4px;overflow:hidden}
   #info .amini .arow .ab i{display:block;height:100%;background:var(--lav)}
   #info .amini .arow b{color:var(--txt);font-variant-numeric:tabular-nums;width:40px;text-align:right;flex:none}
+  #info .amini .arow .an{color:var(--mut2);font-variant-numeric:tabular-nums;
+    width:74px;text-align:right;flex:none;font-size:10px}
   #info .ahint{font-size:10px;font-style:italic;color:var(--mut2);line-height:1.4;margin:5px 0 2px}
   #subtoggle{top:calc(var(--top-b) + 8px);right:10px;display:none;gap:6px}
   #legend{bottom:14px;left:10px;max-width:300px}
@@ -345,6 +376,7 @@
   /* Widgets natifs Leaflet alignés sur le thème sombre */
   .leaflet-tooltip{background:var(--pbg);color:var(--txt);border:1px solid var(--bord);
        box-shadow:0 2px 10px var(--sh)}
+  .leaflet-tooltip .ttn{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums}
   .leaflet-tooltip-left:before{border-left-color:var(--bord)}
   .leaflet-tooltip-right:before{border-right-color:var(--bord)}
   .leaflet-tooltip-top:before{border-top-color:var(--bord)}
