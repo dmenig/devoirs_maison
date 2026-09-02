@@ -127,26 +127,30 @@ réelles (région, département, commune, bureau de vote) :
 La pastille affichée par défaut porte **ce que rapporte une heure** de porte-à-porte : le
 gisement de voix réellement mobilisables, divisé par le temps qu'il coûte à démarcher.
 Elle ne l'affiche pas en voix / heure, mais en **note sur 100**, qui situe la zone entre
-les trois repères du pays :
+trois repères du pays :
 
-| Note | Repère |
-| ---- | ------ |
-| **0** | le terrain le moins rentable de France |
-| **50** | le terrain **médian** |
-| **100** | le meilleur terrain |
+| Note | Repère | Nature du repère |
+| ---- | ------ | ---------------- |
+| **0** | rien à reconquérir (`0 voix/h`) | un **terrain réel** : 231 zones y sont |
+| **50** | le bureau **médian** de France (`0,224 voix/h`) | un **terrain réel** |
+| **100** | **médiane + 2 σ** (`0,502 voix/h`) | un repère de **dispersion** |
 
-La note interpole linéairement de part et d'autre de la médiane (deux segments de droite) :
+Les deux extrémités ne sont donc pas de même nature, et l'asymétrie est voulue (voir plus
+bas). La note interpole linéairement de part et d'autre de la médiane — deux segments de
+droite, de pentes désormais proches (`223` points de note par voix/h en dessous, `180`
+au-dessus) :
 
 ```
-si rendement ≤ médian :  note = 50 × (rendement − min)              ÷ (médian − min)
-sinon                 :  note = 50 + 50 × (rendement − médian)      ÷ (max − médian)
-puis borné à [0, 100]
+si rendement ≤ médian :  note = 50 × (rendement − min)                  ÷ (médian − min)
+sinon                 :  note = 50 + 50 × (rendement − médian)          ÷ (note100 − médian)
+   note100 = médian + 2 σ.  Plancher à 0 (un rendement n'est jamais négatif),
+   AUCUN plafond : une zone d'exception dépasse 100, et c'est l'information.
 ```
 
-Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `max` 1,642 voix/h) :
-Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,642 − 0,224)` = **60,08**,
-affichée **60 / 100** ; la Creuse `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` =
-**42,86**, affichée **43 / 100**. Le rendement lui-même est `voix à conquérir ÷ heures de
+Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `σ` 0,139, `note100` 0,502
+voix/h) : la Creuse `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **42,86**, affichée
+**43 / 100** ; Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (0,502 − 0,224)` =
+**101,44**, affichée **101 / 100**. Le rendement lui-même est `voix à conquérir ÷ heures de
 porte-à-porte`, calculé **sur des sommes** à l'échelle affichée (`rendementPorte`,
 [02_data_geo.js](assets/js/02_data_geo.js)) — jamais comme la moyenne des rendements des
 sous-zones.
@@ -156,8 +160,8 @@ l'échelle n'est pas un nombre mais un **rapport**, et le médian du barème ne 
 `0,224` voix/h : une voix de numérateur y pèse énormément — sur un bureau de cinq heures,
 elle déplace la note de 45 points. Arrondis à l'unité, `mobn` et `mobh` écrasaient donc les
 petites zones : toute zone de moins d'une demi-voix à conquérir sortait à `mobn = 0`, donc
-notée **`0 / 100`, « le pire terrain de France »**, quand son rendement réel la plaçait
-jusqu'à `51` — Leménil-Mitry (6 inscrit·es) notait `0` pour un vrai `51`. Au centième
+notée **`0 / 100`, « rien à reconquérir »**, quand son rendement réel la plaçait au-dessus
+du terrain médian — Leménil-Mitry (6 inscrit·es) notait `0` pour un vrai `53`. Au centième
 (`MOB_DEC`, [prep_bake.py](prep_bake.py)), l'écart à la valeur exacte tombe de **52 points
 à 0,5 point**, invisible dans une note affichée en entier, et il ne reste de `0 / 100` que
 **254 zones** contre 938 — dont 231 dont le gisement est exactement nul, les autres sous la
@@ -177,8 +181,8 @@ bornes servies, toute la section disparaît plutôt que d'expliquer une échelle
 pas montrer.
 
 Une carte sert à **classer** des territoires, et « 0,28 voix/h » ne se classe pas sans qu'on
-sache d'abord ce qu'est une bonne valeur : `60 sur 100` à Saint-Denis, `52` à Paris, `43`
-dans la Creuse se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
+sache d'abord ce qu'est une bonne valeur : `61 sur 100` à Paris, `43` dans la Creuse, `33`
+dans le Cantal se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
 carte, ni l'unité — mais rien n'est caché : c'est une **estimation**, et un bouton « i » en
 ouvre la méthode complète, en voix par heure (légende de la carte pour la méthode générale,
 chiffre de tête de la fiche pour le calcul détaillé, avec les valeurs de la zone ouverte).
@@ -189,23 +193,51 @@ distribution est très dissymétrique : rapporté au seul maximum, le terrain m�
 `14`, la moitié des communes tenait entre `9` et `17`, et la note n'utilisait pas son
 échelle. L'ordre, lui, est le même — la transformation est monotone.
 
-**Les trois repères sont ceux des bureaux de vote**, seule maille qui **partitionne** la
-France : une zone se situe parmi les ~67 000 bureaux du pays, quelle que soit sa taille. Une
-commune note donc `44` en médiane et plafonne à `84` (Esnandes), un département tient entre
-`22` et `60` : c'est l'information, pas un défaut d'échelle — une commune moyenne ses bons
-et ses mauvais terrains, un département plus encore. Les bornes (`rendement_min` 0,
-`rendement_median` 0,224 et `rendement_max` 1,642 voix/h — un bureau de Sainte-Suzanne, à La
-Réunion) sont calculées par [prep_bake.py](prep_bake.py) **sur les valeurs réellement
-servies**, puis publiées dans `values/_mobilisation.json` avec les autres repères du modèle :
-elles ne sont écrites en dur nulle part et suivent une régénération de `data_app`.
+**Pourquoi le `100` n'est pas le meilleur terrain de France** — parce qu'il est seul. Le
+meilleur bureau du pays (`1,642 voix/h`, à Sainte-Suzanne) est `21 %` au-dessus du deuxième
+et `57 %` au-dessus du p99,9. Accroché à lui, le haut de l'échelle ne servait à rien :
+**88 %** des bureaux au-dessus du médian tenaient entre `50` et `60`, `1,4 %` passaient
+`70`, et la meilleure commune de France plafonnait à `84` — une note qui n'utilise pas son
+échelle ne classe plus rien, et c'était précisément le défaut qu'on croyait avoir corrigé en
+accrochant le médian à 50. Le `100` est donc un repère de **dispersion** (médian + 2 σ), qui
+ne dépend plus d'un bureau : la moitié haute se répartit alors `37 %` / `22 %` / `14 %` /
+`9 %` / `6 %` sur les dizaines de `50` à `100`.
+
+| Ce qui dépasse `100` | Part |
+| -------------------- | ---- |
+| bureaux de vote | **6,0 %** (4 039) — le meilleur note `305` |
+| quartiers (IRIS) | 4,9 % (2 351) |
+| communes | 1,2 % (435) — Esnandes `223`, Saint-Denis `101` |
+| départements, régions | **aucun** (maximum `100`, la Seine-Saint-Denis) |
+
+Les plafonner rendrait indiscernables quatre mille bureaux qui ne se ressemblent pas. À
+l'autre bout, **aucune note ne peut être négative** : le `0` est un rendement nul et non un
+`− 2 σ`, un rendement ne descend pas sous zéro, et accrocher le bas à la dispersion aurait
+tué le quart inférieur de l'échelle en même temps que le sens du « `0` sur 100 ».
+
+**Le nombre de σ est servi, pas écrit dans le client** (`rendement_sigmas`) : resserrer ou
+élargir l'échelle est un seul chiffre à changer, dans [prep_bake.py](prep_bake.py)
+(`SIGMAS_NOTE`), la carte et la notice suivant d'elles-mêmes. À `3 σ` la pente du haut
+tomberait à `120` points par voix/h et la cassure du milieu deviendrait franche ; à
+`1,61 σ` (σ = médian) elle disparaîtrait tout à fait, mais le `100` ne serait plus qu'un
+double du médian.
+
+**Le médian et l'écart-type sont ceux des bureaux de vote**, seule maille qui **partitionne**
+la France : une zone se situe parmi les ~69 000 bureaux du pays, quelle que soit sa taille.
+Une commune note donc `43` en médiane, un département tient entre `22` (Mayotte) et `100`
+(Seine-Saint-Denis) : c'est l'information, pas un défaut d'échelle — une commune moyenne ses
+bons et ses mauvais terrains, un département plus encore. Toutes les bornes sont calculées
+par [prep_bake.py](prep_bake.py) **sur les valeurs réellement servies**, puis publiées dans
+`values/_mobilisation.json` avec les autres repères du modèle : elles ne sont écrites en dur
+nulle part et suivent une régénération de `data_app`.
 
 **La couleur, elle, continue de se calculer sur le rendement brut** — pas sur la note. Le
 ton est un écart *proportionnel* à la médiane des zones affichées (voir « La couleur disait
-le rang, pas l'écart », [EVOLUTIONS.md](EVOLUTIONS.md)) ; le faire passer par une note dont
-la pente casse à la médiane nationale donnerait deux tons différents au même écart réel
-selon le côté du 50 où les zones tombent. On lit donc le **nombre** sur la note et l'**écart**
-sur la couleur, chacun sur la grandeur qui lui convient — les deux étant monotones l'une de
-l'autre, elles racontent le même classement.
+le rang, pas l'écart », [EVOLUTIONS.md](EVOLUTIONS.md)), et un **rapport de notes ne mesure
+rien** : la note a une origine conventionnelle et une pente qui s'infléchit au 50, si bien
+que « deux fois la note » ne veut pas dire « deux fois le terrain ». On lit donc le
+**nombre** sur la note et l'**écart** sur la couleur, chacun sur la grandeur qui lui convient
+— les deux étant monotones l'une de l'autre, elles racontent le même classement.
 
 > **Trois définitions, une retenue.** Le site a longtemps publié trois versions à trois
 > adresses, qui ne différaient que par ce calcul : l'**objectif** arithmétique (`/`, 20 %

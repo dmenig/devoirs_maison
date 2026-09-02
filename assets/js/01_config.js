@@ -6,8 +6,10 @@ const BASE="__BASE__";
 // ont été retirées, la rentabilité sert désormais seule et à la racine. Elle vit dans
 // 02_data_geo.js (calcul) et 034_mobilisation.js (méthode).
 //
-// Elle s'affiche partout sous le nom « PRIORITAIRE » et en NOTE SUR 100 : 0 au pire
-// terrain de France, 50 au terrain médian, 100 au meilleur. C'est un classement, et un
+// Elle s'affiche partout sous le nom « PRIORITAIRE » et en NOTE SUR 100 : 0 là où il n'y a
+// rien à reconquérir, 50 au bureau médian de France, 100 à deux écarts-types au-dessus de
+// lui — donc un terrain d'exception peut passer 100, et le meilleur bureau du pays note 305
+// (cf. scorePrioritaire, 02_data_geo.js). C'est un classement, et un
 // classement se lit sans mode d'emploi, là où « 0,28 voix/h » demande d'abord de savoir
 // ce qu'est une bonne valeur. Ce que la note mesure n'est pas caché pour autant, il est
 // RANGÉ : le « i » de la légende et celui du chiffre de tête ouvrent la méthode complète,
@@ -422,7 +424,9 @@ const fmtVal=(v,u)=> (v==null||(typeof v==="number"&&isNaN(v)))?"—":(u==="€"
   // « /100 » : une NOTE, donc un entier — la décimale d'un rendement ne se transporte pas
   // dans un score, et deux zones séparées d'un demi-point ne se départagent pas sur le
   // terrain. Le rendement brut, lui, garde ses deux décimales là où il est encore écrit
-  // (volet méthodo, Carnet de campagne) : il vaut moins de 1 partout.
+  // (volet méthodo, Carnet de campagne) : il vaut moins de 1 partout. Rien n'est plafonné :
+  // le 100 étant un repère de dispersion (médiane + 2 σ) et non le meilleur terrain, 6 % des
+  // bureaux s'écrivent « 101 / 100 » (Saint-Denis) ou « 305 / 100 », et c'est l'information.
   (u===" /100"?Math.round(v).toLocaleString('fr')+" / 100":
   (u===" voix/h"?v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})+" voix/h":
   (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")))));

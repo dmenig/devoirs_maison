@@ -110,8 +110,9 @@ function prefetchEnfants(niveau,code){
 // déjà tracée (cf. dessiner).
 function styleFactory(geo,niveau){
   // `colValOf` et non `valOf` : la couleur se calcule sur la grandeur BRUTE, la note
-  // « Prioritaire » n'étant qu'un habillage à la pente cassée (cf. 02_data_geo.js). Pour
-  // tous les autres indicateurs, les deux sont le même nombre.
+  // « Prioritaire » n'étant qu'un habillage — d'origine conventionnelle et de pente
+  // infléchie au 50, dont un RAPPORT ne mesure donc aucun écart réel (cf. 02_data_geo.js).
+  // Pour tous les autres indicateurs, les deux sont le même nombre.
   const raws=geo.features.map(f=>colValOf(f.properties));
   const fc=colorer(raws);
   // une seule zone porteuse de valeur : la coloration relative la placerait au centre

@@ -19,10 +19,15 @@ Les cartes par **bureau de vote** sont nationales et le scrutin affiché est sé
 ## « Prioritaire » : la rentabilité du porte-à-porte, notée sur 100
 
 La pastille qui colore la carte s'appelle **« Prioritaire »** et donne une **note sur
-100** : `0` sur le terrain le moins rentable de France, **`50` sur le terrain médian**,
-`100` sur le meilleur. Elle classe donc les territoires les uns par rapport aux autres — ce
-qu'une carte sert à faire — sans obliger le lecteur à savoir ce qu'est une bonne valeur.
-Saint-Denis note `60`, Paris `52`, la Creuse `43`.
+100** : `0` là où il n'y a rien à reconquérir, **`50` sur le bureau médian de France**,
+`100` à **deux écarts-types** au-dessus de lui. Elle classe donc les territoires les uns par
+rapport aux autres — ce qu'une carte sert à faire — sans obliger le lecteur à savoir ce
+qu'est une bonne valeur. Paris note `61`, la Creuse `43`, le Cantal `33`.
+
+Le `100` étant un repère de **dispersion** et non le meilleur terrain du pays, un terrain
+d'exception le **dépasse** : Saint-Denis note `101`, Esnandes `223`, et le meilleur bureau de
+France `305`. C'est voulu — voir le barème ci-dessous. Aucune note ne peut en revanche être
+négative.
 
 Ce qu'elle mesure, c'est le **nombre de voix gagnables par heure de porte-à-porte** — là
 où l'heure militante rapporte le plus, et non là où il y a le plus de voix : les deux ne
@@ -42,24 +47,40 @@ dans le bouton « i ».
 
 ### Du rendement à la note : le barème, écrit
 
-La note n'est pas un rang ni un quantile : c'est le **rendement remis à l'échelle** entre
-trois valeurs réelles, servies par le pipeline dans `values/_mobilisation.json`
-(`rendement_min` **0**, `rendement_median` **0,224**, `rendement_max` **1,642** voix/h).
-Deux segments de droite, la pente cassant au médian :
+La note n'est pas un rang ni un quantile : c'est le **rendement remis à l'échelle**, à
+partir des bornes servies par le pipeline dans `values/_mobilisation.json`
+(`rendement_min` **0**, `rendement_median` **0,224**, `rendement_sigma` **0,139**,
+`rendement_sigmas` **2**, d'où `rendement_note100` = **0,502** voix/h). Deux segments de
+droite, la pente s'infléchissant au médian :
 
 ```
 si rendement ≤ médian :  note = 50 × (rendement − min)    ÷ (médian − min)
-sinon                 :  note = 50 + 50 × (rendement − médian) ÷ (max − médian)
+sinon                 :  note = 50 + 50 × (rendement − médian) ÷ (note100 − médian)
+   avec  note100 = médian + 2 σ,  et AUCUN plafond : une note peut dépasser 100
 ```
 
-Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,642 − 0,224)` = **60 / 100**.
-La Creuse : `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **43 / 100**. Deux segments
-plutôt qu'une règle de trois sur le maximum, parce que la distribution est très
-dissymétrique : rapporté au seul sommet, le bureau médian notait `14` et la moitié des
-communes tenait entre `9` et `17`. L'ordre est le même — la transformation est monotone.
+La Creuse : `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **43 / 100**.
+Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (0,502 − 0,224)` = **101 / 100**.
+
+**Pourquoi le `100` n'est pas le meilleur terrain de France** — parce qu'il est seul. Le
+meilleur bureau (`1,642 voix/h`, à Sainte-Suzanne) est `21 %` au-dessus du deuxième et
+`57 %` au-dessus du p99,9. Accroché à lui, le haut de l'échelle ne servait à rien : **88 %**
+des bureaux au-dessus du médian tenaient entre `50` et `60`, `1,4 %` passaient `70`, et la
+meilleure commune de France plafonnait à `84`. Un repère de dispersion ne dépend plus d'un
+bureau, et la moitié haute se répartit alors `37 %` / `22 %` / `14 %` / `9 %` / `6 %` sur
+les dizaines de `50` à `100`. Le prix à payer : **6 %** des bureaux, `5 %` des quartiers et
+`1,2 %` des communes dépassent `100` (aucun département ni région). Les plafonner rendrait
+indiscernables 4 039 bureaux qui ne se ressemblent pas.
+
+**Le bas de l'échelle, lui, reste accroché à un terrain réel** : `231` zones n'ont
+rigoureusement rien à reconquérir — l'abstention qu'y prévoit le modèle est sous le plancher
+que le bureau n'a jamais franchi. « `0` sur 100 » veut donc dire « rien à gagner ici », et
+non « deux écarts-types sous le médian » : un rendement ne descend pas sous zéro, et un
+quart d'échelle y serait mort. L'ordre, lui, n'a jamais changé — la transformation est
+monotone.
 
 Ce barème est **affiché dans l'interface**, pas seulement documenté ici : le « i » ouvre une
-règle graduée aux trois bornes, avec la zone pointée dessus et l'opération écrite avec ses
+règle graduée aux trois repères, avec la zone pointée dessus et l'opération écrite avec ses
 propres nombres, telle qu'on peut la refaire à la main
 ([034_mobilisation.js](assets/js/034_mobilisation.js), `noteEchelle`).
 

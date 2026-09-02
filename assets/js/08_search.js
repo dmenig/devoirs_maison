@@ -97,8 +97,8 @@ async function init(){ buildSelecteur(); buildPastilles();
   let perma=false; try{ perma=new URL(permWin().location.href).searchParams.has("e"); }catch(e){}
   if(perma)await initSearch();
   // La note « Prioritaire » se calcule contre les bornes servies par _mobilisation.json
-  // (`rendement_min/median/max`, cf. 02_data_geo.js) : peinte sans elles, la carte
-  // sortirait GRISE.
+  // (`rendement_min`, `rendement_median`, `rendement_note100`, cf. 02_data_geo.js) : peinte
+  // sans elles, la carte sortirait GRISE.
   // Le fichier est déjà parti avec le lot ci-dessus — et le plus souvent inliné dans
   // l'amorce, donc déjà en cache : on ne fait ici que s'assurer qu'il est arrivé avant le
   // premier tracé, sans aller-retour de plus (getJSON dédoublonne).
