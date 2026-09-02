@@ -54,8 +54,8 @@ function aggregateSelection(){
   // inscrits ; γ → moyenne pondérée par les CONJONCTURELS, sur lesquels il s'applique ;
   // part de portes en voiture → moyenne pondérée par les portes. Le rendement de la
   // version 3, lui, n'est jamais moyenné : il se recalcule en `mobn / mobh` sur l'agrégat.
-  const MOB_CNT=new Set(["mob","mobc","mobn","mobp","mobh","mobk"]);
-  const MOB_POND={mobg:"mobc",mobv:"mobp"};
+  const MOB_CNT=new Set(["mob","mobc","mobn","mobp","mobpt","mobh","mobk"]);
+  const MOB_POND={mobg:"mobc",mobv:"mobpt"};
   // `resinsc` est un solde SIGNÉ : le sommer sur une sélection donne le solde net du
   // territoire, où les communes d'origine des mal-inscrit·es compensent les villes qui les
   // accueillent. C'est la bonne agrégation, et elle n'était pas possible tant que les

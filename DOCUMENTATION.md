@@ -137,7 +137,7 @@ les trois repères du pays :
 
 La note interpole linéairement de part et d'autre de la médiane (deux segments de droite).
 Une carte sert à **classer** des territoires, et « 0,28 voix/h » ne se classe pas sans qu'on
-sache d'abord ce qu'est une bonne valeur : `60 sur 100` à Saint-Denis, `52` à Paris, `46`
+sache d'abord ce qu'est une bonne valeur : `60 sur 100` à Saint-Denis, `52` à Paris, `43`
 dans la Creuse se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
 carte, ni l'unité — mais rien n'est caché : c'est une **estimation**, et un bouton « i » en
 ouvre la méthode complète, en voix par heure (légende de la carte pour la méthode générale,
@@ -218,19 +218,36 @@ théorique, c'est l'**heure de militant·e** :
 
 ```
 rentabilité = voix à conquérir ÷ heures de porte-à-porte
-heures      = portes × (15 min de conversation + trajet jusqu'à la porte suivante)
+heures      = trajet × toutes les portes
+            + 15 min × les portes habitées + 1 min × les portes sans électeur
 ```
 
-- **Portes** = `inscrits ÷ 1,6` (nombre d'électeur·ices inscrit·es par logement). La constante
-  fixe l'unité, pas le classement.
+- **Portes habitées** = `inscrits ÷ 1,6` (nombre d'électeur·ices inscrit·es par logement). La
+  constante fixe l'unité, pas le classement.
+- **Toutes les portes** : on frappe sur le **bâti**, pas sur le fichier électoral. Les
+  résidences secondaires et les logements vacants du recensement 2021 s'ajoutent donc aux
+  portes habitées — 37,7 millions de portes en France, dont 30,8 millions habitées
+  (**82,2 %** de résidences principales dans le parc). Elles allongent la tournée et coûtent
+  **1 minute** chacune (on sonne, personne ne répond), sans jamais rendre de voix. La part de
+  résidences principales est lue **par quartier IRIS** puis rabattue sur le bureau de vote
+  (repli : la commune, puis la France) ; la correction est **plafonnée** à 15 % de résidences
+  principales, parce qu'un immeuble de vacances manifestement fermé se voit depuis la rue et
+  ne se frappe pas porte par porte.
 - **Trajet** : on ne choisit pas le mode, on retient le **moins coûteux** entre la marche
   (4 km/h) et la voiture (25 km/h + 2 min par porte pour se garer et redémarrer). La bascule
   tombe d'elle-même à **159 m** entre deux portes — on marche en ville, on roule à la campagne,
-  sans qu'aucun seuil ait été posé à la main. 10,5 % des portes de France sont en voiture.
+  sans qu'aucun seuil ait été posé à la main. 8,8 % des portes de France sont en voiture.
 - **Écart entre deux portes** : déduit de l'aire du bureau et du nombre de logements, par la
   longueur d'une tournée optimale sur une surface donnée (`0,7124 × √(aire × portes)`).
-- Moyenne nationale : **0,28 voix par heure** — une voix toutes les 3 h 30 de porte-à-porte,
-  soit **52 sur 100** une fois la note calculée (le terrain médian, lui, est à 0,23 voix/h).
+- Moyenne nationale : **0,27 voix par heure** — une voix toutes les 3 h 40 de porte-à-porte,
+  soit **52 sur 100** une fois la note calculée (le terrain médian, lui, est à 0,22 voix/h).
+
+Ce que cette correction déplace : **rien** là où le parc est habité (Paris 52, Saint-Denis 60,
+Marseille 56 ne bougent pas d'un dixième), **tout** là où il ne l'est pas — Les Belleville
+(11 % de résidences principales) passe de `44` à `27`, Morzine de `32` à `22`, Leucate de `47`
+à `34`, la Corse-du-Sud de `27` à `25` et la Creuse — où un logement sur trois est une
+résidence secondaire ou un logement vacant — de `46` à `43`. Ce sont exactement les terrains où le porte-à-porte
+d'octobre frappe à des volets clos.
 
 Aux échelles d'ensemble, la rentabilité est **voix totales ÷ heures totales**, jamais une
 moyenne de rapports : le rendement d'un département est celui de tout son terrain pris
@@ -429,7 +446,9 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   déviation par bureau de vote (législatives 2027), courbe γ participation → parts, plancher
   d'abstention par bureau. On lit ses **sorties publiées** (site statique `report_app/`), on ne
   ré-estime rien. Le porte-à-porte (aire du bureau, portes, kilomètres, budget-temps) est
-  calculé ici, dans `prep_mobilisation.py`.
+  calculé ici, dans `prep_mobilisation.py` — avec, pour le parc de logements, la base
+  infracommunale « logement » du **recensement INSEE 2021** (part de résidences principales
+  par IRIS).
 - **Découpage administratif** : INSEE **COG 2025** (communes, départements, régions).
 - **Fonds de carte** : régions/départements/communes (france-geojson), contours de bureaux
   de vote (Voronoï data.gouv), contours IRIS 2025 (IGN, quand disponibles).
@@ -464,10 +483,13 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   répartition **entre les bureaux d'une même commune** est reprise du millésime 2024 du modèle,
   le millésime 2027 n'étant publié qu'à la commune : le total communal est exactement celui du
   modèle, la dispersion interne est une reprise.
-- Le **budget-temps du porte-à-porte** repose sur trois conventions assumées, toutes
+- Le **budget-temps du porte-à-porte** repose sur quatre conventions assumées, toutes
   affichées dans le « i » : **15 minutes** par porte (ordre de grandeur d'un vrai échange, pas une
-  mesure), **1,6 inscrit·e par logement** (le nombre de logements n'est pas compté, il est déduit),
-  et l'aire du bureau prise pour surface à parcourir. Les contours Voronoï couvrant **tout** le
+  mesure), **1,6 inscrit·e par logement** (le nombre de logements habités n'est pas compté, il est
+  déduit), **1 minute** à une porte sans électeur, et l'aire du bureau prise pour surface à
+  parcourir. La part de logements sans électeur, elle, est **comptée** (recensement 2021) — mais
+  elle date l'occupation d'une **année**, pas d'une saison : une station de ski démarchée en
+  février a plus de portes ouvertes que son taux de résidences principales ne le dit. Les contours Voronoï couvrant **tout** le
   territoire — champs compris — la distance entre deux portes est **majorée à la campagne**, où
   l'habitat est groupé au village. Ces approximations déplacent l'échelle du chiffre bien plus
   qu'elles ne réordonnent les zones. Un bureau dont on ne connaît pas l'aire (outre-mer sans

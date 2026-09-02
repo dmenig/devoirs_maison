@@ -625,7 +625,10 @@ def _baker_admin(com: dict[str, dict], da: Path) -> None:
 #   mobc abstentionnistes conjoncturels · mobg γ moyen (%) · moba abstention prédite (%)
 #   mobf plancher d'abstention (%) · mobl niveau de gauche prédit (%)
 #   mobn voix à conquérir des seuls bureaux CHIFFRABLES en porte-à-porte (ceux dont on
-#        connaît l'aire) · mobp portes · mobh heures · mobk km · mobv part de portes en
+#        connaît l'aire) · mobp portes HABITÉES (déduites des inscrits) · mobpt portes
+#        RÉELLES, parc de logements entier — l'écart entre les deux est fait des résidences
+#        secondaires et des logements vacants, qu'on frappe aussi et qui ne répondent pas
+#        (cf. prep_mobilisation) · mobh heures · mobk km · mobv part de portes en
 #        voiture (%). Le rendement d'une zone est `mobn / mobh` — calculé côté client,
 #        pour qu'un agrégat soit bien « voix totales ÷ heures totales » et non une moyenne
 #        de rapports. Ce que la carte AFFICHE en est la note sur 100 (« Prioritaire ») :
@@ -634,7 +637,14 @@ def _baker_admin(com: dict[str, dict], da: Path) -> None:
 # Extensif (sommé) vs intensif (moyenné) : la distinction est ce qui rend l'agrégation
 # correcte à toutes les échelles. `w` permet d'éclater un bureau sur plusieurs quartiers
 # (poids IRIS × bureau) sans dupliquer ses voix.
-MOB_EXT = {"mob": "mob", "conj": "mobc", "portes": "mobp", "heures": "mobh", "km": "mobk"}
+MOB_EXT = {
+    "mob": "mob",
+    "conj": "mobc",
+    "portes": "mobp",
+    "portes_tot": "mobpt",
+    "heures": "mobh",
+    "km": "mobk",
+}
 MOB_INT = {"pAB": "moba", "plancher": "mobf", "pG": "mobl"}
 MOB_DEC = {"mobg": 1, "moba": 1, "mobf": 1, "mobl": 1, "mobk": 1, "mobv": 1}
 
@@ -671,7 +681,9 @@ def _mob_par_code(
     # `mobn` : voix des seuls bureaux dont on sait chiffrer le porte-à-porte, pour que le
     # rendement `mobn / mobh` compare bien un numérateur et un dénominateur du même terrain.
     d["_n"] = np.where(np.isnan(mb["heures"].to_numpy()), 0.0, d["mob"])
-    d["_pv"] = np.where(mb["voiture"].fillna(False).to_numpy(), d["portes"], 0.0)
+    # Le mode de déplacement se choisit sur les portes RÉELLES : c'est la rue qu'on
+    # remonte, résidences secondaires comprises.
+    d["_pv"] = np.where(mb["voiture"].fillna(False).to_numpy(), d["portes_tot"], 0.0)
     g = d.groupby("code").sum(numeric_only=True)
 
     out: dict[str, dict[str, float]] = {}
@@ -687,8 +699,8 @@ def _mob_par_code(
             o["mobg"] = r["_gc"] / r["_wc"]
         if r["heures"] > 0:
             o["mobn"] = r["_n"]
-            if r["portes"] > 0:
-                o["mobv"] = 100 * r["_pv"] / r["portes"]
+            if r["portes_tot"] > 0:
+                o["mobv"] = 100 * r["_pv"] / r["portes_tot"]
         out[str(code)] = {
             k: (round(v, MOB_DEC[k]) if k in MOB_DEC else round(v)) for k, v in o.items()
         }

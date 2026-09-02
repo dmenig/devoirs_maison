@@ -29,6 +29,11 @@ modèle telles qu'elles sont publiées** dans son site statique :
 | courbe γ des législatives | `report_app/2027/data/gamma_curve.json` | France |
 | prédictions par bureau (démonstration 2024) | `report_app/data/bv/*.geojson` | bureau |
 
+Le budget-temps, lui, a une source de plus, hors elections_predictions : la **base
+infracommunale « logement » du recensement INSEE 2021**, dont on tire la part de
+résidences principales du parc — le porte-à-porte se frappe sur le bâti, pas sur le
+fichier électoral (cf. « Portes sans électeur » plus bas).
+
 Le millésime 2027 n'est publié qu'à la COMMUNE ; la texture INTRA-communale (quel bureau
 de la ville est plus abstentionniste, plus à gauche, à quel plancher) vient du millésime
 2024, servi au bureau. On recolle les deux en **ancrant** : la déviation 2027 d'un bureau
@@ -40,8 +45,9 @@ entre eux est le décalage des lags, qui déplace le NIVEAU d'un bureau bien plu
 réordonne les bureaux d'une même commune.
 
 Le module produit aussi le **budget-temps du porte-à-porte** (aire du bureau, nombre de
-portes, kilomètres, minutes par porte), dont la version 3 du site tire une rentabilité en
-voix par heure de terrain militant. Voir « Budget-temps du porte-à-porte » plus bas.
+portes habitées ET de portes réelles, kilomètres, minutes par porte), dont la version 3 du
+site tire une rentabilité en voix par heure de terrain militant. Voir « Budget-temps du
+porte-à-porte » plus bas.
 
     uv run --project ./hexagonal python prep_mobilisation.py
 
@@ -53,6 +59,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import zipfile
 from pathlib import Path
 
 import geopandas as gpd
@@ -60,6 +67,7 @@ import numpy as np
 import pandas as pd
 
 import prep_elections
+import prep_geo
 
 RACINE = Path(__file__).parent
 SOURCE_DEFAUT = RACINE / "elections_predictions"
@@ -71,6 +79,36 @@ SOURCE_DEFAUT = RACINE / "elections_predictions"
 # √k près, identique partout. Ordre de grandeur INSEE : ~2,2 personnes par ménage, dont
 # ~1,8 majeur·es, dont ~90 % d'inscrit·es.
 ELECTEURS_PAR_PORTE = 1.6
+
+# --- Portes sans électeur : résidences secondaires et logements vacants ----------------
+# Les portes ci-dessus se déduisent des INSCRITS : ce sont les logements HABITÉS à l'année.
+# Mais on ne fait pas le porte-à-porte sur le fichier électoral, on le fait sur le BÂTI —
+# celle ou celui qui remonte la rue frappe aussi aux volets clos. Là où les résidences
+# secondaires et les logements vacants font les trois quarts du parc (stations de ski,
+# littoral), il y a quatre fois plus de portes que de conversations possibles, la tournée
+# qui les relie est deux fois plus longue, et chacune de ces portes coûte un coup de
+# sonnette : le rendement calculé sur les seules portes habitées y était surestimé. La note
+# des Belleville (11 % de résidences principales) tombe de 44 à 27, celle de Morzine de 32
+# à 22 ; Paris (81 %), Marseille et Saint-Denis ne bougent pas d'un dixième de point — la
+# correction ne déplace que là où le parc est vide, et c'est bien ce qu'on lui demande.
+#
+# On lit donc la part de résidences principales dans le recensement (base infracommunale
+# « logement » 2021, la même que prep_admin), à l'**IRIS** : la texture est intra-communale
+# — à Nice le front de mer n'est pas l'arrière-pays. On la rabat sur le bureau de vote au
+# prorata des poids IRIS × bureau déjà calculés pour les résultats estimés (prep_iris_bv),
+# avec repli sur la commune puis sur la France.
+BASE_LOGEMENT = ("8268838", "base-ic-logement-2021_csv.zip")  # (page INSEE, fichier)
+INSEE = "https://www.insee.fr/fr/statistiques/fichier"
+
+# Un bureau dont les IRIS renseignés ne couvrent qu'un ÉCLAT de sa population : la moyenne
+# pondérée porterait sur cet éclat et non sur le bureau. En dessous, on prend la commune.
+COUV_RP_MIN = 0.5
+
+# Garde-fou, même esprit que PORTES_KM2_MAX : sous 15 % de résidences principales (Val
+# Thorens, Avoriaz), la correction multiplierait les portes par sept, et un·e militant·e ne
+# frappe pas une à une les 900 portes d'une résidence de vacances manifestement fermée —
+# un immeuble vide se voit depuis la rue. On plafonne donc la correction à ce facteur.
+PART_RP_MIN = 0.15
 
 # Constante de Beardwood-Halton-Hammersley : la plus courte tournée passant par N points
 # tirés uniformément sur une aire A mesure ≈ β·√(A·N) quand N est grand. C'est exactement la
@@ -112,6 +150,10 @@ MINUTES_CONVERSATION = 15.0
 KMH_MARCHE = 4.0
 KMH_VOITURE = 25.0
 MINUTES_ARRET_VOITURE = 2.0
+# Coût d'une porte sans électeur inscrit : on sonne, on attend, personne — et on repart.
+# Ce n'est pas gratuit, et ce n'est pas une conversation. Le trajet jusqu'à elle, lui, est
+# compté à part : ces portes-là allongent la tournée avant même qu'on y frappe.
+MINUTES_PORTE_VIDE = 1.0
 
 
 # --------------------------------------------------------------------------------------
@@ -214,6 +256,53 @@ def texture_bv(source: Path, recodees: set[str] | None = None) -> pd.DataFrame:
 # --------------------------------------------------------------------------------------
 
 
+def part_residences_principales(da: Path) -> tuple[pd.Series, pd.Series, float]:
+    """Part de résidences principales dans le parc de logements : par bureau, par commune,
+    et pour la France entière (repli ultime).
+
+    Le fichier INSEE atterrit dans le même cache que prep_admin. Téléchargement raté ou
+    poids IRIS × bureau absents : on renvoie des séries vides et l'appelant retombe sur
+    100 % de résidences principales, c'est-à-dire exactement le calcul d'avant."""
+    page, fichier = BASE_LOGEMENT
+    dest = da / "_insee_cache" / fichier
+    if not dest.exists() and not prep_geo._telecharger(f"{INSEE}/{page}/{fichier}", dest):
+        print("  ⚠ base logement INSEE indisponible — portes non corrigées des "
+              "résidences secondaires")
+        return pd.Series(dtype=float), pd.Series(dtype=float), 1.0
+    with zipfile.ZipFile(dest) as z:
+        nom = next(
+            n
+            for n in z.namelist()
+            if n.upper().endswith(".CSV") and not n.startswith("meta")
+        )
+        with z.open(nom) as f:
+            log = pd.read_csv(
+                f,
+                sep=";",
+                usecols=["IRIS", "COM", "P21_LOG", "P21_RP"],
+                dtype={"IRIS": str, "COM": str},
+                low_memory=False,
+            )
+    # Les effectifs du recensement sont des estimations pondérées (flottants) : une part se
+    # calcule sur les SOMMES, jamais sur une moyenne de parts d'IRIS.
+    nat = float(log["P21_RP"].sum() / log["P21_LOG"].sum())
+    com = log.groupby("COM")[["P21_LOG", "P21_RP"]].sum()
+    par_com = (com["P21_RP"] / com["P21_LOG"]).where(com["P21_LOG"] > 0).dropna()
+    par_iris = pd.Series(
+        (log["P21_RP"] / log["P21_LOG"]).where(log["P21_LOG"] > 0).to_numpy(),
+        index=log["IRIS"].to_numpy(),
+    )
+    f_poids = da / "iris_bv_poids.parquet"
+    if not f_poids.exists():
+        return pd.Series(dtype=float), par_com, nat
+    poids = pd.read_parquet(f_poids)
+    poids["p"] = par_iris.reindex(poids["code_iris"]).to_numpy()
+    ok = poids[poids["p"].notna()]
+    couv = ok.groupby("bureau")["w"].sum()
+    par_bv = ok.assign(pw=ok["p"] * ok["w"]).groupby("bureau")["pw"].sum() / couv
+    return par_bv.where(couv >= COUV_RP_MIN).dropna(), par_com, nat
+
+
 def aires_km2(da: Path) -> tuple[pd.Series, pd.Series]:
     """Aire des contours de bureaux et de communes, en km², projetées en Lambert-93.
 
@@ -297,6 +386,7 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
     df["gamma"] = gamma(ref["courbe"], df["pG"].to_numpy())
     df["mob"] = df["conj"] * df["gamma"] / 100.0
 
+    par_bv, par_com, nat_rp = part_residences_principales(da)
     aire_bv, aire_com = aires_km2(da)
     a = aire_bv.reindex(df.index)
     # Bureau sans contour : on lui prête l'aire moyenne des bureaux de sa commune (aire
@@ -306,22 +396,45 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
     aire_c = pd.Series(aire_com.reindex(df["code_commune"]).to_numpy(), index=df.index)
     repli = aire_c / nbv.fillna(1).clip(lower=1)
     df["portes"] = df["insc"] / ELECTEURS_PAR_PORTE
-    df["aire_km2"] = np.maximum(a.fillna(repli), df["portes"] / PORTES_KM2_MAX)
+    # Portes RÉELLES : les logements habités à l'année, plus ceux que le recensement compte
+    # dans le parc sans qu'ils abritent d'électeur·ice (résidences secondaires, vacants).
+    # Bureau sans recensement (outre-mer hors base infracommunale, Français·es de
+    # l'étranger) : la part NATIONALE plutôt qu'aucune correction — un bureau non mesuré
+    # n'est pas un bureau sans résidence secondaire, et le laisser à 100 % le placerait
+    # devant ses voisins corrigés, pour la seule raison qu'on ne l'a pas mesuré.
+    prp = par_bv.reindex(df.index)
+    prp = prp.fillna(
+        pd.Series(par_com.reindex(df["code_commune"]).to_numpy(), index=df.index)
+    )
+    df["part_rp"] = prp.fillna(nat_rp)
+    df["portes_tot"] = df["portes"] / df["part_rp"].clip(lower=PART_RP_MIN)
+    df["aire_km2"] = np.maximum(a.fillna(repli), df["portes_tot"] / PORTES_KM2_MAX)
     # Aire inconnue (ni contour de bureau, ni contour de commune : outre-mer sans contours,
     # Français·es de l'étranger) → PAS de kilométrage, donc pas de rendement. `0` aurait
     # fabriqué une rentabilité infinie et placé ces bureaux en tête du classement.
-    df["km"] = BHH * np.sqrt(df["aire_km2"] * df["portes"])
+    df["km"] = BHH * np.sqrt(df["aire_km2"] * df["portes_tot"])
 
     # Pas moyen entre deux portes, puis coût en MINUTES d'une porte : conversation +
     # déplacement au mode le moins coûteux. `pas` (donc tout le budget-temps) est NaN quand
     # l'aire est inconnue : ces bureaux sortent du rendement, ils n'y entrent pas à 0.
-    df["pas_km"] = df["km"] / df["portes"]
+    # La tournée passe par TOUTES les portes : c'est sur elles que se mesurent le pas et le
+    # choix du mode — un lotissement de résidences secondaires est un tissu serré, on y
+    # marche, même si une porte sur cinq seulement ouvre sur un·e électeur·ice.
+    df["pas_km"] = df["km"] / df["portes_tot"]
     marche = 60.0 * df["pas_km"] / KMH_MARCHE
     voiture = 60.0 * df["pas_km"] / KMH_VOITURE + MINUTES_ARRET_VOITURE
     df["min_trajet"] = np.minimum(marche, voiture)
     df["voiture"] = voiture < marche
-    df["min_porte"] = MINUTES_CONVERSATION + df["min_trajet"]
-    df["heures"] = df["portes"] * df["min_porte"] / 60.0
+    # Budget-temps : le trajet se paie à chaque porte, la conversation aux seules portes
+    # habitées, et la sonnette vaine aux autres.
+    df["heures"] = (
+        df["portes_tot"] * df["min_trajet"]
+        + df["portes"] * MINUTES_CONVERSATION
+        + (df["portes_tot"] - df["portes"]) * MINUTES_PORTE_VIDE
+    ) / 60.0
+    # Coût d'une porte HABITÉE, tout compris : c'est le prix d'une conversation possible,
+    # portes closes traversées pour l'atteindre comprises.
+    df["min_porte"] = 60.0 * df["heures"] / df["portes"]
 
     df = df.drop(columns=["t_G", "t_AB", "t_plancher"]).reset_index()
     metropole = ~df["code_commune"].str.startswith(("97", "98", "99")) & ~df[
@@ -335,6 +448,9 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
         "kmh_marche": KMH_MARCHE,
         "kmh_voiture": KMH_VOITURE,
         "minutes_arret_voiture": MINUTES_ARRET_VOITURE,
+        "minutes_porte_vide": MINUTES_PORTE_VIDE,
+        "part_rp_min": PART_RP_MIN,
+        "part_rp_france": round(100 * float(nat_rp), 1),
         "pas_bascule_m": round(
             1000 * MINUTES_ARRET_VOITURE / (60 / KMH_MARCHE - 60 / KMH_VOITURE)
         ),
@@ -346,12 +462,17 @@ def construire(source: Path, da: Path) -> tuple[pd.DataFrame, dict]:
         "conj_france": int(df["conj"].sum()),
         "insc_france": int(df["insc"].sum()),
         "km_france": round(float(df["km"].sum())),
-        "portes_france": int(df["portes"].sum()),
+        # `portes_france` compte les portes RÉELLES du pays (le parc de logements), dont
+        # `portes_habitees_france` ouvrent sur un·e électeur·ice : c'est le premier chiffre
+        # qu'on frappe, le second qui peut répondre.
+        "portes_france": int(df["portes_tot"].sum()),
+        "portes_habitees_france": int(df["portes"].sum()),
+        "n_bv_rp_iris": int(df["bureau"].isin(par_bv.index).sum()),
         "heures_france": int(df["heures"].sum()),
         "part_voiture": round(
             100
-            * float(df.loc[df["voiture"].fillna(False), "portes"].sum())
-            / float(df.loc[df["heures"].notna(), "portes"].sum()),
+            * float(df.loc[df["voiture"].fillna(False), "portes_tot"].sum())
+            / float(df.loc[df["heures"].notna(), "portes_tot"].sum()),
             1,
         ),
         "rendement_france": round(
@@ -389,7 +510,8 @@ def main() -> None:
         f"  ✓ mobilisation 2027 : {ref['n_bv']} bureaux, "
         f"{ref['mob_france']:,} voix à conquérir, γ moyen {ref['gamma_moyen']} %, "
         f"{ref['heures_france']:,} h de porte-à-porte "
-        f"({ref['rendement_france']} voix/h, {ref['part_voiture']} % des portes en voiture)".replace(
+        f"({ref['rendement_france']} voix/h, {ref['part_voiture']} % des portes en voiture, "
+        f"{ref['part_rp_france']} % de résidences principales dans le parc)".replace(
             ",", " "
         )
     )

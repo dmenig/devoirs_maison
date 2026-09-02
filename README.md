@@ -22,7 +22,7 @@ La pastille qui colore la carte s'appelle **« Prioritaire »** et donne une **n
 100** : `0` sur le terrain le moins rentable de France, **`50` sur le terrain médian**,
 `100` sur le meilleur. Elle classe donc les territoires les uns par rapport aux autres — ce
 qu'une carte sert à faire — sans obliger le lecteur à savoir ce qu'est une bonne valeur.
-Saint-Denis note `60`, Paris `52`, la Creuse `46`.
+Saint-Denis note `60`, Paris `52`, la Creuse `43`.
 
 Ce qu'elle mesure, c'est le **nombre de voix gagnables par heure de porte-à-porte** — là
 où l'heure militante rapporte le plus, et non là où il y a le plus de voix : les deux ne
@@ -34,7 +34,11 @@ dans le bouton « i ».
   vote de [`elections_predictions`](https://github.com/lfi-pee/elections_predictions)
   (législatives 2027).
 - **Dénominateur** — un **budget-temps** : 15 min de conversation par porte, plus le
-  trajet jusqu'à la suivante, à pied ou en voiture selon la densité du bureau.
+  trajet jusqu'à la suivante, à pied ou en voiture selon la densité du bureau. Et on frappe
+  au **bâti**, pas au fichier électoral : les résidences secondaires et les logements vacants
+  du recensement (17,8 % du parc en France, les trois quarts d'une station de ski) allongent
+  la tournée et coûtent 1 min chacun sans jamais rendre de voix — de quoi faire tomber Les
+  Belleville de `44` à `27` et Leucate de `47` à `34`, sans bouger Paris d'un dixième.
 
 Un **bouton « i »** donne la méthode — et, la note ne disant que le rang, c'est le seul
 endroit où on lit ce qui la fabrique : dans la légende de la carte pour la méthode

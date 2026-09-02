@@ -40,16 +40,28 @@ function mobSource(){ const r=mobRef();
 // divise donc le gisement par le temps qu'il coûte à aller chercher, porte après porte.
 function rendMethodo(o){ o=o||{};
   const r=mobRef(), rend=rendementPorte(o);
-  const parPorte=(o.mobp&&o.mobn!=null)?o.mobn/o.mobp:null;     // proba de trouver quelqu'un
-  const minPorte=(o.mobp&&o.mobh!=null)?60*o.mobh/o.mobp:null;  // coût d'une porte, en minutes
-  const pasM=(o.mobp&&o.mobk!=null)?1000*o.mobk/o.mobp:null;    // pas moyen entre deux portes
+  // Deux comptes de portes, et c'est tout l'objet de la correction « résidences
+  // secondaires » : `mobpt` les portes RÉELLES — celles de la rue, qu'on frappe toutes —
+  // et `mobp` les seules qui abritent un·e électeur·ice. Les données servies avant cette
+  // correction n'ont pas `mobpt` : on retombe alors sur `mobp` (parc réputé tout habité).
+  const portes=(o.mobpt!=null?o.mobpt:o.mobp)||null;
+  const vides=(portes!=null&&o.mobp!=null)?portes-o.mobp:null;  // sans électeur inscrit
+  const partVides=(vides!=null&&portes)?100*vides/portes:null;
+  const parPorte=(portes&&o.mobn!=null)?o.mobn/portes:null;     // proba de trouver quelqu'un
+  const pasM=(portes&&o.mobk!=null)?1000*o.mobk/portes:null;    // pas moyen entre deux portes
+  // Le coût se rapporte à la porte HABITÉE, pas à la porte quelconque : c'est le prix d'une
+  // conversation possible, portes closes traversées comprises. Le rapporter à toutes les
+  // portes ferait afficher « 4,5 min » dans une station de ski contre « 12,5 min » à
+  // Paris — une moyenne tirée vers le bas par les volets fermés, qui donnerait à lire
+  // comme bon marché le terrain le plus cher qui soit.
+  const minPorte=(o.mobp&&o.mobh!=null)?60*o.mobh/o.mobp:null;
   const trajet=(minPorte!=null&&r.minutes_conversation!=null)?minPorte-r.minutes_conversation:null;
   const heuresParVoix=rend?1/rend:null;
   const uneSur=parPorte?Math.round(1/parPorte):null;
   const voiture=o.mobv!=null&&o.mobv>=50;
   // Part des portes en voiture : servie aussi en NOMBRE de portes, comme le reste de cette
   // notice — un pourcentage de portes ne se planifie pas, un nombre si.
-  const portesVoiture=(o.mobv&&o.mobp)?`, soit ${_n0(o.mobp*o.mobv/100)}`:"";
+  const portesVoiture=(o.mobv&&portes)?`, soit ${_n0(portes*o.mobv/100)}`:"";
   const lig=(lab,val,det)=>`<div class="row"><span>${lab}</span><b>${val}</b></div>`+
     (det?`<div class="mobdet">${det}</div>`:"");
   return (rend!=null?`<div class="mobeq"><b>${_n0(o.mobn)} voix</b> à conquérir ÷ `+
@@ -68,13 +80,18 @@ function rendMethodo(o){ o=o||{};
     // Le registre est désormais baké à TOUTES les échelles (`insc_E24`), bureau de vote
     // compris : la ligne l'écrit tel quel au lieu de le relire sur les portes, dont il
     // était la source (portes = inscrits ÷ électeur·ices par porte).
-    lig("Portes à frapper",_n0(o.mobp)+" portes",
+    lig("Portes à frapper",_n0(portes)+" portes",
         `${_n0(inscRef(o)!=null?inscRef(o):(o.mobp||0)*(r.electeurs_par_porte||1))} inscrit·es `+
-        `÷ ${_n1(r.electeurs_par_porte)} électeur·ice par logement`)+
+        `÷ ${_n1(r.electeurs_par_porte)} électeur·ice par logement`+
+        (o.mobp!=null?` = ${_n0(o.mobp)} logements habités`:"")+
+        (vides?`, plus ${_n0(vides)} résidences secondaires ou logements vacants `+
+        `(${_pct(partVides)} du parc), qu'on frappe aussi`:""))+
     lig("Chance par porte",parPorte!=null?_n2(100*parPorte)+" %":"—",
         uneSur?`une porte sur ${_n0(uneSur)} cache une voix à gagner`:"")+
-    lig("Temps par porte",minPorte!=null?_n1(minPorte)+" min":"—",
-        `${_n1(r.minutes_conversation)} min de conversation + ${_n1(trajet)} min de trajet`)+
+    lig("Temps par porte habitée",minPorte!=null?_n1(minPorte)+" min":"—",
+        `${_n1(r.minutes_conversation)} min de conversation + ${_n1(trajet)} min de trajet`+
+        (vides?`, portes sans électeur comprises (${_n1(vides/(o.mobp||1))} par porte habitée, `+
+               `à ${_n1(r.minutes_porte_vide)} min de sonnette sans réponse)`:""))+
     lig("Déplacement",pasM!=null?_n0(pasM)+" m entre deux portes":"—",
         voiture?`majoritairement <b>en voiture</b> (${_pct(o.mobv)} des portes${portesVoiture})`
                :`majoritairement <b>à pied</b>${o.mobv?` (${_pct(o.mobv)} des portes en voiture${portesVoiture})`:""}`)+
@@ -90,7 +107,11 @@ function rendMethodo(o){ o=o||{};
     `naturellement en ville et on roule dès que les portes s'éloignent de plus de `+
     `<b>${_n0(r.pas_bascule_m)} m</b> — le seuil sort du calcul, pas d'un réglage. L'écart entre deux `+
     `portes se déduit de l'aire du territoire et du nombre de logements (longueur d'une tournée `+
-    `optimale sur une surface donnée).</p>`+
+    `optimale sur une surface donnée). Et on frappe à <b>toutes</b> les portes de la rue : les `+
+    `résidences secondaires et les logements vacants du recensement allongent la tournée et coûtent `+
+    `${_n1(r.minutes_porte_vide)} min chacun, sans jamais rendre de voix — là où ils font l'essentiel `+
+    `du parc (stations, littoral), c'est ce qui sépare une carte du bâti d'une carte des électeur·ices.`+
+    `</p>`+
     `<p><b>Comment le lire.</b> ${rend!=null?`<b>${_n2(rend)} voix par heure</b> ici, soit une voix `+
       `gagnable toutes les <b>${_n1(heuresParVoix)} heures</b> de porte-à-porte`:"Valeur indisponible ici"} — `+
     `contre <b>${_n2(r.rendement_france)} voix/h</b> en moyenne en France. Deux fois la moyenne = deux `+
@@ -102,8 +123,10 @@ function rendMethodo(o){ o=o||{};
     `<p class="hypnote"><b>Limites du dénominateur.</b> Les contours de bureaux de vote sont approchés `+
     `(Voronoï) et couvrent tout le territoire, champs compris : à la campagne, la distance entre deux `+
     `portes est donc <b>majorée</b>, puisque les maisons y sont groupées au village. Le nombre de `+
-    `logements est déduit des inscrit·es, pas compté. Et ${_n1(r.minutes_conversation)} minutes par `+
-    `porte est une convention : c'est l'ordre de grandeur d'un vrai échange, pas une mesure. Ces trois `+
+    `logements habités est déduit des inscrit·es, pas compté — le reste du parc vient de la part de `+
+    `résidences principales du quartier au recensement 2021, qui date l'occupation d'une année et non `+
+    `d'une saison. Et ${_n1(r.minutes_conversation)} minutes par `+
+    `porte est une convention : c'est l'ordre de grandeur d'un vrai échange, pas une mesure. Ces `+
     `approximations déplacent l'échelle du chiffre bien plus que le classement des zones entre elles.</p>`+
     mobSource();
 }
@@ -122,7 +145,11 @@ function mobResume(){ const r=mobRef();
     `porte. Chaque porte coûte ${_n1(r.minutes_conversation)} minutes de conversation, plus le trajet `+
     `jusqu'à la suivante — à pied en ville, en voiture dès que les portes s'éloignent de plus de `+
     `${_n0(r.pas_bascule_m)} m (${_pct(r.part_voiture)} des portes de France, soit `+
-    `${_n0((r.portes_france||0)*(r.part_voiture||0)/100)} portes sur ${_n0(r.portes_france)}). Moyenne nationale : `+
+    `${_n0((r.portes_france||0)*(r.part_voiture||0)/100)} portes sur ${_n0(r.portes_france)}). On frappe `+
+    `à toutes les portes du parc, mais ${_pct(r.part_rp_france)} seulement sont des résidences `+
+    `principales : les ${_n0((r.portes_france||0)-(r.portes_habitees_france||0))} autres `+
+    `(résidences secondaires, logements vacants) allongent la tournée sans jamais répondre, et c'est `+
+    `dans les communes touristiques que cela change tout. Moyenne nationale : `+
     `<b>${_n2(r.rendement_france)} voix par heure</b>, soit `+
     `${_n1(r.heures_france/1e6)} millions d'heures pour frapper à toutes les portes du pays.</p>`+
     `<p>La carte montre donc <b>où l'heure militante rapporte le plus</b>, et non où il y a le plus de `+
