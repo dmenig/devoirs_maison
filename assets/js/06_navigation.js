@@ -128,6 +128,13 @@ function styleFactory(geo,niveau){
             weight:sel?2.6:fs.w,fillOpacity:sel?Math.min(.95,fs.op+.2):fs.op}; };
   st.colOf=colOf; return st; }
 
+// Recoloration en place. `setStyle` repeint bien les enfants, mais ne touche pas à
+// `options.style` — or c'est CETTE référence que `resetStyle` rejoue au mouseout. Changer
+// d'indicateur sans la mettre à jour laissait donc le survol d'un quartier le repeindre
+// aux couleurs de l'indicateur PRÉCÉDENT en sortant : la carte contredisait sa légende
+// zone par zone, au gré de la souris. Un seul point d'entrée pour les deux.
+function appliquerStyle(st){ layerStyle=st; layer.options.style=st; layer.setStyle(st); }
+
 // Infobulle et écouteurs posés UNE fois sur le groupe, pas feuille par feuille : Leaflet
 // propage les événements des enfants au FeatureGroup (e.layer = le polygone survolé). Sur
 // une commune à 1300 bureaux, lier 1 Tooltip + 3 closures par feature coûtait plus cher
@@ -170,7 +177,7 @@ function dessiner(geo,valeurs,codeProp,nameProp,enter,niveau){ curVals=valeurs;
     f.properties.__nom=f.properties[nameProp]||f.properties.__code;});
   selBarSync();  // rafraîchit la barre de sélection multiple (et le sélecteur de circo) selon la maille
   const sig=sigOf(geo,niveau);
-  if(layer&&!animating&&sig===paintSig){ layerStyle=styleFactory(geo,niveau); layer.setStyle(layerStyle); return; }
+  if(layer&&!animating&&sig===paintSig){ appliquerStyle(styleFactory(geo,niveau)); return; }
   paintSig=sig;
   const draw=()=>paintLayer(geo,valeurs,enter,niveau);
   if(animating){ pendingDraw=draw; clearTimeout(pendingTimer); pendingTimer=setTimeout(flushDraw,DRAW_GUARD_MS); }
@@ -331,4 +338,4 @@ map.on("zoomend",()=>{ if(busy||animating){ lastSettleZ=map.getZoom(); return; }
 // pas à chaque cran de molette (la couche BV d'une grande ville est lourde à restyler).
 let fillPalier=null;
 map.on("zoomend",()=>{ const op=fillStyle().op; if(op===fillPalier)return; fillPalier=op;
-  if(layer&&layerStyle)layer.setStyle(layerStyle); });
+  if(layer&&layerStyle)appliquerStyle(layerStyle); });
