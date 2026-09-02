@@ -86,7 +86,7 @@ function rendementPorte(o){ if(!o||!o.mobh||o.mobn==null)return null;
 
 // Ce que la carte AFFICHE n'est pas ce rendement mais une NOTE SUR 100 — la pastille
 // « Prioritaire » : 0 là où il n'y a rien à reconquérir, 50 au bureau MÉDIAN de France,
-// 100 à deux écarts-types au-dessus de lui. Un « 0,28 voix/h » ne se lit pas (voix par
+// 100 à trois écarts-types au-dessus de lui. Un « 0,28 voix/h » ne se lit pas (voix par
 // heure de quoi ? beaucoup ? peu ?) là où « 51 sur 100 » se situe tout seul ; la mesure
 // derrière la note, elle, reste à un clic du « i » (034_mobilisation.js), qui la décompose
 // avec les chiffres de la zone.
@@ -101,16 +101,20 @@ function rendementPorte(o){ if(!o||!o.mobh||o.mobn==null)return null;
 //   au-dessus de la médiane tenaient entre 50 et 60, 1,4 % passaient 70, et la meilleure
 //   commune de France plafonnait à 84 — une note qui n'utilise pas son échelle ne classe
 //   plus rien, exactement le défaut qu'on croyait avoir corrigé en accrochant la médiane
-//   à 50. Le 100 est donc `médiane + 2 σ` : un repère qui ne dépend plus d'un bureau.
-//   Conséquence ASSUMÉE — 6 % des bureaux et 435 communes DÉPASSENT 100 (le meilleur
-//   bureau note 305, Esnandes 223, Saint-Denis 101), aucun département ni région. C'est
-//   écrit dans la notice, pas rattrapé par un rabot : plafonner rendrait indiscernables
-//   les 4 039 bureaux d'exception, qui ne se ressemblent pas.
+//   à 50. Le 100 est donc `médiane + 3 σ` : un repère qui ne dépend plus d'un bureau.
+//   Conséquence ASSUMÉE — 2,3 % des bureaux et 83 communes DÉPASSENT 100 (le meilleur
+//   bureau note 220, Esnandes 165, Épinay-sur-Seine 105), aucun département ni région.
+//   C'est écrit dans la notice, pas rattrapé par un rabot : plafonner rendrait
+//   indiscernables les 1 547 bureaux d'exception, qui ne se ressemblent pas. 2 σ, essayé
+//   d'abord, faisait dépasser 6 % des bureaux et 435 communes : un dépassement doit rester
+//   l'exception qu'on remarque, pas une catégorie.
 //
-// Deux segments de droite, donc, mais de pentes désormais PROCHES : 223 points de note par
-// voix/h sous la médiane, 180 au-dessus. La cassure du milieu, franche du temps où le haut
-// s'étalait sur 1,4 voix/h, est devenue une inflexion — l'échelle est à peu de chose près
-// une droite. L'ordre, lui, n'a jamais changé : la transformation est monotone.
+// Deux segments de droite, donc, et une CASSURE au 50 : 223 points de note par voix/h sous
+// la médiane, 120 au-dessus. C'est le prix du resserrement — à 2 σ la pente du haut valait
+// 180 et l'échelle était à peu de chose près une droite, mais 6 % des bureaux passaient
+// 100. Dix points de note ne valent donc pas le même écart réel des deux côtés du 50, ce
+// que la notice écrit avec ses nombres. L'ordre, lui, n'a jamais changé : la transformation
+// est monotone.
 //
 // Les bornes viennent du pipeline (`rendement_min`, `rendement_median`, `rendement_note100`,
 // cf. prep_bake._reperes_rendement) et jamais d'une constante écrite ici : elles dépendent
@@ -124,7 +128,7 @@ const rendRep=()=>{ const r=window.__mobRef||cache["values/_mobilisation.json"];
 // La médiane et le σ sont ceux des BUREAUX DE VOTE, seule maille qui partitionne la France
 // (cf. prep_bake._reperes_rendement) : une zone se situe donc parmi les bureaux du pays,
 // quelle que soit sa taille. Une commune note 43 en médiane, un département tient entre 22
-// (Mayotte) et 100 (Seine-Saint-Denis) — c'est l'information, et non un défaut d'échelle :
+// (Mayotte) et 83 (Seine-Saint-Denis) — c'est l'information, et non un défaut d'échelle :
 // une commune entière moyenne ses bons et ses mauvais terrains, un département plus encore.
 // Le seul rabot restant est le bas : un rendement ne descend pas sous zéro, donc une note
 // négative signalerait des bornes servies plus vieilles que les valeurs qu'elles bornent.

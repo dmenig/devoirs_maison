@@ -78,7 +78,7 @@ function noteEchelle(o){ const b=rendRep(); if(!b)return "";
   if(!(md>lo)||!(hi>md))return "";
   const r=o?rendementPorte(o):null, n=o?scorePrioritaire(o):null;
   // Remplissage et curseur sont RAMENÉS dans le rail, la note ne l'étant plus : une zone
-  // d'exception passe 100 (le meilleur bureau de France note 305) et une barre de 305 %
+  // d'exception passe 100 (le meilleur bureau de France note 220) et une barre de 220 %
   // sortirait du panneau. Le nombre écrit sur le curseur, lui, reste la note vraie — c'est
   // le dépassement qui est l'information. Deux bornages et non un seul : le curseur s'arrête
   // deux points avant le bout (sinon la pastille déborde de moitié) là où le remplissage va
@@ -94,7 +94,7 @@ function noteEchelle(o){ const b=rendRep(); if(!b)return "";
     ?`50 × (${_n3(r)} − ${_n3(lo)}) ÷ (${_n3(md)} − ${_n3(lo)}) = <b>${_n0(n)} / 100</b>${rnd}`
     :`50 + 50 × (${_n3(r)} − ${_n3(md)}) ÷ (${_n3(hi)} − ${_n3(md)}) = <b>${_n0(n)} / 100</b>${rnd}`);
   const grad=(note,val,quoi)=>`<span><b>${note}</b><small>${_n3(val)} voix/h<br>${quoi}</small></span>`;
-  // Le 100 dit d'où il vient : « médiane + 2 σ », le 2 étant servi et non écrit ici.
+  // Le 100 dit d'où il vient : « médiane + 3 σ », le 3 étant servi et non écrit ici.
   const sg=b.rendement_sigmas!=null?`médiane + ${_n0(b.rendement_sigmas)} σ`:"haut de l'échelle";
   // Sans zone ouverte (notice de la légende), pas de curseur : la réserve de place au-dessus
   // du rail n'a plus d'objet.
@@ -158,9 +158,9 @@ function rendMethodo(o){ o=o||{};
     `médian tenaient entre 50 et 60, et la meilleure commune de France plafonnait à 84. Une `+
     `note qui n'utilise pas son échelle ne classe plus rien. Le 100 est donc un repère de `+
     `<b>dispersion</b>${hi!=null?` (${_n3(hi)} voix/h)`:""}, qui ne dépend plus d'un bureau.</p>`+
-    `<p><b>Les terrains d'exception dépassent donc 100</b>, et c'est voulu : <b>6 %</b> des `+
+    `<p><b>Les terrains d'exception dépassent donc 100</b>, et c'est voulu : <b>2,3 %</b> des `+
     `bureaux${noteMax!=null?`, le meilleur notant <b>${_n0(noteMax)}</b>`:""}. Les plafonner `+
-    `rendrait indiscernables quatre mille bureaux qui ne se ressemblent pas. Une note ne peut `+
+    `rendrait indiscernables mille cinq cents bureaux qui ne se ressemblent pas. Une note ne peut `+
     `en revanche jamais être <b>négative</b> : le 0 est un rendement nul, pas un écart-type `+
     `sous le médian, et un rendement ne descend pas sous zéro. Reste que la pente `+
     `<b>s'infléchit au 50</b>${(hi!=null&&md0!=null)?` — dix points de note valent `+
@@ -267,7 +267,7 @@ function mobResume(){ const r=mobRef(), ech=noteEchelle(null);
     `proches. Le 100 est un repère de <b>dispersion</b> et non le meilleur terrain du pays : `+
     `celui-ci est un bureau isolé, 21 % au-dessus du deuxième, et lui accrocher le 100 tassait `+
     `88 % de la moitié haute entre 50 et 60. Les terrains d'exception <b>dépassent donc 100</b> `+
-    `— 6 % des bureaux — ce qui est assumé ; aucune note ne peut en revanche être négative. `+
+    `— 2,3 % des bureaux — ce qui est assumé ; aucune note ne peut en revanche être négative. `+
     `Les repères sont ceux des <b>${_n0(r.n_bv)} bureaux de vote</b>, seule maille qui découpe la `+
     `France entière : une commune ou un département s'y situent donc parmi les bureaux du pays, `+
     `et une commune, qui moyenne ses bons et ses mauvais terrains, note moins que son meilleur `+

@@ -133,24 +133,24 @@ trois repères du pays :
 | ---- | ------ | ---------------- |
 | **0** | rien à reconquérir (`0 voix/h`) | un **terrain réel** : 231 zones y sont |
 | **50** | le bureau **médian** de France (`0,224 voix/h`) | un **terrain réel** |
-| **100** | **médiane + 2 σ** (`0,502 voix/h`) | un repère de **dispersion** |
+| **100** | **médiane + 3 σ** (`0,641 voix/h`) | un repère de **dispersion** |
 
 Les deux extrémités ne sont donc pas de même nature, et l'asymétrie est voulue (voir plus
 bas). La note interpole linéairement de part et d'autre de la médiane — deux segments de
-droite, de pentes désormais proches (`223` points de note par voix/h en dessous, `180`
+droite, dont la pente casse au 50 (`223` points de note par voix/h en dessous, `120`
 au-dessus) :
 
 ```
 si rendement ≤ médian :  note = 50 × (rendement − min)                  ÷ (médian − min)
 sinon                 :  note = 50 + 50 × (rendement − médian)          ÷ (note100 − médian)
-   note100 = médian + 2 σ.  Plancher à 0 (un rendement n'est jamais négatif),
+   note100 = médian + 3 σ.  Plancher à 0 (un rendement n'est jamais négatif),
    AUCUN plafond : une zone d'exception dépasse 100, et c'est l'information.
 ```
 
-Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `σ` 0,139, `note100` 0,502
+Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `σ` 0,139, `note100` 0,641
 voix/h) : la Creuse `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **42,86**, affichée
-**43 / 100** ; Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (0,502 − 0,224)` =
-**101,44**, affichée **101 / 100**. Le rendement lui-même est `voix à conquérir ÷ heures de
+**43 / 100** ; Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (0,641 − 0,224)` =
+**84,29**, affichée **84 / 100**. Le rendement lui-même est `voix à conquérir ÷ heures de
 porte-à-porte`, calculé **sur des sommes** à l'échelle affichée (`rendementPorte`,
 [02_data_geo.js](assets/js/02_data_geo.js)) — jamais comme la moyenne des rendements des
 sous-zones.
@@ -181,8 +181,8 @@ bornes servies, toute la section disparaît plutôt que d'expliquer une échelle
 pas montrer.
 
 Une carte sert à **classer** des territoires, et « 0,28 voix/h » ne se classe pas sans qu'on
-sache d'abord ce qu'est une bonne valeur : `61 sur 100` à Paris, `43` dans la Creuse, `33`
-dans le Cantal se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
+sache d'abord ce qu'est une bonne valeur : `84 sur 100` à Saint-Denis, `57` à Paris, `43`
+dans la Creuse se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
 carte, ni l'unité — mais rien n'est caché : c'est une **estimation**, et un bouton « i » en
 ouvre la méthode complète, en voix par heure (légende de la carte pour la méthode générale,
 chiffre de tête de la fiche pour le calcul détaillé, avec les valeurs de la zone ouverte).
@@ -199,32 +199,34 @@ et `57 %` au-dessus du p99,9. Accroché à lui, le haut de l'échelle ne servait
 **88 %** des bureaux au-dessus du médian tenaient entre `50` et `60`, `1,4 %` passaient
 `70`, et la meilleure commune de France plafonnait à `84` — une note qui n'utilise pas son
 échelle ne classe plus rien, et c'était précisément le défaut qu'on croyait avoir corrigé en
-accrochant le médian à 50. Le `100` est donc un repère de **dispersion** (médian + 2 σ), qui
-ne dépend plus d'un bureau : la moitié haute se répartit alors `37 %` / `22 %` / `14 %` /
-`9 %` / `6 %` sur les dizaines de `50` à `100`.
+accrochant le médian à 50. Le `100` est donc un repère de **dispersion** (médian + 3 σ), qui
+ne dépend plus d'un bureau : la moitié haute se répartit alors `49 %` / `23 %` / `13 %` /
+`7 %` / `4 %` sur les dizaines de `50` à `100`.
 
 | Ce qui dépasse `100` | Part |
 | -------------------- | ---- |
-| bureaux de vote | **6,0 %** (4 039) — le meilleur note `305` |
-| quartiers (IRIS) | 4,9 % (2 351) |
-| communes | 1,2 % (435) — Esnandes `223`, Saint-Denis `101` |
-| départements, régions | **aucun** (maximum `100`, la Seine-Saint-Denis) |
+| bureaux de vote | **2,3 %** (1 547) — le meilleur note `220` |
+| quartiers (IRIS) | 1,5 % (729) |
+| communes | 0,2 % (83) — Esnandes `165`, Épinay-sur-Seine `105` |
+| départements, régions | **aucun** (maximum `83`, la Seine-Saint-Denis et La Réunion) |
 
-Les plafonner rendrait indiscernables quatre mille bureaux qui ne se ressemblent pas. À
+Les plafonner rendrait indiscernables mille cinq cents bureaux qui ne se ressemblent pas. À
 l'autre bout, **aucune note ne peut être négative** : le `0` est un rendement nul et non un
-`− 2 σ`, un rendement ne descend pas sous zéro, et accrocher le bas à la dispersion aurait
+`− 3 σ`, un rendement ne descend pas sous zéro, et accrocher le bas à la dispersion aurait
 tué le quart inférieur de l'échelle en même temps que le sens du « `0` sur 100 ».
 
 **Le nombre de σ est servi, pas écrit dans le client** (`rendement_sigmas`) : resserrer ou
 élargir l'échelle est un seul chiffre à changer, dans [prep_bake.py](prep_bake.py)
-(`SIGMAS_NOTE`), la carte et la notice suivant d'elles-mêmes. À `3 σ` la pente du haut
-tomberait à `120` points par voix/h et la cassure du milieu deviendrait franche ; à
-`1,61 σ` (σ = médian) elle disparaîtrait tout à fait, mais le `100` ne serait plus qu'un
-double du médian.
+(`SIGMAS_NOTE`), la carte et la notice suivant d'elles-mêmes. `2 σ` a été essayé d'abord :
+la pente du haut y valait `180` points par voix/h au lieu de `120`, si bien que l'échelle
+était à peu de chose près une droite — mais `6 %` des bureaux et `435` communes dépassaient
+`100`, ce qui fait du dépassement une catégorie et non l'exception qu'on remarque. À
+`1,61 σ` (σ = médian) la cassure disparaîtrait tout à fait, mais le `100` ne serait plus
+qu'un double du médian.
 
 **Le médian et l'écart-type sont ceux des bureaux de vote**, seule maille qui **partitionne**
 la France : une zone se situe parmi les ~69 000 bureaux du pays, quelle que soit sa taille.
-Une commune note donc `43` en médiane, un département tient entre `22` (Mayotte) et `100`
+Une commune note donc `43` en médiane, un département tient entre `22` (Mayotte) et `83`
 (Seine-Saint-Denis) : c'est l'information, pas un défaut d'échelle — une commune moyenne ses
 bons et ses mauvais terrains, un département plus encore. Toutes les bornes sont calculées
 par [prep_bake.py](prep_bake.py) **sur les valeurs réellement servies**, puis publiées dans

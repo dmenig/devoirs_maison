@@ -20,14 +20,15 @@ Les cartes par **bureau de vote** sont nationales et le scrutin affiché est sé
 
 La pastille qui colore la carte s'appelle **« Prioritaire »** et donne une **note sur
 100** : `0` là où il n'y a rien à reconquérir, **`50` sur le bureau médian de France**,
-`100` à **deux écarts-types** au-dessus de lui. Elle classe donc les territoires les uns par
+`100` à **trois écarts-types** au-dessus de lui. Elle classe donc les territoires les uns par
 rapport aux autres — ce qu'une carte sert à faire — sans obliger le lecteur à savoir ce
-qu'est une bonne valeur. Paris note `61`, la Creuse `43`, le Cantal `33`.
+qu'est une bonne valeur. Saint-Denis note `84`, Montreuil `71`, Paris `57`, la Creuse `43`,
+le Cantal `33`.
 
 Le `100` étant un repère de **dispersion** et non le meilleur terrain du pays, un terrain
-d'exception le **dépasse** : Saint-Denis note `101`, Esnandes `223`, et le meilleur bureau de
-France `305`. C'est voulu — voir le barème ci-dessous. Aucune note ne peut en revanche être
-négative.
+d'exception le **dépasse** : Épinay-sur-Seine note `105`, Esnandes `165`, et le meilleur
+bureau de France `220`. C'est voulu, et rare — `2,3 %` des bureaux. Voir le barème
+ci-dessous. Aucune note ne peut en revanche être négative.
 
 Ce qu'elle mesure, c'est le **nombre de voix gagnables par heure de porte-à-porte** — là
 où l'heure militante rapporte le plus, et non là où il y a le plus de voix : les deux ne
@@ -50,32 +51,39 @@ dans le bouton « i ».
 La note n'est pas un rang ni un quantile : c'est le **rendement remis à l'échelle**, à
 partir des bornes servies par le pipeline dans `values/_mobilisation.json`
 (`rendement_min` **0**, `rendement_median` **0,224**, `rendement_sigma` **0,139**,
-`rendement_sigmas` **2**, d'où `rendement_note100` = **0,502** voix/h). Deux segments de
+`rendement_sigmas` **3**, d'où `rendement_note100` = **0,641** voix/h). Deux segments de
 droite, la pente s'infléchissant au médian :
 
 ```
 si rendement ≤ médian :  note = 50 × (rendement − min)    ÷ (médian − min)
 sinon                 :  note = 50 + 50 × (rendement − médian) ÷ (note100 − médian)
-   avec  note100 = médian + 2 σ,  et AUCUN plafond : une note peut dépasser 100
+   avec  note100 = médian + 3 σ,  et AUCUN plafond : une note peut dépasser 100
 ```
 
 La Creuse : `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **43 / 100**.
-Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (0,502 − 0,224)` = **101 / 100**.
+Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (0,641 − 0,224)` = **84 / 100**.
 
 **Pourquoi le `100` n'est pas le meilleur terrain de France** — parce qu'il est seul. Le
 meilleur bureau (`1,642 voix/h`, à Sainte-Suzanne) est `21 %` au-dessus du deuxième et
 `57 %` au-dessus du p99,9. Accroché à lui, le haut de l'échelle ne servait à rien : **88 %**
 des bureaux au-dessus du médian tenaient entre `50` et `60`, `1,4 %` passaient `70`, et la
 meilleure commune de France plafonnait à `84`. Un repère de dispersion ne dépend plus d'un
-bureau, et la moitié haute se répartit alors `37 %` / `22 %` / `14 %` / `9 %` / `6 %` sur
-les dizaines de `50` à `100`. Le prix à payer : **6 %** des bureaux, `5 %` des quartiers et
-`1,2 %` des communes dépassent `100` (aucun département ni région). Les plafonner rendrait
-indiscernables 4 039 bureaux qui ne se ressemblent pas.
+bureau, et la moitié haute se répartit alors `49 %` / `23 %` / `13 %` / `7 %` / `4 %` sur
+les dizaines de `50` à `100`. Le prix à payer : **2,3 %** des bureaux, `1,5 %` des quartiers
+et `0,2 %` des communes dépassent `100` (aucun département ni région). Les plafonner
+rendrait indiscernables 1 547 bureaux qui ne se ressemblent pas.
+
+Le nombre d'écarts-types est **servi** (`SIGMAS_NOTE`, [prep_bake.py](prep_bake.py)) et non
+écrit dans le client : c'est un seul chiffre à changer, la carte et la notice suivant
+d'elles-mêmes. `2 σ` a été essayé d'abord — l'échelle y était presque une droite (pente du
+haut `180` points par voix/h contre `223` en bas, au lieu de `120` à `3 σ`), mais `6 %` des
+bureaux et `435` communes dépassaient `100` : un dépassement doit rester l'exception qu'on
+remarque, pas une catégorie.
 
 **Le bas de l'échelle, lui, reste accroché à un terrain réel** : `231` zones n'ont
 rigoureusement rien à reconquérir — l'abstention qu'y prévoit le modèle est sous le plancher
 que le bureau n'a jamais franchi. « `0` sur 100 » veut donc dire « rien à gagner ici », et
-non « deux écarts-types sous le médian » : un rendement ne descend pas sous zéro, et un
+non « trois écarts-types sous le médian » : un rendement ne descend pas sous zéro, et un
 quart d'échelle y serait mort. L'ordre, lui, n'a jamais changé — la transformation est
 monotone.
 

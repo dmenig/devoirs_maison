@@ -633,7 +633,7 @@ def _baker_admin(com: dict[str, dict], da: Path) -> None:
 #        pour qu'un agrégat soit bien « voix totales ÷ heures totales » et non une moyenne
 #        de rapports. Ce que la carte AFFICHE en est la note sur 100 (« Prioritaire ») :
 #        ce rendement replacé entre les bornes `rendement_min` (0), `rendement_median` (50)
-#        et `rendement_note100` = médiane + 2 σ (100), servies dans values/_mobilisation.json
+#        et `rendement_note100` = médiane + 3 σ (100), servies dans values/_mobilisation.json
 #        (cf. _reperes_rendement). Une zone d'exception passe 100, et c'est voulu.
 # Extensif (sommé) vs intensif (moyenné) : la distinction est ce qui rend l'agrégation
 # correcte à toutes les échelles. `w` permet d'éclater un bureau sur plusieurs quartiers
@@ -760,20 +760,22 @@ def mobilisation_par_niveau(
 # Combien d'écarts-types au-dessus de la médiane valent 50 points de note (le 100 de
 # l'échelle). Servi et non écrit dans le client (`rendement_sigmas`) : resserrer ou élargir
 # l'échelle doit se faire d'un seul chiffre, ici, la carte et la notice suivant d'elles-mêmes.
-# À 2 σ, les deux segments de la note ont presque la même pente — 223 points par voix/h sous
-# la médiane, 180 au-dessus — si bien que l'échelle est à peu de chose près une droite. À
-# 3 σ, la pente du haut tombe à 120 et la cassure du milieu devient franche ; à 1,61 σ
-# (σ = médiane), elle disparaîtrait tout à fait, mais le 100 ne serait plus un repère de
-# dispersion, seulement le double de la médiane.
-SIGMAS_NOTE = 2
+# 2 σ, essayé d'abord, laissait TROP de monde au-dessus de 100 : 6 % des bureaux, 5 % des
+# quartiers, 435 communes — un dépassement qui doit rester l'exception qu'on remarque, pas
+# une catégorie. À 3 σ il retombe à 2,2 % des bureaux et 85 communes. Le prix est une
+# cassure plus franche au milieu : la pente passe de 223 points par voix/h sous la médiane
+# à 120 au-dessus, contre 180 à 2 σ où l'échelle était à peu de chose près une droite.
+# (À 1,61 σ — σ = médiane — la cassure disparaîtrait tout à fait, mais le 100 ne serait plus
+# un repère de dispersion, seulement le double de la médiane.)
+SIGMAS_NOTE = 3
 
 
 def _reperes_rendement(mob: dict[str, dict[str, dict]]) -> dict[str, float]:
-    """Le barème « Prioritaire » : gisement nul → 0, MÉDIANE → 50, médiane + 2 σ → 100.
+    """Le barème « Prioritaire » : gisement nul → 0, MÉDIANE → 50, médiane + 3 σ → 100.
 
     Le client interpole linéairement de part et d'autre de la médiane (cf. 02_data_geo.js).
     Le 0 est un terrain qui existe — 231 zones n'ont rigoureusement rien à reconquérir — et
-    c'est pourquoi il reste accroché au rendement nul plutôt qu'à un −2 σ négatif : un
+    c'est pourquoi il reste accroché au rendement nul plutôt qu'à un −3 σ négatif : un
     rendement ne descend pas sous zéro, un quart d'échelle y serait mort et le « 0 sur 100 »
     perdrait son sens, qui est « rien à gagner ici ».
 
@@ -783,10 +785,10 @@ def _reperes_rendement(mob: dict[str, dict[str, dict]]) -> dict[str, float]:
     au-dessus de la médiane tenaient entre 50 et 60, 1,4 % passaient 70, et la meilleure
     commune de France plafonnait à 84. Une note qui n'utilise pas son échelle ne classe
     plus rien, et c'était le défaut même qu'on croyait avoir corrigé en accrochant la
-    médiane à 50. Un repère de DISPERSION (médiane + 2 σ) ne dépend plus d'un bureau : la
-    moitié haute se répartit alors 37 % / 22 % / 14 % / 9 % / 6 % sur les dizaines de 50 à
-    100, et les vrais terrains d'exception **dépassent 100** — 6 % des bureaux, 5 % des
-    quartiers, 1,2 % des communes, aucun département ni région. C'est assumé et écrit.
+    médiane à 50. Un repère de DISPERSION (médiane + 3 σ) ne dépend plus d'un bureau : la
+    moitié haute se répartit alors 49 % / 23 % / 13 % / 7 % / 4 % sur les dizaines de 50 à
+    100, et les vrais terrains d'exception **dépassent 100** — 2,3 % des bureaux, 1,5 % des
+    quartiers, 0,2 % des communes, aucun département ni région. C'est assumé et écrit.
     Aucune note ne peut en revanche être négative.
 
     La population de référence est celle des BUREAUX DE VOTE : les ~69 000 bureaux
@@ -798,7 +800,7 @@ def _reperes_rendement(mob: dict[str, dict[str, dict]]) -> dict[str, float]:
 
     `rendement_min` et `rendement_max` restent servis, mais ne sont plus le barème : ce sont
     les deux terrains extrêmes du pays, que la notice écrit pour situer l'échelle (le
-    meilleur bureau de France note 305)."""
+    meilleur bureau de France note 220)."""
     ref = mob.get("bv") or {c: o for niveau in mob.values() for c, o in niveau.items()}
     vals = sorted(
         o["mobn"] / o["mobh"]
