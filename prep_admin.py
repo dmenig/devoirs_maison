@@ -25,6 +25,13 @@ BASE_IC = {  # jeu -> (id page INSEE, nom de fichier zip CSV)
 INSEE = "https://www.insee.fr/fr/statistiques/fichier"
 
 AGES = ["0014", "1529", "3044", "4559", "6074", "75P"]  # 6 tranches (slide 26)
+# Tranches FINES de la même base IC, qui découpent la population à 18 ans pile. La
+# pyramide des slides démarre à 15 ans : en déduire les majeur·es par « 15 et + moins un
+# cinquième des 15-29 » sur-comptait les adultes dans 30 299 communes sur 34 970 (médiane
+# +1,3 %, jusqu'à +2,5 %) et les sous-comptait de 4,1 % à Montpellier — le biais suit la
+# part des jeunes (corrélation −0,53), donc il fabrique des non-inscrit·es fantômes dans
+# les communes âgées. On somme donc les tranches exactes.
+AGES_18P = ["1824", "2539", "4054", "5564", "6579", "80P"]
 TRANSPORTS = ["PAS", "MAR", "VELO", "2ROUESMOT", "VOIT", "TCOM"]  # slide 28
 # IRAN (résidence un an avant) -> 5 catégories de la slide 25, dans l'ordre d'affichage :
 # même logement / autre logement même commune / autre commune du dépt / hors dépt en
@@ -68,14 +75,29 @@ def _agreger(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
 
 
 def _pop_par_age(pop: pd.DataFrame) -> pd.DataFrame:
-    cols = [f"P21_{s}{a}" for s in ("H", "F") for a in AGES] + ["P21_POP"]
-    g = _agreger(pop, cols)
+    """Pyramide des âges en parts (slide 26) + les deux effectifs dont dépend l'estimation
+    du corps électoral potentiel : `pop18` (majeur·es, tranches exactes) et `part_fr` (part
+    de nationalité française). Un·e résident·e étranger·e n'est PAS un·e non-inscrit·e :
+    hors ressortissant·es de l'UE (liste complémentaire, marginale), elle ou il ne peut pas
+    s'inscrire. Sans cette part, l'écart « population majeure − inscrits » comptait 43 484
+    étranger·es de Montpellier comme un réservoir d'inscription."""
+    cols = (
+        [f"P21_{s}{a}" for s in ("H", "F") for a in AGES]
+        + [f"P21_POP{a}" for a in AGES_18P]
+        + ["P21_POP", "P21_POP_FR"]
+    )
+    g = _agreger(pop, [c for c in cols if c in pop.columns])
     out = pd.DataFrame(index=g.index)
     out["pop"] = g["P21_POP"].round().astype(int)
     base = g["P21_POP"].replace(0, float("nan"))
     for s in ("H", "F"):
         for i, a in enumerate(AGES):
             out[f"age{s}_{i}"] = (100 * g[f"P21_{s}{a}"] / base).round(2)
+    fines = [f"P21_POP{a}" for a in AGES_18P if f"P21_POP{a}" in g.columns]
+    if len(fines) == len(AGES_18P):
+        out["pop18"] = g[fines].sum(axis=1).round().astype(int)
+    if "P21_POP_FR" in g.columns:
+        out["part_fr"] = (100 * g["P21_POP_FR"] / base).round(2)
     return out
 
 

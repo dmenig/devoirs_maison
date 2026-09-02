@@ -506,14 +506,39 @@ Tout provient du dépôt **hexagonal** (agrégation France insoumise) :
   l'étranger `ZZ006_0001` (107 077 inscrits) affichait **−32 541** voix pour Sarkozy
   (32 995 tronqué sur 16 bits), qui se soustrayaient du bloc LR-DVD national. C'est un
   défaut de la source (dépôt `hexagonal`), à corriger en amont.
-- La **non-inscription** (population majeure recensée − inscrits) n'est **pas servie**
-  quand la différence est négative : c'est le cas dans **une commune sur deux** (17 539 sur
-  34 906), parce que le recensement et la liste électorale ne comptent pas les mêmes gens
-  (résidences secondaires, inscription au village d'origine) ; l'écart dépasse 20 % des
-  inscrits dans 1 345 communes. Un plancher à zéro affichait « ≈ 0 non-inscrit·es » sous
-  « Priorité n°1 · le plus gros réservoir » — un chiffre là où l'estimateur est muet. Là
-  où elle est servie, elle reste une **borne haute** (elle inclut les résident·es non
-  éligibles). Le plan d'action le dit sur la fiche.
+- Le **réservoir d'inscription** du plan d'action (levier n°1) est un **solde signé**, servi
+  dans les deux sens :
+
+  ```
+  réservoir = majeur·es de nationalité française résidant dans la commune − inscrit·es
+  ```
+
+  Il vaut **exactement** les non-inscrit·es **plus** les résident·es inscrit·es **ailleurs**
+  (étudiant·es restés sur la liste de leurs parents, arrivé·es qui n'ont pas refait la
+  démarche), **moins** les inscrit·es qui n'habitent plus là. Les deux premiers termes sont
+  la même cible militante — une démarche d'inscription à faire faire — donc **un seul
+  chiffre** est affiché, sous un libellé qui dit ce qu'il contient. Il n'est **pas ventilé**
+  entre non- et mal-inscription : la ventilation serait un modèle, pas une mesure.
+  Un solde **négatif** est servi aussi : il désigne les communes d'**origine** des
+  mal-inscrit·es (leur liste porte des gens qui vivent ailleurs) et le levier y devient la
+  **procuration**, pas l'inscription.
+  Ce champ a longtemps été deux chiffres additionnés — « non-inscrit·es » (population
+  majeure **toutes nationalités** − inscrits) **+** « mal-inscrit·es » (population majeure ×
+  part des arrivé·es de l'année) — soit **87 577** à Montpellier pour **42 086** réels.
+  Trois défauts se cumulaient : les **43 484 résident·es étranger·es** de la ville (14,4 % de
+  la population) comptaient comme un réservoir d'inscription alors que, hors liste
+  complémentaire européenne, elles et ils ne peuvent pas s'inscrire ; la mal-inscription
+  était comptée **deux fois**, puisque quelqu'un qui vit ici et reste inscrit ailleurs est
+  déjà dans l'écart ; et la population majeure était **approximée** (« 15 ans et + moins un
+  cinquième des 15-29 »), ce qui sur-comptait les adultes dans **30 299 communes sur 34 970**
+  et fabriquait des réservoirs fantômes dans les communes âgées.
+  Calage national (INSEE, présidentielle 2022) : **2,9 M** de non-inscrit·es (5,8 % des
+  Français·es majeur·es), **7,7 M** de mal-inscrit·es (16,5 % des inscrit·es). Somme des
+  soldes positifs après correction : **3,13 M**, contre 5,92 M avant ; solde net national
+  **1,71 M**. Deux biais résiduels de l'ordre du point se compensent : la part de nationalité
+  française est mesurée sur toute la population (les étranger·es étant plus adultes que la
+  moyenne, on sur-corrige un peu), et les ressortissant·es de l'UE inscrit·es sur la liste
+  complémentaire sont comptés dans les inscrit·es aux européennes.
 - **Chercher une commune fusionnée** ouvre désormais la commune **nouvelle**, pas le code
   mort : « Bellegarde-sur-Valserine » mène à Valserhône, « Corcelles » à
   Champdor-Corcelles. **2 180 anciens noms** restent cherchables comme alias (affichés

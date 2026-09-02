@@ -13,13 +13,19 @@ const CARNET_HYP={
 const _nb=v=>Math.round(v).toLocaleString('fr');
 
 // Base électorale : inscrits (champ baké, sinon dérivé du stock d'abstention E24 =
-// inscrits × taux d'abstention) ; corps électoral potentiel = inscrits + non-inscrits.
+// inscrits × taux d'abstention) ; corps électoral POTENTIEL = `maj`, les majeur·es de
+// nationalité française résidant dans la commune (recensement, tranches exactes 18+ ×
+// part française). Il valait auparavant `inscrits + non-inscrits`, où « non-inscrits »
+// était l'écart avec la population majeure TOUTES nationalités : les résident·es
+// étranger·es gonflaient donc le segment « voix inaccessibles » de la décomposition.
+// Là où la liste électorale est plus large que la population résidente (communes
+// d'origine des mal-inscrit·es, la moitié d'entre elles), c'est la liste qui fait la base.
 function carnetBase(o){
   let insc=o.insc;
   if(insc==null&&o.abst!=null&&o.part_E24!=null&&o.part_E24<100)
     insc=Math.round(o.abst/(1-o.part_E24/100));
   if(insc==null)return null;
-  const elig=insc+(o.noninsc||0);
+  const elig=o.maj!=null?Math.max(insc,o.maj):insc;
   const pp=o.part_P22!=null?o.part_P22:o.part_E24;
   const part=pp!=null?pp/100:CARNET_HYP.partDef;
   return {insc,elig,part,exprimes:Math.round(insc*part)};

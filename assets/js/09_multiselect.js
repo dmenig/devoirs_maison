@@ -57,7 +57,11 @@ function aggregateSelection(){
   // version 3, lui, n'est jamais moyenné : il se recalcule en `mobn / mobh` sur l'agrégat.
   const MOB_CNT=new Set(["mob","mobc","mobn","mobp","mobh","mobk"]);
   const MOB_POND={mobg:"mobc",mobv:"mobp"};
-  const isCount=k=>/^(lfiv_|gv_)/.test(k)||k==="abst"||k==="noninsc"||k==="malinsc"||MOB_CNT.has(k);
+  // `resinsc` est un solde SIGNÉ : le sommer sur une sélection donne le solde net du
+  // territoire, où les communes d'origine des mal-inscrit·es compensent les villes qui les
+  // accueillent. C'est la bonne agrégation, et elle n'était pas possible tant que les
+  // écarts négatifs n'étaient pas servis. `maj` est un effectif.
+  const isCount=k=>/^(lfiv_|gv_)/.test(k)||k==="abst"||k==="resinsc"||k==="maj"||MOB_CNT.has(k);
   const isPct=k=>/^(part|lfi|gauche|rn|em|lr)_/.test(k)||k==="moba"||k==="mobf"||k==="mobl";
   const agg={}, wsum={}, wnum={}; let inscTot=0;
   os.forEach(o=>{ const insc=inscOf(o); if(insc)inscTot+=insc;

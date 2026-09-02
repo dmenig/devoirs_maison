@@ -351,12 +351,22 @@ SCRUTIN_REGISTRE = (
 )
 
 
+# Colonnes d'admin_commune qui sont des EFFECTIFS : elles se somment sur les
+# arrondissements d'une ville PLM, là où tout le reste (parts d'âge, de logement, de
+# nationalité, de migration) se pondère par la population. Pondérer `pop18` aurait rendu
+# Paris peuplée de 1 791 150 majeur·es… ramenés à une moyenne d'arrondissement.
+CPT_ADMIN = ("pop", "pop18")
+
+
 def _agreger_plm(adm: pd.DataFrame) -> pd.DataFrame:
-    """Reconstitue une ligne recensement par ville PLM : population sommée, parts (âge,
-    logement, migration…) pondérées par la population des arrondissements."""
+    """Reconstitue une ligne recensement par ville PLM : effectifs sommés, parts (âge,
+    logement, nationalité, migration…) pondérées par la population des arrondissements."""
     codes = adm.index.astype(str)
+    cpt = [c for c in CPT_ADMIN if c in adm.columns]
     num_cols = [
-        c for c in adm.columns if c != "pop" and pd.api.types.is_numeric_dtype(adm[c])
+        c
+        for c in adm.columns
+        if c not in CPT_ADMIN and pd.api.types.is_numeric_dtype(adm[c])
     ]
     lignes: dict[str, dict] = {}
     for agg, prefixe in PLM_AGG.items():
@@ -365,7 +375,8 @@ def _agreger_plm(adm: pd.DataFrame) -> pd.DataFrame:
             continue
         poids = sub["pop"].astype(float)
         total = poids.sum()
-        ligne: dict[str, float | None] = {"pop": float(total)}
+        ligne: dict[str, float | None] = {c: float(sub[c].astype(float).sum()) for c in cpt}
+        ligne["pop"] = float(total)
         for c in num_cols:
             vals = sub[c].astype(float)
             m = vals.notna() & poids.notna()
@@ -376,20 +387,49 @@ def _agreger_plm(adm: pd.DataFrame) -> pd.DataFrame:
 
 
 def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
-    """Champs du Carnet de campagne (chantier 3) : inscrits (registre), population, et
-    estimations de non-/mal-inscription — les réservoirs prioritaires :
-    - non-inscription ≈ population majeure (recensement) − inscrits (borne haute : inclut
-      les résident·es non éligibles) ;
-    - mal-inscription ≈ population majeure × part des résident·es arrivé·es d'une autre
-      commune depuis < 1 an (proxy IRAN : récemment installé·es donc souvent mal-inscrit·es).
+    """Champs du Carnet de campagne (chantier 3) : inscrits (registre), population, et le
+    RÉSERVOIR D'INSCRIPTION — le levier n°1 du plan d'action.
 
-    La non-inscription n'est PAS servie quand la population majeure estimée est inférieure
-    aux inscrits : la soustraction n'y mesure plus rien. C'est le cas dans une commune sur
-    deux (17 539 sur 34 906) — le recensement et la liste électorale ne comptent pas les
-    mêmes gens (résidences secondaires, inscription au village d'origine), et l'écart
-    dépasse 20 % des inscrits dans 1 345 communes. Un plancher à zéro affichait alors
-    « ≈ 0 non-inscrit·es » sous « Priorité n°1 · le plus gros réservoir » : un chiffre
-    présenté comme mesuré là où l'estimateur est muet. Absent = « on ne sait pas »."""
+    Ce réservoir est un solde, servi dans les deux sens :
+
+        resinsc = majeur·es de nationalité française résidant dans la commune − inscrit·es
+
+    C'est-à-dire, exactement : les **non-inscrit·es** PLUS les **résident·es inscrit·es
+    ailleurs** (mal-inscription : étudiant·es restés sur la liste de leurs parents, arrivé·es
+    qui n'ont pas refait la démarche), MOINS les inscrit·es qui n'habitent plus là. Les deux
+    premiers termes sont la même cible militante — une campagne d'inscription — donc on sert
+    un seul chiffre, sous un libellé qui dit ce qu'il contient. On ne le ventile pas : la
+    ventilation serait un modèle, pas une mesure.
+
+    Trois erreurs corrigées ici, qui gonflaient le chiffre d'un facteur 2 dans les grandes
+    villes (Montpellier : 87 577 affichés pour 42 086 réels) :
+
+    - **les étranger·es étaient comptés comme non-inscrit·es.** La base était la population
+      majeure TOUTES nationalités : les 43 484 résident·es étranger·es de Montpellier
+      (14,4 % de la population) entraient dans un « réservoir d'inscription » où, hors
+      liste complémentaire européenne, elles et ils ne peuvent pas figurer. On multiplie
+      donc par `part_fr`.
+    - **la mal-inscription était comptée deux fois.** L'ancien champ `malinsc`
+      (population majeure × part des arrivé·es de l'année) était ADDITIONNÉ à l'écart par
+      le plan d'action — alors que quelqu'un qui vit ici et reste inscrit ailleurs est
+      déjà, par construction, dans l'écart. Le flux d'arrivées récentes reste affiché,
+      comme texture du levier (`adm.mig`, variable IRAN), jamais comme un terme à ajouter.
+    - **la population majeure était approximée** (« 15 ans et + moins un cinquième des
+      15-29 »), ce qui sur-comptait les adultes dans 30 299 communes sur 34 970 et
+      fabriquait des réservoirs fantômes dans les communes âgées. On somme désormais les
+      tranches exactes de la base IC (`pop18`, cf. prep_admin.AGES_18P).
+
+    L'ancien estimateur n'était PAS servi quand l'écart était négatif, au motif que « la
+    soustraction n'y mesure plus rien » — une commune sur deux. C'était le même phénomène
+    vu par l'autre bout : ces 17 539 communes sont les communes d'ORIGINE des mal-inscrit·es
+    des grandes villes, celles dont la liste électorale porte des gens qui vivent ailleurs.
+    Un solde négatif est une information (« la liste est plus large que la population :
+    procurations et retours au village à travailler »), pas un silence : il est donc servi.
+
+    Calage national (INSEE, présidentielle 2022) : 2,9 M de non-inscrit·es (5,8 % des
+    Français·es majeur·es) et 7,7 M de mal-inscrit·es (16,5 % des inscrit·es). Somme des
+    soldes positifs après correction : 3,13 M (contre 5,92 M avant) ; solde net national :
+    1,71 M."""
     insc = rc[rc["scrutin"] == SCRUTIN_REGISTRE].groupby("code")["inscrits"].first()
     for code, v in insc.items():
         if pd.notna(v):
@@ -399,32 +439,25 @@ def _baker_carnet(com: dict[str, dict], rc: pd.DataFrame, da: Path) -> None:
         return
     adm = pd.read_parquet(f).set_index("code_commune")
     adm = pd.concat([adm.drop(index="FRANCE", errors="ignore"), _agreger_plm(adm)])
+    servis = 0
     for code, row in adm.iterrows():
         o = com.get(str(code))
         if o is None or pd.isna(row.get("pop")):
             continue
-        pop = float(row["pop"])
-        o["pop"] = int(pop)
-        # NaN est « truthy » en Python : `x or 0` laisserait passer un NaN et ferait
-        # échouer round() plus bas. On coerce donc explicitement les champs absents à 0.
-        num = lambda k: (lambda v: 0.0 if v is None or pd.isna(v) else float(v))(  # noqa: E731
-            row.get(k)
-        )
-        # population majeure ≈ 15 ans et + moins les 15-17 ans (≈ 1/5 de la tranche 15-29)
-        part_15p = sum(num(f"age{s}_{i}") for s in ("H", "F") for i in range(1, 6))
-        part_1529 = num("ageH_1") + num("ageF_1")
-        pop_majeur = pop * (part_15p - 0.2 * part_1529) / 100
-        ins = o.get("insc")
-        if ins is not None:
-            # `pop_majeur > ins` ne suffit pas : un excédent de quelques dixièmes de
-            # personne s'arrondit à 0 et réaffiche « ≈ 0 non-inscrit·es ». On exige au
-            # moins une personne entière.
-            manquants = round(pop_majeur - ins)
-            if manquants >= 1:
-                o["noninsc"] = manquants
-        if pd.notna(row.get("mig_2")):
-            taux = sum(num(f"mig_{i}") for i in (2, 3, 4)) / 100
-            o["malinsc"] = round(pop_majeur * taux)
+        o["pop"] = int(float(row["pop"]))
+        pop18, part_fr, ins = row.get("pop18"), row.get("part_fr"), o.get("insc")
+        if ins is None or pd.isna(pop18) or pd.isna(part_fr):
+            continue
+        # Corps électoral POTENTIEL de la commune : les majeur·es qui pourraient être
+        # inscrit·es ici. `part_fr` est mesurée sur toute la population : les étranger·es
+        # étant plus adultes que la moyenne, on sur-corrige légèrement — biais compensé en
+        # sens inverse par les ressortissant·es de l'UE, comptés dans `inscrits` aux
+        # européennes via la liste complémentaire. Les deux sont de l'ordre du point.
+        maj = round(float(pop18) * float(part_fr) / 100)
+        o["maj"] = int(maj)
+        o["resinsc"] = int(maj - ins)
+        servis += 1
+    print(f"  ✓ réservoir d'inscription sur {servis} communes (solde signé)")
 
 
 def _baker_iris_elec(

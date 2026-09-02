@@ -4,8 +4,11 @@
 // LFI 2022 — non automatique, (3) abstentionnistes, (4) primo-votant·es ; les électorats
 // proches (PS 2024) ne sont qu'un levier marginal. Les réservoirs affichés sont des voix
 // réelles.
-function lever(n, titre, fenetre, res, corps){
-  const r=res!=null?`<span class="lvres">${Math.round(res).toLocaleString('fr')} voix</span>`:"";
+// `unite` : le réservoir du levier n°1 se compte en PERSONNES à inscrire, pas en voix —
+// l'ancien libellé annonçait « 87 577 voix » sous un chiffre qui n'était ni des voix ni
+// même un effectif juste.
+function lever(n, titre, fenetre, res, corps, unite){
+  const r=res!=null?`<span class="lvres">${Math.round(res).toLocaleString('fr')} ${unite||"voix"}</span>`:"";
   return `<li class="lever"><div class="lvh"><span class="lvn">${n}</span>`+
     `<b>${titre}</b><span class="lvwin">${fenetre}</span>${r}</div>`+
     `<div class="lvb">${corps}</div></li>`;
@@ -13,24 +16,63 @@ function lever(n, titre, fenetre, res, corps){
 
 function actionPanel(o){ if(!o)return "";
   const items=[];
-  // La non-inscription s'estime par « population majeure recensée − inscrits ». Dans une
-  // commune sur deux cette différence est NÉGATIVE (résidences secondaires, inscription au
-  // village d'origine : le recensement et la liste électorale ne comptent pas les mêmes
-  // gens) : le champ est alors absent, et non ramené à zéro. Afficher « ≈ 0 non-inscrit·es »
-  // sous « le plus gros réservoir » donnait un chiffre là où l'estimateur est muet.
-  const noninsc=o.noninsc, malinsc=o.malinsc;
-  const inscRes=(noninsc!=null||malinsc!=null)?(noninsc||0)+(malinsc||0):null;
-  const detail=[];
-  if(noninsc!=null)detail.push(`≈ <b>${noninsc.toLocaleString('fr')}</b> non-inscrit·es`);
-  if(malinsc!=null)detail.push(`≈ <b>${malinsc.toLocaleString('fr')}</b> mal-inscrit·es`);
-  const nonEstimable=noninsc==null
-    ?`<div class="inv">Non-inscription <b>non estimable ici</b> : la population majeure recensée `+
-     `n'excède pas le nombre d'inscrit·es. Le réservoir affiché ne couvre donc que les `+
-     `mal-inscrit·es — le terrain reste seul juge du reste.</div>`:"";
-  items.push(lever("1","Inscription des non- et mal-inscrit·es","sept.→déc.",inscRes,
-    `<b>Priorité n°1.</b> ${detail.length?detail.join(" · ")+". ":""}Campagne d'inscription sur les listes `+
-    `et de procuration : c'est le plus gros réservoir et le plus rentable. Porte-à-porte d'inscription + permanences.`+
-    nonEstimable));
+  // Levier n°1 : le RÉSERVOIR D'INSCRIPTION, un solde signé baké par prep_bake —
+  //   resinsc = majeur·es français·es résidant dans la commune − inscrit·es
+  // soit les non-inscrit·es PLUS les résident·es inscrit·es ailleurs, moins les inscrit·es
+  // partis. On ne le ventile pas (ce serait un modèle) et on ne l'additionne à rien : le
+  // panneau affichait « non-inscrit·es + mal-inscrit·es », alors que le second terme est
+  // déjà dans le premier — double compte qui, avec une population majeure toutes
+  // nationalités, portait Montpellier à 87 577 pour 42 086. Le flux d'arrivées récentes
+  // (IRAN, `adm.mig`) reste affiché comme TEXTURE du levier, jamais comme un addend.
+  const res=o.resinsc, maj=o.maj, insc=o.insc;
+  const mig=o.adm&&o.adm.mig;
+  // arrivé·es d'une autre commune ou de l'étranger dans l'année : catégories 2 à 4 d'IRAN.
+  const arriv=(mig&&mig.slice(2).every(v=>v!=null))?Math.round(mig[2]+mig[3]+mig[4]):null;
+  const flux=arriv!=null
+    ? ` <b>${arriv} %</b> des habitant·es ont changé de commune dans l'année (recensement) : `+
+      `c'est le vivier le plus mobile du réservoir, et le plus facile à convaincre.`
+    : "";
+  // Un solde négatif ne veut pas dire qu'il n'y a personne à inscrire : il veut dire que
+  // les inscrit·es partis sont plus nombreux que les résident·es non inscrit·es. Le flux
+  // d'arrivées reste donc une cible, mais ce n'est plus « le vivier du réservoir ».
+  const fluxNeg=arriv!=null
+    ? ` <b>${arriv} %</b> des habitant·es ont malgré tout changé de commune dans l'année `+
+      `(recensement) : il y a bien des résident·es à inscrire ici, simplement moins que `+
+      `d'inscrit·es qui n'y habitent plus.`
+    : "";
+  const pct=(res!=null&&maj)?` — <b>${(100*res/maj).toLocaleString('fr',{maximumFractionDigits:1})} %</b> `+
+    `des majeur·es français·es de la zone` : "";
+  let corps, reservoir=null;
+  if(res==null){
+    corps=`<b>Priorité n°1.</b> Campagne d'inscription sur les listes et de procuration : `+
+      `c'est le plus gros réservoir et le plus rentable. Porte-à-porte d'inscription + permanences.${flux}`+
+      `<div class="inv">Réservoir d'inscription <b>non estimable ici</b> : il manque le `+
+      `recensement ou le registre électoral de la zone.</div>`;
+  }else if(res>0){
+    reservoir=res;
+    corps=`<b>Priorité n°1.</b> ≈ <b>${res.toLocaleString('fr')}</b> résident·es majeur·es `+
+      `français·es <b>ne sont pas inscrit·es ici</b>${pct} : non-inscription et inscription `+
+      `restée ailleurs confondues — c'est la même démarche à faire faire. Campagne `+
+      `d'inscription sur les listes et de procuration : le plus gros réservoir et le plus `+
+      `rentable. Porte-à-porte d'inscription + permanences.${flux}`+
+      `<div class="inv">Solde mesuré : <b>${maj.toLocaleString('fr')}</b> majeur·es `+
+      `français·es recensé·es − <b>${insc.toLocaleString('fr')}</b> inscrit·es. Il ne se `+
+      `ventile pas entre non- et mal-inscription, et il ne compte pas les résident·es `+
+      `étranger·es, qui ne peuvent pas s'inscrire.</div>`;
+  }else if(res<0){
+    corps=`<b>Priorité n°1.</b> La liste électorale est ici <b>plus large</b> que la `+
+      `population majeure française résidente (<b>${(-res).toLocaleString('fr')}</b> `+
+      `inscrit·es de plus) : la commune est une commune d'<b>origine</b> de mal-inscrit·es — `+
+      `des gens y votent sans y habiter. Le levier n'est pas l'inscription mais la `+
+      `<b>procuration</b> et le contact avec les inscrit·es partis.${fluxNeg}`;
+  }else{
+    corps=`<b>Priorité n°1.</b> Liste électorale et population majeure française résidente `+
+      `sont ici <b>à l'équilibre</b> : autant d'inscrit·es que de résident·es éligibles. Le `+
+      `solde ne dit pas qu'il n'y a personne à inscrire, mais que les départs compensent `+
+      `exactement les manques. Inscription et procuration à parts égales.${fluxNeg}`;
+  }
+  items.push(lever("1","Inscription des non- et mal-inscrit·es","sept.→déc.",reservoir,
+    corps,"à inscrire"));
 
   const remob=(o.lfiv_P22!=null&&o.lfiv_E24!=null)?Math.max(0,o.lfiv_P22-o.lfiv_E24):null;
   items.push(lever("2","Remobiliser les électeur·ices LFI 2022","sept.→avr.",remob,
