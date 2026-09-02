@@ -109,7 +109,10 @@ function prefetchEnfants(niveau,code){
 // touche ni aux contours ni aux valeurs, il suffit alors de rejouer ce style sur la couche
 // déjà tracée (cf. dessiner).
 function styleFactory(geo,niveau){
-  const raws=geo.features.map(f=>valOf(f.properties));
+  // `colValOf` et non `valOf` : la couleur se calcule sur la grandeur BRUTE, la note
+  // « Prioritaire » n'étant qu'un habillage à la pente cassée (cf. 02_data_geo.js). Pour
+  // tous les autres indicateurs, les deux sont le même nombre.
+  const raws=geo.features.map(f=>colValOf(f.properties));
   const fc=colorer(raws);
   // une seule zone porteuse de valeur : la coloration relative la placerait au centre
   // (neutre). On hérite alors de la couleur que cette zone avait au niveau précédent
@@ -121,7 +124,7 @@ function styleFactory(geo,niveau){
   // liseré blanc épais — y compris après un mouseout (resetStyle réapplique ce style).
   const st=f=>{ const sel=multiSel&&niveau==="commune"&&selCodes.has(f.properties.__code);
     const fs=fillStyle();
-    return {fillColor:colOf(valOf(f.properties)),color:sel?C.geosel:C.geoline,
+    return {fillColor:colOf(colValOf(f.properties)),color:sel?C.geosel:C.geoline,
             weight:sel?2.6:fs.w,fillOpacity:sel?Math.min(.95,fs.op+.2):fs.op}; };
   st.colOf=colOf; return st; }
 
@@ -145,7 +148,7 @@ function paintLayer(geo,valeurs,enter,niveau){ if(layer)layer.remove();
   layer.on("click",e=>{ const ly=e.layer; if(!ly||!ly.feature)return;
     const f=ly.feature, p=f.properties, o=valeurs[p.__code];
     if(enter&&multiSel&&niveau==="commune")return toggleSel(p.__code,o);
-    if(enter){ enterColor=layerStyle.colOf(valOf(p)); setGhost(f,layerStyle(f)); }
+    if(enter){ enterColor=layerStyle.colOf(colValOf(p)); setGhost(f,layerStyle(f)); }
     infoPanel(p.__nom,o,niveau,p.__code);
     if(enter)enter(f,ly,o,true); });
   fadeInLayer(); }

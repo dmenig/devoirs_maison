@@ -130,8 +130,10 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   if(iv!=null&&hi){
     const sgn=(indicKey==="dyn_dpart"&&iv>0)?"+":"";
     // Le « i » du chiffre de tête n'apparaît QUE là où la définition n'est pas devinable
-    // — la rentabilité, qui sort d'un modèle. Survol = définition
-    // courte ; clic = volet méthodo, avec les valeurs de CETTE zone (cf. 034_mobilisation.js).
+    // — la note « Prioritaire », qui sort d'un modèle et dont l'intitulé dit le rang, pas
+    // la mesure. C'est donc le seul chemin vers ce que la note veut dire : survol =
+    // définition courte ; clic = volet méthodo, en voix par heure et avec les valeurs de
+    // CETTE zone (cf. 034_mobilisation.js).
     const info=indicKey==="conquerir"?" "+hint(CONQ_TIP):"";
     headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}${info}</div>`+
            `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`,

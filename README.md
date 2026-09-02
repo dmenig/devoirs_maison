@@ -16,11 +16,18 @@ Les cartes par **bureau de vote** sont nationales et le scrutin affiché est sé
 
 ➡️ **<https://lfi-pee.github.io/devoirs_maison/>**
 
-## « Voix à conquérir » : la rentabilité du porte-à-porte
+## « Prioritaire » : la rentabilité du porte-à-porte, notée sur 100
 
-Le score que colore la carte, c'est le **nombre de voix gagnables par heure de
-porte-à-porte** — là où l'heure militante rapporte le plus, et non là où il y a le plus de
-voix : les deux ne coïncident pas.
+La pastille qui colore la carte s'appelle **« Prioritaire »** et donne une **note sur
+100** : `0` sur le terrain le moins rentable de France, **`50` sur le terrain médian**,
+`100` sur le meilleur. Elle classe donc les territoires les uns par rapport aux autres — ce
+qu'une carte sert à faire — sans obliger le lecteur à savoir ce qu'est une bonne valeur.
+Saint-Denis note `60`, Paris `52`, la Creuse `46`.
+
+Ce qu'elle mesure, c'est le **nombre de voix gagnables par heure de porte-à-porte** — là
+où l'heure militante rapporte le plus, et non là où il y a le plus de voix : les deux ne
+coïncident pas. Ce chiffre-là (en voix/h) n'est plus écrit sur la carte : il est à un clic,
+dans le bouton « i ».
 
 - **Numérateur** — les **abstentionnistes conjoncturels × γ** : les électeur·ices qu'une
   campagne peut ramener aux urnes ET qui votent à gauche, d'après le modèle par bureau de
@@ -29,9 +36,10 @@ voix : les deux ne coïncident pas.
 - **Dénominateur** — un **budget-temps** : 15 min de conversation par porte, plus le
   trajet jusqu'à la suivante, à pied ou en voiture selon la densité du bureau.
 
-Un **bouton « i »** donne la méthode : dans la légende de la carte pour la méthode
-générale, sur le chiffre de tête de la fiche pour le calcul détaillé avec les valeurs de
-la zone ouverte. Voir [DOCUMENTATION.md](DOCUMENTATION.md).
+Un **bouton « i »** donne la méthode — et, la note ne disant que le rang, c'est le seul
+endroit où on lit ce qui la fabrique : dans la légende de la carte pour la méthode
+générale, sur le chiffre de tête de la fiche pour le calcul détaillé (en voix par heure,
+avec les valeurs de la zone ouverte). Voir [DOCUMENTATION.md](DOCUMENTATION.md).
 
 Le site a publié un temps **trois versions** côte à côte (`/`, `/v2/`, `/v3/`) pour
 départager trois définitions du score : l'objectif arithmétique (20 % des exprimés

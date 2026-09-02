@@ -69,7 +69,8 @@ function pairMetrics(o){ if(!o)return {};
     pertev: (gvA!=null&&gvB!=null)?gvA-gvB:null };
 }
 // ============================================================================
-// « Voix à conquérir » = RENTABILITÉ : voix gagnables ÷ heures de porte-à-porte. Le
+// Pastille « Prioritaire » (clé `conquerir`) = RENTABILITÉ : voix gagnables ÷ heures de
+// porte-à-porte, servie en note sur 100 (cf. `scorePrioritaire` plus bas). Le
 // rapport est calculé ICI, sur des sommes (voix totales ÷ heures totales), et non baké
 // niveau par niveau : c'est ce qui rend l'agrégat juste — le rendement d'un département
 // est celui de tout son terrain pris ensemble, jamais la moyenne des rendements de ses
@@ -83,15 +84,56 @@ function pairMetrics(o){ if(!o)return {};
 function rendementPorte(o){ if(!o||!o.mobh||o.mobn==null)return null;
   return Math.round(1000*o.mobn/o.mobh)/1000; }
 
-const voixConquerir=o=>rendementPorte(o);
+// Ce que la carte AFFICHE n'est pas ce rendement mais une NOTE SUR 100 — la pastille
+// « Prioritaire » : la place de la zone entre le pire terrain de France (0), le terrain
+// MÉDIAN (50) et le meilleur (100). Un « 0,28 voix/h » ne se lit pas (voix par heure de
+// quoi ? beaucoup ? peu ?) là où « 51 sur 100 » se situe tout seul ; la mesure derrière la
+// note, elle, reste à un clic du « i » (034_mobilisation.js), qui la décompose avec les
+// chiffres de la zone.
+//
+// Deux segments de droite et non un seul rapport au maximum : la distribution est très
+// dissymétrique (médiane 0,23 voix/h, sommet 1,65), si bien qu'une simple règle de trois
+// tassait le bureau médian à 14 et la moitié des communes entre 9 et 17 — une note qui
+// n'utilise pas son échelle ne classe plus rien. L'ordre, lui, est inchangé : la
+// transformation est monotone.
+//
+// Les trois bornes viennent du pipeline (`rendement_min/median/max`, cf. prep_bake.py) et
+// jamais d'une constante écrite ici : elles dépendent des valeurs servies, et un data_app
+// régénéré les déplacerait sans qu'on y pense. Elles sont lues dans le CACHE et non dans
+// `window.__mobRef`, posé une microtâche trop tard (08_search.js) : la vue France est
+// tracée depuis l'amorce, elle serait sortie grise.
+const rendRep=()=>{ const r=window.__mobRef||cache["values/_mobilisation.json"];
+  return (r&&r.rendement_median!=null&&r.rendement_max!=null)?r:null; };
+// Le 50 et le 100 sont ceux des BUREAUX DE VOTE, seule maille qui partitionne la France
+// (cf. prep_bake._reperes_rendement) : une zone se situe donc parmi les bureaux du pays,
+// quelle que soit sa taille. Une commune note 44 en médiane et plafonne à 84, un
+// département tient entre 22 et 60 — c'est l'information, et non un défaut d'échelle :
+// une commune entière moyenne ses bons et ses mauvais terrains, un département plus encore.
+// Le rabot final : garde-fou si les bornes servies dataient d'avant les valeurs qu'elles
+// bornent, une note à 103 sur 100 n'ayant aucun sens.
+function scorePrioritaire(o){ const r=rendementPorte(o), b=rendRep(); if(r==null||!b)return null;
+  const lo=b.rendement_min||0, md=b.rendement_median, hi=b.rendement_max;
+  if(!(md>lo)||!(hi>md))return null;
+  const t=r<=md?50*(r-lo)/(md-lo):50+50*(r-md)/(hi-md);
+  return Math.max(0,Math.min(100,Math.round(1000*t)/1000)); }
+
+// La COULEUR, elle, se calcule sur le rendement BRUT et non sur la note. Le ton est un
+// écart PROPORTIONNEL à la médiane des zones affichées (cf. `colorer`) : le passer par une
+// note dont la pente casse à la médiane NATIONALE reviendrait à donner deux tons différents
+// au même écart réel, selon le côté du 50 où les zones tombent — soit exactement le défaut
+// de la coloration au rang, corrigé de longue date. On lit donc le nombre sur la note et
+// l'écart sur la couleur, chacun sur la grandeur qui lui convient ; les deux étant
+// monotones l'une de l'autre, elles racontent le même classement.
+const colVal=o=>indicKey==="conquerir"?rendementPorte(o):rawVal(o,indicKey);
 
 // Les autres valeurs sont bakées par prep_bake.py et lues telles quelles.
 function rawVal(o,k){ if(!o)return null;
-  if(k==="conquerir") return voixConquerir(o);
+  if(k==="conquerir") return scorePrioritaire(o);
   if(k==="dyn_report")return pairMetrics(o).report;
   if(k==="dyn_dpart") return pairMetrics(o).dpart;
   if(k==="dyn_perte") return pairMetrics(o).perte;
   if(STAT.has(k)) return o[`${k}_${selB}`];  // instantané du scrutin B (lfi/part/rn/gauche)
   return o[k]; }
 const valOf=p=>rawVal(curVals[p.__code],indicKey);
+const colValOf=p=>colVal(curVals[p.__code]);
 

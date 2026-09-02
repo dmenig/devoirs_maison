@@ -34,7 +34,9 @@ function syncSocioChips(){ const on=socioActive(), immo=immoActive();
 // comme l'infobulle et la fiche. Sur le score, le titre porte en plus un « i » qui
 // ouvre la notice de méthode (15_modal.js) : il sort d'un modèle, et il doit
 // s'expliquer AVANT qu'on ait cliqué une zone — c'est la coloration de la carte qu'on lit
-// en premier. `textContent` ailleurs : rien à échapper, et rien de plus à montrer.
+// en premier. « Prioritaire » ne dit d'ailleurs que le rang : ce « i » est le seul endroit
+// où l'on apprend ce qui le fabrique (voix gagnables ÷ heures de porte-à-porte).
+// `textContent` ailleurs : rien à échapper, et rien de plus à montrer.
 function syncLegend(){ const t=indicLabel+(socioActive()&&!SOCIO.has(indicKey)?" · estimé":"");
   const lg=$("legtitle");
   if(indicKey==="conquerir")

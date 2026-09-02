@@ -5,6 +5,13 @@ const BASE="__BASE__";
 // exprimés estimés − socle LFI) et les voix modélisées (abstentionnistes conjoncturels × γ)
 // ont été retirées, la rentabilité sert désormais seule et à la racine. Elle vit dans
 // 02_data_geo.js (calcul) et 034_mobilisation.js (méthode).
+//
+// Elle s'affiche partout sous le nom « PRIORITAIRE » et en NOTE SUR 100 : 0 au pire
+// terrain de France, 50 au terrain médian, 100 au meilleur. C'est un classement, et un
+// classement se lit sans mode d'emploi, là où « 0,28 voix/h » demande d'abord de savoir
+// ce qu'est une bonne valeur. Ce que la note mesure n'est pas caché pour autant, il est
+// RANGÉ : le « i » de la légende et celui du chiffre de tête ouvrent la méthode complète,
+// en voix par heure et avec les chiffres de la zone (034_mobilisation.js, inchangé).
 const FRANCE=[[41.3,-5.2],[51.2,9.7]];
 const SCR=[["P22","Présid. 2022"],["E24","Europ. 2024"],["L24","Légis. 2024"],["M26","Munic. 2026"]];
 const MET=[["part","Particip."],["lfi","LFI"],["gauche","Gauche"],["rn","RN"],["em","Macron"],["lr","LR"]];
@@ -49,7 +56,7 @@ const EST_METHODO=`<p><b>Chiffre estimé, non mesuré.</b> Aucun résultat élec
   `pas à 99 % n'est pas estimé : il n'affiche aucun chiffre électoral plutôt qu'un chiffre faux.</p>`;
 // La clé du score reste `conquerir` : c'est l'emplacement dans l'interface (pastille,
 // chiffre de tête, permalien), et les permaliens déjà partagés continuent d'y renvoyer.
-const PAST=[["conquerir","Rentabilité du porte-à-porte"," voix/h"],
+const PAST=[["conquerir","Prioritaire"," /100"],
             ["lfi","Vote LFI","%"],["part","Participation","%"],["rn","Vote RN","%"],
             ["gauche","Gauche","%"],["dyn_report","Voix LFI conservées","%"],
             ["dyn_dpart","Évolution participation"," pts"],["dyn_perte","Voix perdues à gauche","%"],
@@ -117,8 +124,8 @@ const TIP_PAUV="Part de la population vivant sous 60 % du revenu médian nationa
 const HEAD_INFO={
   // La méthodologie du score est LONGUE et dépend des valeurs de la zone ouverte : elle
   // vit dans 034_mobilisation.js, qui la reçoit.
-  conquerir:["Légis. 2027","de porte-à-porte, par militant·e",o=>rendMethodo(o),
-    "Rentabilité du porte-à-porte"],
+  conquerir:["Légis. 2027","où 50 est le terrain médian de France",o=>rendMethodo(o),
+    "Prioritaire"],
   lfi:[null,"des inscrits",()=>
     `Part des inscrits ayant voté <b>LFI</b> au scrutin choisi dans le sélecteur ⚖️ `+
     `(<b>${scLab(selB)}</b>) : bulletin LFI, ou candidature d'union que LFI CONDUIT et où elle n'a pas de `+
@@ -412,10 +419,13 @@ const spoiler=(titre,corps,open=false)=> !corps?"":
 const hint=t=>`<span class="hint" data-tip="${t.replace(/"/g,"&quot;")}">i</span>`;
 // `isNaN` autant que `null` : une valeur non mesurable se lit « — », jamais « NaN% ».
 const fmtVal=(v,u)=> (v==null||(typeof v==="number"&&isNaN(v)))?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
-  // « voix/h » : un rendement se lit à deux décimales (0,28 · 0,74), jamais arrondi à
-  // l'unité — il vaut moins de 1 partout, et l'arrondi entier écraserait toute la carte à 0.
+  // « /100 » : une NOTE, donc un entier — la décimale d'un rendement ne se transporte pas
+  // dans un score, et deux zones séparées d'un demi-point ne se départagent pas sur le
+  // terrain. Le rendement brut, lui, garde ses deux décimales là où il est encore écrit
+  // (volet méthodo, Carnet de campagne) : il vaut moins de 1 partout.
+  (u===" /100"?Math.round(v).toLocaleString('fr')+" / 100":
   (u===" voix/h"?v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})+" voix/h":
-  (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||""))));
+  (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")))));
 
 // values/* : cache:"no-cache" force le navigateur à revalider auprès de GitHub (requête
 // conditionnelle ETag → 304 si inchangé, sinon contenu frais) au lieu de servir aveuglément

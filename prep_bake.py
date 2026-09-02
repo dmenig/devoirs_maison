@@ -528,9 +528,11 @@ def _baker_admin(com: dict[str, dict], da: Path) -> None:
 #   mobf plancher d'abstention (%) · mobl niveau de gauche prédit (%)
 #   mobn voix à conquérir des seuls bureaux CHIFFRABLES en porte-à-porte (ceux dont on
 #        connaît l'aire) · mobp portes · mobh heures · mobk km · mobv part de portes en
-#        voiture (%). Le score que colore la carte est `mobn / mobh` — calculé côté client,
+#        voiture (%). Le rendement d'une zone est `mobn / mobh` — calculé côté client,
 #        pour qu'un agrégat soit bien « voix totales ÷ heures totales » et non une moyenne
-#        de rapports.
+#        de rapports. Ce que la carte AFFICHE en est la note sur 100 (« Prioritaire ») :
+#        ce rendement replacé entre les trois bornes `rendement_min/median/max`
+#        (cf. _reperes_rendement), servies dans values/_mobilisation.json.
 # Extensif (sommé) vs intensif (moyenné) : la distinction est ce qui rend l'agrégation
 # correcte à toutes les échelles. `w` permet d'éclater un bureau sur plusieurs quartiers
 # (poids IRIS × bureau) sans dupliquer ses voix.
@@ -627,6 +629,39 @@ def mobilisation_par_niveau(
         f"{len(mb)} bureaux, {len(out.get('iris', {}))} quartiers".replace(",", " ")
     )
     return out
+
+
+def _reperes_rendement(mob: dict[str, dict[str, dict]]) -> dict[str, float]:
+    """Les trois bornes du score « Prioritaire » : plancher → 0, MÉDIANE → 50, sommet → 100.
+
+    Le client interpole linéairement de part et d'autre de la médiane (cf. 02_data_geo.js).
+    Rapporter le rendement au seul maximum tassait la carte : le bureau médian notait 14
+    sur 100 et la moitié des communes tenait entre 9 et 17, parce que la distribution est
+    très dissymétrique (médiane 0,23 voix/h, sommet 1,65). Accrocher la médiane à 50 rend
+    à la note l'amplitude qu'une note doit avoir, sans changer l'ordre.
+
+    La population de référence est celle des BUREAUX DE VOTE : les ~67 000 bureaux
+    partitionnent la France, ce dont aucun mélange d'échelles ne peut se prévaloir — la
+    médiane d'un tas fait d'un peu de tout ne se raconte pas. Une commune se situe donc
+    parmi les bureaux du pays : sa note médiane est 44 et non 50, puisqu'une commune moyenne
+    de bons et de mauvais terrains. Les bornes sont lues sur les valeurs RÉELLEMENT SERVIES
+    — donc arrondies, exactement comme le client les relira — et élargies au millième
+    extérieur, pour qu'aucune zone ne sorte de [0, 100]."""
+    ref = mob.get("bv") or {c: o for niveau in mob.values() for c, o in niveau.items()}
+    vals = sorted(
+        o["mobn"] / o["mobh"]
+        for o in ref.values()
+        if o.get("mobh") and o.get("mobn") is not None
+    )
+    if not vals:
+        return {}
+    n = len(vals)
+    med = vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2
+    return {
+        "rendement_min": math.floor(vals[0] * 1000) / 1000,
+        "rendement_median": round(med, 3),
+        "rendement_max": math.ceil(vals[-1] * 1000) / 1000,
+    }
 
 
 def _fusionner(cible: dict[str, dict], ajout: dict[str, dict]) -> None:
@@ -747,9 +782,13 @@ def main() -> None:
     ref_mob = DA / "mobilisation_ref.json"
     if ref_mob.exists():
         # Hypothèses + repères nationaux du modèle : servis à part (et inlinés dans
-        # l'amorce) parce que le volet « i » des versions 2 et 3 les affiche tels quels,
-        # plutôt que de les recopier en dur dans le JavaScript de la carte.
-        _ecrire("_mobilisation", json.loads(ref_mob.read_text(encoding="utf-8")))
+        # l'amorce) parce que le volet « i » les affiche tels quels, plutôt que de les
+        # recopier en dur dans le JavaScript de la carte. On y ajoute les bornes du score
+        # affiché, qui ne peuvent être connues qu'ici : elles dépendent des valeurs
+        # servies, que prep_mobilisation (qui ne voit que son tableau par bureau, avant
+        # arrondi et avant agrégation) n'a pas encore produites.
+        ref = json.loads(ref_mob.read_text(encoding="utf-8")) | _reperes_rendement(mob)
+        _ecrire("_mobilisation", ref)
     _fusionner(com, mob.get("commune", {}))
     _fusionner(niveaux_agr["region"], mob.get("region", {}))
     _fusionner(niveaux_agr["departement"], mob.get("departement", {}))

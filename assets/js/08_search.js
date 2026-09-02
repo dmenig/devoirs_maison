@@ -96,6 +96,13 @@ async function init(){ buildSelecteur(); buildPastilles();
   // l'attend d'abord — sinon le fil afficherait des codes au lieu des noms.
   let perma=false; try{ perma=new URL(permWin().location.href).searchParams.has("e"); }catch(e){}
   if(perma)await initSearch();
+  // La note « Prioritaire » se calcule contre les bornes servies par _mobilisation.json
+  // (`rendement_min/median/max`, cf. 02_data_geo.js) : peinte sans elles, la carte
+  // sortirait GRISE.
+  // Le fichier est déjà parti avec le lot ci-dessus — et le plus souvent inliné dans
+  // l'amorce, donc déjà en cache : on ne fait ici que s'assurer qu'il est arrivé avant le
+  // premier tracé, sans aller-retour de plus (getJSON dédoublonne).
+  await getJSON("values/_mobilisation.json");
   // permalien : si l'URL porte une vue sauvegardée (zoom/zone/fiche), on la restaure au
   // lieu de la vue France (cf. 11_permalink.js).
   // Amorçage : la caméra est DÉJÀ sur la France (fitBounds à la création de la carte).

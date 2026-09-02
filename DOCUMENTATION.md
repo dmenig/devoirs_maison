@@ -71,13 +71,50 @@ réelles (région, département, commune, bureau de vote) :
 - **Différentiel de participation** (`participation_B − participation_A`, en points d'inscrits)
 - **Stock d'abstentionnistes mobilisables** (`inscrits × taux d'abstention`)
 
-### Voix à conquérir : la rentabilité du porte-à-porte
+### « Prioritaire » : la rentabilité du porte-à-porte, notée sur 100
 
 La pastille affichée par défaut porte **ce que rapporte une heure** de porte-à-porte : le
-gisement de voix réellement mobilisables, divisé par le temps qu'il coûte à démarcher —
-en **voix / heure**. C'est une **estimation**, et elle le dit : un bouton « i » ouvre la
-méthode (légende de la carte pour la méthode générale, chiffre de tête de la fiche pour le
-calcul détaillé, avec les valeurs de la zone ouverte).
+gisement de voix réellement mobilisables, divisé par le temps qu'il coûte à démarcher.
+Elle ne l'affiche pas en voix / heure, mais en **note sur 100**, qui situe la zone entre
+les trois repères du pays :
+
+| Note | Repère |
+| ---- | ------ |
+| **0** | le terrain le moins rentable de France |
+| **50** | le terrain **médian** |
+| **100** | le meilleur terrain |
+
+La note interpole linéairement de part et d'autre de la médiane (deux segments de droite).
+Une carte sert à **classer** des territoires, et « 0,28 voix/h » ne se classe pas sans qu'on
+sache d'abord ce qu'est une bonne valeur : `60 sur 100` à Saint-Denis, `52` à Paris, `46`
+dans la Creuse se lisent tout de suite. Le mot « rentabilité » ne figure donc plus sur la
+carte, ni l'unité — mais rien n'est caché : c'est une **estimation**, et un bouton « i » en
+ouvre la méthode complète, en voix par heure (légende de la carte pour la méthode générale,
+chiffre de tête de la fiche pour le calcul détaillé, avec les valeurs de la zone ouverte).
+C'est le seul chemin vers ce que la note mesure, et il est à un clic.
+
+**Pourquoi la médiane à 50, et pas une simple règle de trois sur le maximum.** Parce que la
+distribution est très dissymétrique : rapporté au seul maximum, le terrain médian notait
+`14`, la moitié des communes tenait entre `9` et `17`, et la note n'utilisait pas son
+échelle. L'ordre, lui, est le même — la transformation est monotone.
+
+**Les trois repères sont ceux des bureaux de vote**, seule maille qui **partitionne** la
+France : une zone se situe parmi les ~67 000 bureaux du pays, quelle que soit sa taille. Une
+commune note donc `44` en médiane et plafonne à `84` (Esnandes), un département tient entre
+`22` et `60` : c'est l'information, pas un défaut d'échelle — une commune moyenne ses bons
+et ses mauvais terrains, un département plus encore. Les bornes (`rendement_min` 0,
+`rendement_median` 0,229 et `rendement_max` 1,646 voix/h — un bureau de Sainte-Suzanne, à La
+Réunion) sont calculées par [prep_bake.py](prep_bake.py) **sur les valeurs réellement
+servies**, puis publiées dans `values/_mobilisation.json` avec les autres repères du modèle :
+elles ne sont écrites en dur nulle part et suivent une régénération de `data_app`.
+
+**La couleur, elle, continue de se calculer sur le rendement brut** — pas sur la note. Le
+ton est un écart *proportionnel* à la médiane des zones affichées (voir « La couleur disait
+le rang, pas l'écart », [EVOLUTIONS.md](EVOLUTIONS.md)) ; le faire passer par une note dont
+la pente casse à la médiane nationale donnerait deux tons différents au même écart réel
+selon le côté du 50 où les zones tombent. On lit donc le **nombre** sur la note et l'**écart**
+sur la couleur, chacun sur la grandeur qui lui convient — les deux étant monotones l'une de
+l'autre, elles racontent le même classement.
 
 > **Trois définitions, une retenue.** Le site a longtemps publié trois versions à trois
 > adresses, qui ne différaient que par ce calcul : l'**objectif** arithmétique (`/`, 20 %
@@ -141,7 +178,8 @@ heures      = portes × (15 min de conversation + trajet jusqu'à la porte suiva
   sans qu'aucun seuil ait été posé à la main. 10,5 % des portes de France sont en voiture.
 - **Écart entre deux portes** : déduit de l'aire du bureau et du nombre de logements, par la
   longueur d'une tournée optimale sur une surface donnée (`0,7124 × √(aire × portes)`).
-- Moyenne nationale : **0,28 voix par heure** — une voix toutes les 3 h 30 de porte-à-porte.
+- Moyenne nationale : **0,28 voix par heure** — une voix toutes les 3 h 30 de porte-à-porte,
+  soit **52 sur 100** une fois la note calculée (le terrain médian, lui, est à 0,23 voix/h).
 
 Aux échelles d'ensemble, la rentabilité est **voix totales ÷ heures totales**, jamais une
 moyenne de rapports : le rendement d'un département est celui de tout son terrain pris
