@@ -92,7 +92,7 @@ function rendementPorte(o){ if(!o||!o.mobh||o.mobn==null)return null;
 // chiffres de la zone.
 //
 // Deux segments de droite et non un seul rapport au maximum : la distribution est très
-// dissymétrique (médiane 0,23 voix/h, sommet 1,65), si bien qu'une simple règle de trois
+// dissymétrique (médiane 0,22 voix/h, sommet 1,64), si bien qu'une simple règle de trois
 // tassait le bureau médian à 14 et la moitié des communes entre 9 et 17 — une note qui
 // n'utilise pas son échelle ne classe plus rien. L'ordre, lui, est inchangé : la
 // transformation est monotone.

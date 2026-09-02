@@ -143,13 +143,28 @@ sinon                 :  note = 50 + 50 × (rendement − médian)      ÷ (max 
 puis borné à [0, 100]
 ```
 
-Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `max` 1,646 voix/h) :
-Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,646 − 0,224)` = **60,06**,
+Avec les bornes actuellement servies (`min` 0, `médian` 0,224, `max` 1,642 voix/h) :
+Saint-Denis `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,642 − 0,224)` = **60,08**,
 affichée **60 / 100** ; la Creuse `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` =
 **42,86**, affichée **43 / 100**. Le rendement lui-même est `voix à conquérir ÷ heures de
 porte-à-porte`, calculé **sur des sommes** à l'échelle affichée (`rendementPorte`,
 [02_data_geo.js](assets/js/02_data_geo.js)) — jamais comme la moyenne des rendements des
 sous-zones.
+
+**Les deux termes du rapport sont servis au centième**, pas à l'unité. Ce que la note met à
+l'échelle n'est pas un nombre mais un **rapport**, et le médian du barème ne vaut que
+`0,224` voix/h : une voix de numérateur y pèse énormément — sur un bureau de cinq heures,
+elle déplace la note de 45 points. Arrondis à l'unité, `mobn` et `mobh` écrasaient donc les
+petites zones : toute zone de moins d'une demi-voix à conquérir sortait à `mobn = 0`, donc
+notée **`0 / 100`, « le pire terrain de France »**, quand son rendement réel la plaçait
+jusqu'à `51` — Leménil-Mitry (6 inscrit·es) notait `0` pour un vrai `51`. Au centième
+(`MOB_DEC`, [prep_bake.py](prep_bake.py)), l'écart à la valeur exacte tombe de **52 points
+à 0,5 point**, invisible dans une note affichée en entier, et il ne reste de `0 / 100` que
+**254 zones** contre 938 — dont 231 dont le gisement est exactement nul, les autres sous la
+demi-note. Les affichages, eux, arrondissent : personne ne lit « 169,65 h ». Seule
+l'**opération écrite** du volet « i » garde les décimales sous 10, faute de quoi elle
+donnerait « 0 voix ÷ 2 h = 0,24 voix/h » — une opération qui ne retombe pas sur son
+résultat.
 
 **Le barème est affiché, pas seulement documenté.** Le volet « i » de la fiche ouvre, sous
 le rendement, une section *« Du rendement à la note sur 100 »* : une règle graduée aux trois
@@ -179,7 +194,7 @@ France : une zone se situe parmi les ~67 000 bureaux du pays, quelle que soit sa
 commune note donc `44` en médiane et plafonne à `84` (Esnandes), un département tient entre
 `22` et `60` : c'est l'information, pas un défaut d'échelle — une commune moyenne ses bons
 et ses mauvais terrains, un département plus encore. Les bornes (`rendement_min` 0,
-`rendement_median` 0,224 et `rendement_max` 1,646 voix/h — un bureau de Sainte-Suzanne, à La
+`rendement_median` 0,224 et `rendement_max` 1,642 voix/h — un bureau de Sainte-Suzanne, à La
 Réunion) sont calculées par [prep_bake.py](prep_bake.py) **sur les valeurs réellement
 servies**, puis publiées dans `values/_mobilisation.json` avec les autres repères du modèle :
 elles ne sont écrites en dur nulle part et suivent une régénération de `data_app`.

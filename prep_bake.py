@@ -646,7 +646,22 @@ MOB_EXT = {
     "km": "mobk",
 }
 MOB_INT = {"pAB": "moba", "plancher": "mobf", "pG": "mobl"}
-MOB_DEC = {"mobg": 1, "moba": 1, "mobf": 1, "mobl": 1, "mobk": 1, "mobv": 1}
+# `mobn` et `mobh` portent DEUX DÉCIMALES et non zéro, parce qu'ils ne sont pas lus comme
+# des nombres mais comme un RAPPORT : la note « Prioritaire » est `mobn / mobh` replacé
+# entre trois bornes dont la médiane vaut 0,224 voix/h (cf. _reperes_rendement). Une voix
+# de numérateur y pèse donc énormément — sur un bureau de 5 heures, elle déplace la note de
+# 45 points. Arrondis à l'unité, les deux termes écrasaient les petites zones : toute zone
+# de moins d'une demi-voix à conquérir sortait à `mobn = 0`, donc notée **0 sur 100, « le
+# pire terrain de France »**, quand son rendement réel la plaçait jusqu'à 50 — Leménil-Mitry
+# (6 inscrits) notait 0 pour un vrai 50,6. 205 communes et 229 bureaux étaient faux de plus
+# de 10 points, 9 641 communes (28 %) de plus d'un point, l'écart maximal atteignant
+# 52 points. Deux décimales ramènent l'écart maximal à 0,47 point et suppriment tous ces
+# faux zéros ; une seule en laissait trois et 5,6 points d'écart. Les affichages, eux,
+# arrondissent (`_n0`, `nbf`) : personne ne lit « 169,65 h ».
+MOB_DEC = {
+    "mobg": 1, "moba": 1, "mobf": 1, "mobl": 1, "mobk": 1, "mobv": 1,
+    "mobn": 2, "mobh": 2,
+}
 
 
 def _mobilisation(da: Path) -> pd.DataFrame | None:
@@ -747,7 +762,7 @@ def _reperes_rendement(mob: dict[str, dict[str, dict]]) -> dict[str, float]:
     Le client interpole linéairement de part et d'autre de la médiane (cf. 02_data_geo.js).
     Rapporter le rendement au seul maximum tassait la carte : le bureau médian notait 14
     sur 100 et la moitié des communes tenait entre 9 et 17, parce que la distribution est
-    très dissymétrique (médiane 0,23 voix/h, sommet 1,65). Accrocher la médiane à 50 rend
+    très dissymétrique (médiane 0,22 voix/h, sommet 1,64). Accrocher la médiane à 50 rend
     à la note l'amplitude qu'une note doit avoir, sans changer l'ordre.
 
     La population de référence est celle des BUREAUX DE VOTE : les ~67 000 bureaux

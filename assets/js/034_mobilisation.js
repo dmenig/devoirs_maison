@@ -18,11 +18,21 @@ const _n0=v=>v==null?"—":Math.round(v).toLocaleString('fr');
 const _n1=v=>v==null?"—":v.toLocaleString('fr',{maximumFractionDigits:1});
 const _n2=v=>v==null?"—":v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2});
 const _pct=v=>v==null?"—":_n1(v)+" %";
-// Les bornes du barème sont servies au MILLIÈME (0,224 · 1,646) : les écrire au centième
+// Les bornes du barème sont servies au MILLIÈME (0,224 · 1,642) : les écrire au centième
 // afficherait « 50 × (0,22 − 0,00) ÷ (0,22 − 0,00) », une opération dont le résultat lu
 // ne serait pas celui de la note affichée. Une opération recopiée doit retomber sur son
 // résultat.
 const _n3=v=>v==null?"—":v.toLocaleString('fr',{minimumFractionDigits:3,maximumFractionDigits:3});
+// Même exigence pour les DEUX TERMES du rapport. `mobn` et `mobh` sont servis au centième
+// depuis que la note d'une petite zone en dépend (cf. MOB_DEC, prep_bake.py) : Leménil-Mitry
+// pèse 0,37 voix à conquérir pour 1,54 h de porte-à-porte. Écrits à l'unité, ils donnaient
+// « 0 voix ÷ 2 h = 0,24 voix/h » — une équation que personne ne peut refaire, et qui laisse
+// croire à une note tirée d'ailleurs. Les décimales ne s'affichent que là où elles portent
+// l'information (sous 10), pour ne pas affubler « 8 069 579 h » d'un « ,00 » : une voix et
+// une heure se comptent à l'unité dès qu'il y en a dix. Le zéro EXACT reste « 0 » et non
+// « 0,00 » : sur les 231 zones dont le gisement est réellement nul, deux décimales
+// affecteraient une précision à ce qui n'existe pas.
+const _nq=v=>v==null?"—":(v!==0&&Math.abs(v)<10)?_n2(v):_n0(v);
 
 // Pied de notice, commun aux deux « i ». Le doute sur un chiffre naît en lisant la méthode
 // qui le fabrique : c'est là, et pas dans la barre du haut, qu'il faut trouver où le dire.
@@ -146,8 +156,8 @@ function rendMethodo(o){ o=o||{};
   // écrite au-dessus (chiffre de tête, infobulle, carte), et un volet qui n'ouvrirait que
   // sur « 0,28 voix/h » expliquerait un chiffre que le lecteur n'a pas sous les yeux. Le
   // barème lui-même est détaillé plus bas (noteEchelle) : ici, seulement le fait qu'il existe.
-  return (rend!=null?`<div class="mobeq"><b>${_n0(o.mobn)} voix</b> à conquérir ÷ `+
-      `<b>${_n0(o.mobh)} h</b> de porte-à-porte = <b>${_n2(rend)} voix/h</b>`+
+  return (rend!=null?`<div class="mobeq"><b>${_nq(o.mobn)} voix</b> à conquérir ÷ `+
+      `<b>${_nq(o.mobh)} h</b> de porte-à-porte = <b>${_n2(rend)} voix/h</b>`+
       (note!=null?`<div class="mobeq2">→ soit une note de <b>${_n0(note)} / 100</b> sur `+
         `l'échelle des bureaux de vote de France <span class="mobeq3">(barème plus bas)</span></div>`:"")+
       `</div>`:"")+
@@ -159,7 +169,7 @@ function rendMethodo(o){ o=o||{};
     // Le numérateur en un coup d'œil, avec les nombres de la zone : l'abstention
     // conjoncturelle (l'abstention prévue en 2027 moins le plancher jamais franchi ici),
     // puis la part de gauche de celles et ceux qui rentrent quand la participation monte.
-    lig("Voix à conquérir",_n0(o.mobn)+" voix",
+    lig("Voix à conquérir",_nq(o.mobn)+" voix",
         `${_n0(o.mobc)} abstentionnistes conjoncturels (${_pct(o.moba)} d'abstention prévue `+
         `moins un plancher de ${_pct(o.mobf)}) × ${_pct(o.mobg)} de gauche chez le votant marginal`)+
     // Le registre est désormais baké à TOUTES les échelles (`insc_E24`), bureau de vote
@@ -180,7 +190,7 @@ function rendMethodo(o){ o=o||{};
     lig("Déplacement",pasM!=null?_n0(pasM)+" m entre deux portes":"—",
         voiture?`majoritairement <b>en voiture</b> (${_pct(o.mobv)} des portes${portesVoiture})`
                :`majoritairement <b>à pied</b>${o.mobv?` (${_pct(o.mobv)} des portes en voiture${portesVoiture})`:""}`)+
-    lig("Temps total",_n0(o.mobh)+" h",
+    lig("Temps total",_nq(o.mobh)+" h",
         `pour frapper à toutes les portes de la zone (${_n0(o.mobk)} km parcourus)`)+
     `<p><b>Comment c'est calculé.</b> Le numérateur, ce sont les voix réellement mobilisables `+
     `(détail dans le « i » de la légende). Le dénominateur est `+

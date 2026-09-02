@@ -44,7 +44,7 @@ dans le bouton « i ».
 
 La note n'est pas un rang ni un quantile : c'est le **rendement remis à l'échelle** entre
 trois valeurs réelles, servies par le pipeline dans `values/_mobilisation.json`
-(`rendement_min` **0**, `rendement_median` **0,224**, `rendement_max` **1,646** voix/h).
+(`rendement_min` **0**, `rendement_median` **0,224**, `rendement_max` **1,642** voix/h).
 Deux segments de droite, la pente cassant au médian :
 
 ```
@@ -52,7 +52,7 @@ si rendement ≤ médian :  note = 50 × (rendement − min)    ÷ (médian − 
 sinon                 :  note = 50 + 50 × (rendement − médian) ÷ (max − médian)
 ```
 
-Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,646 − 0,224)` = **60 / 100**.
+Saint-Denis : `0,510 voix/h` → `50 + 50 × (0,510 − 0,224) ÷ (1,642 − 0,224)` = **60 / 100**.
 La Creuse : `0,192 voix/h` → `50 × (0,192 − 0) ÷ (0,224 − 0)` = **43 / 100**. Deux segments
 plutôt qu'une règle de trois sur le maximum, parce que la distribution est très
 dissymétrique : rapporté au seul sommet, le bureau médian notait `14` et la moitié des
