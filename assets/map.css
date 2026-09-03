@@ -417,11 +417,19 @@
        text-decoration:none;display:inline-flex;align-items:center;gap:4px}
   .sgbtn:hover{border-color:var(--lav)}
   .sgprim{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:700}
+  .sgprim:disabled{background:var(--acc);border-color:var(--acc)}
   .sgprim:hover{background:var(--acc2);border-color:var(--acc2)}
   /* Message vide : le bouton reste VISIBLE et cliquable (le clic explique ce qui manque et
      met le curseur dans la zone de texte), simplement estompé. Un bouton `disabled` ne
      répond rien à qui clique dessus sans comprendre pourquoi il ne se passe rien. */
   .sgprim.off{opacity:.5}
+  /* Piège à robots : hors du flux ET hors du parcours de tabulation, jamais annoncé.
+     `display:none` serait ignoré par une partie des automates — on le sort de l'écran. */
+  .sghoney{position:absolute!important;left:-9999px;width:1px;height:1px;opacity:0}
+  /* Repli : n'apparaît QUE si l'envoi a échoué (attribut `hidden`). Le montrer d'emblée
+     redirait « ce formulaire n'envoie pas vraiment ». */
+  .sgfb{margin-top:12px;border-top:1px solid var(--bord);padding-top:4px}
+  .sgbtn:disabled{opacity:.55;cursor:default}
   .sgnote{font-size:11.5px;color:var(--mut);margin:7px 0 0;line-height:1.45;min-height:1px}
   .sgnote.ok{color:var(--lav)}
   .sgnote.warn{color:var(--warntx)}

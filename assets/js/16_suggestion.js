@@ -1,24 +1,34 @@
 // ============================================================================
-// « Suggérer une amélioration » — le retour des utilisateur·ices, par courriel.
+// « Suggérer une amélioration » — le retour des utilisateur·ices, VRAIMENT envoyé.
 //
-// L'atlas est un SITE STATIQUE (GitHub Pages) : il n'a pas de serveur à qui poster un
-// formulaire, et lui en donner un — service de formulaires tiers, fonction sans serveur —
-// ferait dépendre les retours d'un compte à maintenir, avec les adresses des militant·es
-// qui transitent chez un tiers. Le formulaire compose donc un courriel et le remet au
-// LOGICIEL DE COURRIEL de la personne (`mailto:`) : rien ne part du site, l'expéditeur est
-// sa propre adresse, et le message est relu avant envoi.
+// Première version : le formulaire ne faisait que composer un `mailto:`. C'était un lien
+// déguisé en formulaire — il fallait un logiciel de courriel configuré, et sur un webmail
+// il ne se passait rien du tout. Un formulaire qui n'envoie pas n'est pas un formulaire.
 //
-// Le `mailto:` n'aboutit pas partout (webmail non déclaré comme gestionnaire, poste sans
-// client configuré) et il échoue SANS RIEN DIRE. D'où les deux autres sorties, à égalité
-// dans le panneau plutôt qu'en repli caché : le message se COPIE d'un bouton, et l'adresse
-// est écrite en clair, sélectionnable. Un retour perdu parce que le navigateur n'a rien
-// ouvert est un retour qu'on ne recevra jamais.
+// Le site est statique (GitHub Pages) : il n'a pas de serveur à qui poster. On passe donc
+// par un RELAIS de formulaires, FormSubmit — POST en JSON, réponse en JSON, aucun compte ni
+// clé à gérer. C'est un tiers, et il faut le dire : le message et le contexte transitent
+// par lui avant d'arriver dans la boîte de l'équipe. C'est le prix d'un envoi réel depuis
+// une page sans serveur ; le jour où le PEE héberge son propre point d'entrée, il n'y a que
+// SUGG_ENVOI à changer.
 //
-// Ce que le formulaire joint d'office : la ZONE, l'INDICATEUR et le PERMALIEN de la vue.
-// « Le chiffre est faux » ne se corrige pas sans savoir où et lequel — et c'est justement
-// ce qu'une personne qui signale un problème n'a aucune raison de penser à recopier. Le
-// contexte est affiché tel qu'il sera envoyé : rien ne part que la personne n'ait vu.
+// Le relais ne ment pas quand il ne peut pas délivrer : tant que le formulaire n'est pas
+// activé (un clic, une seule fois, dans le courriel d'activation reçu à l'adresse de
+// destination), il répond `success:"false"` avec le motif. On ne prétend donc jamais
+// « envoyé » sans l'avoir été — et le repli (courriel préparé, copie du message) n'apparaît
+// que là : quand l'envoi a ÉCHOUÉ, pas avant.
+//
+// Ce que le formulaire joint d'office : la ZONE, l'INDICATEUR, la VALEUR affichée et le
+// PERMALIEN de la vue. « Le chiffre est faux » ne se corrige pas sans savoir où et lequel —
+// et c'est justement ce qu'une personne qui signale un problème n'a aucune raison de penser
+// à recopier. Le contexte est affiché tel qu'il sera envoyé : rien ne part que la personne
+// n'ait vu.
 const SUGG_ADRESSE="etudes-electorales@franceinsoumise.org";
+// Point d'entrée du relais. L'adresse y figure en clair — elle l'est déjà dans le panneau,
+// qui l'écrit pour qui préfère son propre courriel. FormSubmit fournit après activation un
+// ALIAS opaque (`formsubmit.co/ajax/<alias>`) qui évite de l'exposer aux moissonneurs : le
+// remplacer ici quand on l'aura, le reste ne bouge pas.
+const SUGG_ENVOI=`https://formsubmit.co/ajax/${SUGG_ADRESSE}`;
 // Les sujets ne sont pas décoratifs : ils préfixent l'objet du courriel, donc ils trient la
 // boîte de réception. Ordre = celui de l'utilité d'un retour (une donnée fausse d'abord).
 const SUGG_SUJETS=["Une donnée qui paraît fausse",
@@ -32,9 +42,10 @@ const SUGG_SUJETS=["Une donnée qui paraît fausse",
 // ne contient pas.
 const sgEsc=t=>String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;")
   .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const sgVal=id=>{ const e=$(id); return e?e.value.trim():""; };
 
 // Contexte de la vue, sous forme de couples [libellé, valeur] : affiché dans le panneau ET
-// recopié en pied de courriel, à l'identique.
+// envoyé, à l'identique.
 function suggContexte(){
   const l=[], t=(typeof stack!=="undefined"&&stack.length)?stack[stack.length-1]:null;
   l.push(["Zone", t?`${t.nom} (${t.niveau} ${t.code})`:"France — vue d'ensemble"]);
@@ -52,34 +63,37 @@ function suggContexte(){
   l.push(["Permalien", location.href]);
   return l; }
 
-// Corps du courriel, en texte brut. Les retours à la ligne sont de vrais `\n` : c'est
-// encodeURIComponent qui les traduit pour l'URL, une fois et à un seul endroit.
+function suggSujet(){ const zone=sgVal("sgzone");
+  return `[Atlas électoral] ${sgVal("sgtype")||"Suggestion"}${zone?` — ${zone}`:""}`; }
+
+// Charge utile envoyée au relais. Un OBJET À CHAMPS NOMMÉS et non un bloc de texte : le
+// relais en fait un tableau dans le courriel reçu, où chaque ligne se lit d'un coup d'œil.
+// Les clés en `_` sont ses réglages, pas des données.
+function suggCharge(){
+  const c={ "Type": sgVal("sgtype"), "Message": sgVal("sgmsg") };
+  const zone=sgVal("sgzone"), qui=sgVal("sgqui"), courriel=sgVal("sgmail");
+  if(zone)c["Zone concernée (saisie)"]=zone;
+  if(qui)c["De la part de"]=qui;
+  // `email` est le champ que le relais met en RÉPONDRE-À : sans lui, l'équipe reçoit le
+  // message sans pouvoir répondre à qui l'a écrit. D'où le champ, facultatif, et l'intitulé
+  // qui dit à quoi il sert.
+  if(courriel)c.email=courriel;
+  suggContexte().forEach(([k,v])=>{ c[k]=v; });
+  c._subject=suggSujet();
+  c._template="table";
+  c._captcha="false";
+  return c; }
+
+// Corps en texte brut : sert au repli (courriel préparé, presse-papiers), pas à l'envoi.
 function suggCorps(){
-  const val=id=>{ const e=$(id); return e?e.value.trim():""; };
-  const qui=val("sgqui"), zone=val("sgzone");
-  return [
-    val("sgmsg"),
-    "",
-    "— — —",
-    `Type : ${val("sgtype")}`,
-    zone?`Zone concernée (saisie) : ${zone}`:null,
-    qui?`De la part de : ${qui}`:null,
-    "",
-    "Contexte joint automatiquement par l'atlas :",
-    ...suggContexte().map(([k,v])=>`· ${k} : ${v}`),
-  ].filter(x=>x!=null).join("\n"); }
-
-function suggSujet(){ const t=$("sgtype"), z=$("sgzone");
-  const zone=z&&z.value.trim();
-  return `[Atlas électoral] ${t?t.value:"Suggestion"}${zone?` — ${zone}`:""}`; }
-
+  return Object.entries(suggCharge())
+    .filter(([k])=>!k.startsWith("_")&&k!=="Message")
+    .map(([k,v])=>`${k} : ${v}`)
+    .join("\n")+`\n\n${sgVal("sgmsg")}`; }
 // `mailto:` : l'objet ET le corps sont encodés (un « & » ou un « # » dans un nom de zone
 // couperait sinon l'URL au milieu du message).
 const suggMailto=()=>`mailto:${SUGG_ADRESSE}?subject=${encodeURIComponent(suggSujet())}`+
   `&body=${encodeURIComponent(suggCorps())}`;
-// Au-delà de ~2 000 caractères d'URL, des clients tronquent le corps sans avertir. On ne
-// bloque pas l'envoi — on prévient, et le bouton « copier » reste là pour un long message.
-const SUGG_URL_MAX=1900;
 
 function suggPanneau(){
   const ctx=suggContexte().map(([k,v])=>
@@ -87,8 +101,7 @@ function suggPanneau(){
   return `<h3>💬 Suggérer une amélioration</h3>`+
     `<p>Cet atlas est fait pour être corrigé. Un chiffre qui paraît faux, une donnée qui `+
     `manque, un calcul qu'on n'arrive pas à suivre, une carte illisible sur son téléphone : `+
-    `tout se dit à l'équipe <b>Études électorales</b>, à `+
-    `<a class="sgmail" href="mailto:${SUGG_ADRESSE}">${SUGG_ADRESSE}</a>.</p>`+
+    `écrivez-le à l'équipe <b>Études électorales</b>, le message part d'ici.</p>`+
     `<div class="sgf">`+
       `<label for="sgtype">De quoi s'agit-il ?</label>`+
       `<select id="sgtype">${SUGG_SUJETS.map(s=>`<option>${sgEsc(s)}</option>`).join("")}</select>`+
@@ -100,20 +113,38 @@ function suggPanneau(){
       `<label for="sgqui">Vous êtes <span class="sgopt">(facultatif : nom, groupe d'action, `+
         `département)</span></label>`+
       `<input id="sgqui" type="text" placeholder="ex. GA Saint-Denis centre"/>`+
+      `<label for="sgmail">Votre adresse <span class="sgopt">(facultatif — sans elle, `+
+        `l'équipe ne peut pas vous répondre)</span></label>`+
+      `<input id="sgmail" type="email" placeholder="vous@exemple.fr"/>`+
+      // Piège à robots : un champ que personne ne voit et que seuls les automates
+      // remplissent. Le relais jette le message quand il est rempli.
+      `<input id="sghoney" type="text" name="_honey" tabindex="-1" autocomplete="off" `+
+        `aria-hidden="true" class="sghoney"/>`+
     `</div>`+
     // Le contexte est MONTRÉ, pas seulement joint : un formulaire qui expédie l'URL de
     // navigation d'une personne sans le lui dire ne la respecte pas.
     `<div class="sec">Joint automatiquement à votre message</div>`+
     `<div class="sgctx">${ctx}</div>`+
     `<div class="sgact">`+
-      `<a id="sgsend" class="sgbtn sgprim" href="${suggMailto()}">✉️ Ouvrir mon logiciel de courriel</a>`+
-      `<button id="sgcopy" class="sgbtn" type="button">📋 Copier le message</button>`+
+      `<button id="sgsend" class="sgbtn sgprim" type="button">✉️ Envoyer le message</button>`+
     `</div>`+
     `<div id="sgnote" class="sgnote"></div>`+
-    `<p class="hypnote"><b>Rien n'est envoyé par ce site.</b> Le bouton prépare un courriel `+
-    `dans votre propre logiciel de messagerie : vous le relisez et vous l'envoyez vous-même. `+
-    `Si rien ne s'ouvre — c'est fréquent avec un webmail —, copiez le message et collez-le `+
-    `dans un courriel à <b>${SUGG_ADRESSE}</b>.</p>`; }
+    // Repli : présent dans le DOM mais MASQUÉ tant que l'envoi n'a pas échoué. Le montrer
+    // d'emblée redirait « ce formulaire n'envoie pas vraiment », ce qui n'est plus vrai.
+    `<div id="sgfallback" class="sgfb" hidden>`+
+      `<div class="sec">Autre chemin</div>`+
+      `<p>L'envoi n'a pas abouti. Le message est prêt : ouvrez-le dans votre logiciel de `+
+      `courriel, ou copiez-le et collez-le dans un courriel à `+
+      `<a class="sgmail" href="mailto:${SUGG_ADRESSE}">${SUGG_ADRESSE}</a>.</p>`+
+      `<div class="sgact">`+
+        `<a id="sgmailto" class="sgbtn" href="#">✉️ Ouvrir mon logiciel de courriel</a>`+
+        `<button id="sgcopy" class="sgbtn" type="button">📋 Copier le message</button>`+
+      `</div></div>`+
+    `<p class="hypnote"><b>Où va ce message.</b> Le site étant une page statique sans `+
+    `serveur, l'envoi passe par un <b>relais de formulaires</b> (formsubmit.co) qui le `+
+    `transmet par courriel à l'équipe : votre message et le contexte ci-dessus transitent `+
+    `donc par ce tiers. Votre adresse n'est envoyée que si vous la donnez, et sert `+
+    `uniquement à vous répondre.</p>`; }
 
 // Copie : `navigator.clipboard` en contexte sécurisé (le site est servi en HTTPS), repli
 // par textarea + execCommand là où l'API manque ou est refusée.
@@ -128,35 +159,67 @@ function suggCopier(txt){
     return navigator.clipboard.writeText(txt).then(()=>true,()=>vieux());
   return Promise.resolve(vieux()); }
 
+// Envoi. Le relais répond `{success:"true"|"false", message}` — `success` est une CHAÎNE,
+// pas un booléen : `r.success===true` serait faux à tous les coups. Tout ce qui n'est pas
+// un succès franc ouvre le repli, message du relais à l'appui.
+async function suggEnvoyer(){
+  const note=$("sgnote"), bouton=$("sgsend"), repli=$("sgfallback");
+  if(!sgVal("sgmsg")){ $("sgmsg").focus();
+    note.className="sgnote warn"; note.textContent="Votre message est vide."; return; }
+  // Le piège à robots est vérifié ICI aussi : inutile de faire un aller-retour réseau pour
+  // un envoi qui sera jeté à l'arrivée.
+  if(sgVal("sghoney")){ note.className="sgnote warn";
+    note.textContent="Envoi refusé."; return; }
+  bouton.disabled=true; bouton.textContent="Envoi en cours…";
+  note.className="sgnote"; note.textContent="";
+  let ok=false, motif="";
+  try{
+    const rep=await fetch(SUGG_ENVOI,{method:"POST",
+      headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body:JSON.stringify(suggCharge())});
+    const j=await rep.json().catch(()=>({}));
+    ok=String(j.success)==="true";
+    motif=j.message||`réponse ${rep.status} du relais`;
+  }catch(e){ motif="le réseau n'a pas répondu ("+e+")"; }
+  bouton.disabled=false; bouton.textContent="✉️ Envoyer le message";
+  if(ok){
+    note.className="sgnote ok";
+    note.textContent="Message envoyé à l'équipe Études électorales. Merci — "+
+      "chaque retour de terrain corrige une donnée que personne d'autre ne peut voir.";
+    repli.hidden=true;
+    // Envoyé = plus rien à renvoyer : on neutralise le bouton pour éviter le doublon d'un
+    // second clic « pour être sûr ».
+    bouton.disabled=true; bouton.textContent="✓ Message envoyé";
+    return; }
+  note.className="sgnote warn";
+  // Le motif le plus probable au premier envoi, et le seul que l'équipe puisse lever
+  // elle-même : le relais attend qu'on clique le lien d'activation qu'il a envoyé à
+  // l'adresse de destination. On le dit en français plutôt que de recopier son anglais.
+  note.textContent=/activat/i.test(motif)
+    ? "Le relais d'envoi n'est pas encore activé pour cette adresse (un clic est attendu "+
+      "dans le courriel d'activation reçu par l'équipe). Votre message n'est pas perdu : "+
+      "utilisez l'un des deux chemins ci-dessous."
+    : "L'envoi a échoué : "+motif+". Votre message n'est pas perdu.";
+  $("sgmailto").href=suggMailto();
+  repli.hidden=false; }
+
 function suggOuvrir(){ ouvrirModal(suggPanneau());
-  const msg=$("sgmsg"), env=$("sgsend"), note=$("sgnote");
-  // Le `href` du lien est reconstruit à chaque frappe : c'est un CLIC UTILISATEUR sur une
+  const msg=$("sgmsg"), note=$("sgnote");
+  $("sgsend").onclick=suggEnvoyer;
+  // Le lien de repli est reconstruit à chaque frappe : c'est un CLIC UTILISATEUR sur une
   // ancre `mailto:` qui ouvre le plus fidèlement le client de courriel — une affectation de
   // location.href depuis un gestionnaire est bloquée par certains navigateurs.
-  const maj=()=>{ const url=suggMailto(); env.href=url;
-    const vide=!msg.value.trim();
-    env.classList.toggle("off",vide);
-    note.className="sgnote";
-    note.textContent=vide?"Écrivez d'abord votre message."
-      :(url.length>SUGG_URL_MAX?"Message long : certains logiciels de courriel le tronquent. "+
-        "Préférez « Copier le message », puis collez-le dans un courriel.":""); };
-  ["sgmsg","sgzone","sgqui","sgtype"].forEach(id=>{ const e=$(id);
+  const maj=()=>{ const a=$("sgmailto"); if(a)a.href=suggMailto(); };
+  ["sgmsg","sgzone","sgqui","sgmail","sgtype"].forEach(id=>{ const e=$(id);
     if(e){ e.oninput=maj; e.onchange=maj; } });
-  maj(); msg.focus();
-  // Un clic sur le lien alors que le message est vide n'ouvre rien : un courriel vide
-  // envoyé par erreur coûte un aller-retour à l'équipe qui le reçoit.
-  env.onclick=e=>{ if(!msg.value.trim()){ e.preventDefault(); msg.focus();
-      note.className="sgnote warn"; note.textContent="Votre message est vide."; return; }
-    note.className="sgnote ok";
-    note.textContent="Courriel préparé dans votre logiciel de messagerie — il reste à l'envoyer. "+
-      "Si rien ne s'est ouvert, utilisez « Copier le message »."; };
-  $("sgcopy").onclick=()=>{ if(!msg.value.trim()){ msg.focus();
+  $("sgcopy").onclick=()=>{ if(!sgVal("sgmsg")){ msg.focus();
       note.className="sgnote warn"; note.textContent="Votre message est vide."; return; }
     // On copie l'objet AVEC le corps : collé dans un webmail, le message reste complet et
     // reste triable — l'objet seul ne se retrouve nulle part ailleurs.
     suggCopier(`${suggSujet()}\n\n${suggCorps()}`).then(ok=>{ note.className="sgnote "+(ok?"ok":"warn");
       note.textContent=ok?`Message copié. Collez-le dans un courriel à ${SUGG_ADRESSE}.`
-        :"La copie a été refusée par le navigateur : sélectionnez le message à la main."; }); }; }
+        :"La copie a été refusée par le navigateur : sélectionnez le message à la main."; }); };
+  maj(); msg.focus(); }
 
 // Deux portes d'entrée. Le bouton de la barre du haut est la porte permanente ; le lien
 // `.sglink` en pied des notices de méthode (#modal) est celle qui compte — c'est en lisant

@@ -502,26 +502,52 @@ commune et comparée à la moyenne France :
 
 Un bouton **💬 Suggérer** dans la barre du haut, et un lien en **pied de chaque notice de
 méthode** (le « i » de la légende comme le volet de la fiche), ouvrent un formulaire à
-destination de l'équipe **Études électorales** :
-**etudes-electorales@franceinsoumise.org**. Le lien est placé là parce que c'est en lisant
+destination de l'équipe **Études électorales**
+(**etudes-electorales@franceinsoumise.org**). Le lien est placé là parce que c'est en lisant
 d'où sort un chiffre qu'on doute d'un chiffre : il ne faut alors plus rien chercher.
 
 Le formulaire demande le **type** de retour (une donnée qui paraît fausse, une donnée à
 ajouter, la méthode de calcul, l'interface, un bug), la **zone concernée**, le **message**
-et, facultativement, **qui écrit** (nom, groupe d'action). Il y joint d'office le contexte
-de la vue — **zone** ouverte, **fiche** ouverte si elle diffère, **indicateur** affiché,
-**valeur** affichée, **scrutins comparés** et **permalien** —, affiché dans le panneau tel
-qu'il partira : « le chiffre est faux » ne se corrige pas sans savoir où et lequel, et c'est
-précisément ce qu'on ne pense pas à recopier.
+et, facultativement, **qui écrit** et son **adresse** — sans laquelle l'équipe ne peut pas
+répondre. Il y joint d'office le contexte de la vue : **zone** ouverte, **fiche** ouverte si
+elle diffère, **indicateur** affiché, **valeur** affichée, **scrutins comparés** et
+**permalien**, affichés dans le panneau tels qu'ils partiront. « Le chiffre est faux » ne se
+corrige pas sans savoir où et lequel, et c'est précisément ce qu'on ne pense pas à recopier.
 
-**Rien n'est envoyé par le site.** L'atlas est une page statique sans serveur : le
-formulaire compose le courriel et le remet au **logiciel de messagerie** de la personne
-(`mailto:`), qui le relit et l'envoie elle-même. Aucun service de formulaires tiers, aucune
-adresse de militant·e chez un prestataire. Comme un `mailto:` n'aboutit pas partout (webmail
-non déclaré comme gestionnaire, poste sans client configuré) et **échoue sans rien dire**,
-le panneau offre à égalité un bouton **« Copier le message »** (objet compris) et écrit
-l'adresse **en clair**. Au-delà de ~1 900 caractères d'URL, il prévient que certains clients
-tronquent le corps et renvoie vers la copie. Voir
+**Le formulaire envoie vraiment.** Sa première version se contentait de composer un
+`mailto:` : c'était un lien déguisé en formulaire — il fallait un logiciel de courriel
+configuré, et sur un webmail il ne se passait rien du tout. L'atlas étant une page statique
+sans serveur à qui poster, l'envoi passe par un **relais de formulaires**
+(`formsubmit.co`) : `POST` en JSON, réponse en JSON, ni compte ni clé à gérer. **C'est un
+tiers**, et la notice du panneau l'écrit : le message et le contexte transitent par lui
+avant d'arriver dans la boîte de l'équipe. C'est le prix d'un envoi réel depuis une page
+sans serveur ; la constante `SUGG_ENVOI` est le seul point à changer le jour où le PEE
+héberge son propre point d'entrée.
+
+Le champ **Message** part sous son propre nom, et chaque ligne de contexte sous le sien
+(`_template: "table"`) : le courriel reçu est un tableau qui se lit d'un coup d'œil, pas un
+bloc de texte. L'adresse facultative est envoyée dans le champ `email`, que le relais met en
+**répondre-à**.
+
+**Rien n'est annoncé comme envoyé qui ne l'ait été.** Le relais répond
+`{"success": "true" | "false", "message": …}` — `success` est une *chaîne*, pas un booléen.
+Tout ce qui n'est pas un succès franc affiche l'échec et **révèle alors seulement** un
+second chemin, masqué jusque-là : courriel pré-rempli (`mailto:`) et copie du message. Le
+montrer d'emblée redirait « ce formulaire n'envoie pas vraiment ». Trois cas sont traités :
+
+| Réponse | Ce que voit la personne |
+| --- | --- |
+| succès | « Message envoyé à l'équipe Études électorales », bouton neutralisé (pas de doublon) |
+| relais non activé | la phrase du relais, **traduite** : une activation est attendue côté équipe ; le repli s'ouvre |
+| réseau muet / service disparu | le motif technique, et le repli s'ouvre |
+
+**Une action est attendue une seule fois** : au tout premier message, `formsubmit.co` envoie
+un courriel d'activation à l'adresse de destination. Tant que ce lien n'est pas cliqué, rien
+n'est délivré — et le formulaire le dit plutôt que de faire croire à un envoi.
+
+Un **piège à robots** (champ hors écran, hors tabulation, jamais annoncé aux lecteurs
+d'écran) est vérifié côté page avant l'appel réseau, en plus de l'être par le relais : un
+envoi qui sera jeté à l'arrivée ne mérite pas un aller-retour. Voir
 [16_suggestion.js](assets/js/16_suggestion.js).
 
 ## Sources des données

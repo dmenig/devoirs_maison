@@ -120,21 +120,30 @@ l'autre), les voix publiées par le ministère s'écrivent telles quelles et les
 ## Suggérer une amélioration
 
 Un bouton **💬 Suggérer** dans la barre du haut — et un lien en pied de chaque notice de
-méthode, là où naît le doute sur un chiffre — ouvre un formulaire qui prépare un courriel
-pour l'équipe **Études électorales** :
-**<etudes-electorales@franceinsoumise.org>**.
+méthode, là où naît le doute sur un chiffre — ouvre un formulaire qui **envoie** le message
+à l'équipe **Études électorales** (**<etudes-electorales@franceinsoumise.org>**).
 
-Le site est statique : **rien n'est envoyé par la page**. Le formulaire compose le message
-et le remet au logiciel de courriel de la personne (`mailto:`), qui le relit et l'envoie
-elle-même — pas de service de formulaires tiers, pas d'adresses de militant·es chez un
-prestataire. Le `mailto:` n'aboutissant pas partout (webmail, poste sans client configuré)
-et échouant sans rien dire, le message se **copie** aussi d'un bouton et l'adresse est
-écrite en clair.
+Il joint d'office la **zone**, l'**indicateur**, la **valeur affichée** et le **permalien**
+de la vue — ce qu'une personne qui signale un chiffre faux n'a aucune raison de penser à
+recopier, et sans quoi le retour n'est pas exploitable. Ce contexte est affiché dans le
+panneau tel qu'il partira.
 
-Le formulaire joint d'office la **zone**, l'**indicateur**, la **valeur affichée** et le
-**permalien** de la vue — ce qu'une personne qui signale un chiffre faux n'a aucune raison
-de penser à recopier, et sans quoi le retour n'est pas exploitable. Ce contexte est affiché
-dans le panneau tel qu'il partira. Voir [16_suggestion.js](assets/js/16_suggestion.js).
+Le site est une page statique, sans serveur à qui poster : l'envoi passe donc par un
+**relais de formulaires** (`formsubmit.co`), qui transmet le message par courriel. C'est un
+tiers, et la notice du panneau le dit — le message et le contexte transitent par lui. Le
+jour où le PEE héberge son propre point d'entrée, seule la constante `SUGG_ENVOI` change.
+L'adresse de la personne n'est envoyée que si elle la donne, et sert uniquement à lui
+répondre.
+
+Le relais n'annonce jamais un envoi qu'il n'a pas fait : quand il échoue (relais non activé,
+réseau coupé, service disparu), le panneau le dit et **ouvre alors seulement** un second
+chemin — courriel pré-rempli, ou copie du message. Voir
+[16_suggestion.js](assets/js/16_suggestion.js).
+
+> **Une action, une seule fois.** Au tout premier message envoyé, `formsubmit.co` adresse un
+> courriel d'activation à `etudes-electorales@franceinsoumise.org` : tant que ce lien n'est
+> pas cliqué, rien n'est délivré et le formulaire bascule sur son repli en le disant. Après
+> ce clic, les messages arrivent directement.
 
 ## Lancer en local
 
