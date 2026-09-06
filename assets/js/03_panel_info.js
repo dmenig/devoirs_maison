@@ -210,10 +210,10 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
   // Chiffre de tête = valeur de l'INDICATEUR ACTIF pour cette zone (cf. HEAD_INFO) : la fiche
   // répond à la question posée par la coloration de la carte. Repli sur le vote LFI puis le
   // revenu quand l'indicateur n'a pas de valeur ici (ex. réservoir A→B sur un scrutin absent).
-  const iv=rawVal(o,indicKey), hi=HEAD_INFO[indicKey], est=estime(o);
+  const valeur=rawVal(o,indicKey), hi=HEAD_INFO[indicKey], est=estime(o);
   let headline="";
-  if(iv!=null&&hi){
-    const sgn=(indicKey==="dyn_dpart"&&iv>0)?"+":"";
+  if(valeur!=null&&hi){
+    const sgn=(indicKey==="dyn_dpart"&&valeur>0)?"+":"";
     // Le « i » du chiffre de tête n'apparaît QUE là où la définition n'est pas devinable
     // — la note « Prioritaire », qui sort d'un modèle et dont l'intitulé dit le rang, pas
     // la mesure. C'est donc le seul chemin vers ce que la note veut dire : survol =
@@ -221,7 +221,7 @@ function infoPanel(nom,o,niveau,code){ const info=$("info"); lastInfo=o?{nom,o,n
     // CETTE zone (cf. 034_mobilisation.js).
     const info=indicKey==="conquerir"?" "+hint(CONQ_TIP):"";
     headline=exp(`<div class="lead">${headLead(indicKey)}${est?" · estimé":""}${info}</div>`+
-           `<div class="head">${sgn}${fmtVal(iv,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`+
+           `<div class="head">${sgn}${fmtVal(valeur,indicUnit==="%"?" %":indicUnit)}<small> ${hi[1]}</small></div>`+
            headEffectif(o,indicKey),
       hi[2](o)+(est?EST_METHODO:""));
   } else if(lfi!=null){
