@@ -419,17 +419,45 @@ const spoiler=(titre,corps,open=false)=> !corps?"":
 // (infobulle CSS, cf. map.css) ; au CLIC, le volet méthodo de la section — le clic remonte
 // jusqu'à l'entête .exph qui l'ouvre. C'est aussi le repli tactile, où le survol n'existe pas.
 const hint=t=>`<span class="hint" data-tip="${t.replace(/"/g,"&quot;")}">i</span>`;
-// `isNaN` autant que `null` : une valeur non mesurable se lit « — », jamais « NaN% ».
-const fmtVal=(v,u)=> (v==null||(typeof v==="number"&&isNaN(v)))?"—":(u==="€"?Math.round(v).toLocaleString('fr')+" €":
-  // « /100 » : une NOTE, donc un entier — la décimale d'un rendement ne se transporte pas
-  // dans un score, et deux zones séparées d'un demi-point ne se départagent pas sur le
-  // terrain. Le rendement brut, lui, garde ses deux décimales là où il est encore écrit
-  // (volet méthodo, Carnet de campagne) : il vaut moins de 1 partout. Rien n'est plafonné :
-  // le 100 étant un repère de dispersion (médiane + 3 σ) et non le meilleur terrain, 2,3 %
-  // des bureaux s'écrivent « 105 / 100 » (Épinay-sur-Seine) ou « 220 / 100 » : l'information.
-  (u===" /100"?Math.round(v).toLocaleString('fr')+" / 100":
-  (u===" voix/h"?v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})+" voix/h":
-  (u===" voix"?Math.round(v).toLocaleString('fr')+" voix":v+(u||"")))));
+
+/** Affichage du niveau de priorité en fonction de la valeur brute
+ * @param prio: valeur de priorité
+ * @return un "niveau de priorité" en français
+*/
+function niveauPrio(prio) {
+  if (prio > 90) return "Très prioritaire";
+  else if (prio > 60) return "Prioritaire";
+  else if (prio > 40) return "Peu prioritaire";
+  else return "Pas prioritaire";
+}
+
+/** Formatage de la valeur affichée
+  *@param v: valeur
+  *@param u: unité
+  *@return: la valeur formatée prête pour affichage
+*/
+const fmtVal = (v, u) => {
+  // `isNaN` autant que `null` : une valeur non mesurable se lit « — », jamais « NaN% ».
+  if (v == null || typeof v === "number" && isNaN(v)) return "—";
+  else {
+    if (u === "€") return Math.round(v).toLocaleString('fr')+" €";
+    else if (u === " /100") {
+      // « /100 » : une NOTE, donc un entier — la décimale d'un rendement ne se transporte pas
+      // dans un score, et deux zones séparées d'un demi-point ne se départagent pas sur le
+      // terrain. Le rendement brut, lui, garde ses deux décimales là où il est encore écrit
+      // (volet méthodo, Carnet de campagne) : il vaut moins de 1 partout. Rien n'est plafonné :
+      // le 100 étant un repère de dispersion (médiane + 3 σ) et non le meilleur terrain, 2,3 %
+      // des bureaux s'écrivent « 105 / 100 » (Épinay-sur-Seine) ou « 220 / 100 » : l'information.
+      const niveau = niveauPrio(v);
+      const valeur = Math.round(v).toLocaleString('fr')+" / 100";
+      return `${niveau} <small>(${valeur})</small>`;
+    }
+    else if (u === " voix/h")
+      return v.toLocaleString('fr',{minimumFractionDigits:2,maximumFractionDigits:2})+" voix/h";
+    else if (u === " voix") return Math.round(v).toLocaleString('fr')+" voix";
+    else return v + ( u || "");
+  }
+}
 
 // ── Les effectifs derrière les pourcentages ─────────────────────────────────────────
 // Tout le socle électoral du site est en « % des inscrits » et le socle social en « % de
